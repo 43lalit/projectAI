@@ -13,3 +13,6 @@ target/
 
 # Local env
 .env
+
+# Local data files (do not commit)
+src/main/resources/FedFiles/MDRM_CSV.csv
