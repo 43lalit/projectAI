@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDRM Console</title>
+  <link rel="stylesheet" href="/css/mdrm-console.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="panel hero">
+      <h1>MDRM Operations Console</h1>
+      <p>Use one page to run staging loads and browse rows by reporting form.</p>
+    </section>
+
+    <section class="panel menu" aria-label="MDRM Menu">
+      <button id="menu-load" class="active" data-view="view-load" type="button">Load MDRM</button>
+      <button id="menu-reporting" data-view="view-reporting" type="button">Reporting Viewer</button>
+    </section>
+
+    <section id="view-load" class="panel view active">
+      <div class="row">
+        <button id="runLoadBtn" class="primary" type="button">Run MDRM Load</button>
+      </div>
+      <div id="loadStatus" class="status neutral">Ready.</div>
+    </section>
+
+    <section id="view-reporting" class="panel view">
+      <div class="row">
+        <button id="refreshFormsBtn" class="primary" type="button">Refresh Forms</button>
+        <select id="formSelect">
+          <option value="">Choose reporting form...</option>
+        </select>
+        <button id="loadTableBtn" class="primary" type="button" disabled>Load Table</button>
+      </div>
+      <div id="reportStatus" class="status neutral">Ready. Refresh forms to begin.</div>
+      <div id="tableContainer" class="table-shell"></div>
+    </section>
+  </main>
+
+  <script>
+    const menuButtons = Array.from(document.querySelectorAll('.menu button'));
+    const views = Array.from(document.querySelectorAll('.view'));
+
+    function switchView(targetViewId) {
+      views.forEach(view => view.classList.toggle('active', view.id === targetViewId));
+      menuButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === targetViewId));
+    }
+
+    menuButtons.forEach(button => {
+      button.addEventListener('click', () => switchView(button.dataset.view));
+    });
+
+    const runLoadBtn = document.getElementById('runLoadBtn');
+    const loadStatus = document.getElementById('loadStatus');
+
+    function setLoadStatus(text, css) {
+      loadStatus.textContent = text;
+      loadStatus.className = `status ${css}`;
+    }
+
+    async function runLoad() {
+      runLoadBtn.disabled = true;
+      setLoadStatus('Loading... calling /api/mdrm/load', 'neutral');
+
+      try {
+        const response = await fetch('/api/mdrm/load', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const bodyText = await response.text();
+        let payload;
+        try {
+          payload = bodyText ? JSON.parse(bodyText) : null;
+        } catch {
+          payload = bodyText;
+        }
+
+        if (!response.ok) {
+          setLoadStatus(
+            `Load failed (HTTP ${response.status})\n${typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)}`,
+            'err'
+          );
+          return;
+        }
+
+        setLoadStatus(`Load successful\n${JSON.stringify(payload, null, 2)}`, 'ok');
+      } catch (error) {
+        setLoadStatus(`Request error\n${error.message}`, 'err');
+      } finally {
+        runLoadBtn.disabled = false;
+      }
+    }
+
+    runLoadBtn.addEventListener('click', runLoad);
+
+    const refreshFormsBtn = document.getElementById('refreshFormsBtn');
+    const loadTableBtn = document.getElementById('loadTableBtn');
+    const formSelect = document.getElementById('formSelect');
+    const reportStatus = document.getElementById('reportStatus');
+    const tableContainer = document.getElementById('tableContainer');
+
+    function setReportStatus(text, css) {
+      reportStatus.textContent = text;
+      reportStatus.className = `status ${css}`;
+    }
+
+    function setReportingBusy(isBusy) {
+      refreshFormsBtn.disabled = isBusy;
+      formSelect.disabled = isBusy;
+      loadTableBtn.disabled = isBusy || !formSelect.value;
+    }
+
+    function renderTable(payload) {
+      if (!payload || !payload.columns || !payload.rows) {
+        tableContainer.innerHTML = '';
+        return;
+      }
+
+      const headerHtml = payload.columns.map(c => `<th>${c}</th>`).join('');
+      const rowsHtml = payload.rows.map(row => {
+        const cells = payload.columns.map(c => `<td>${row[c] ?? ''}</td>`).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+
+      tableContainer.innerHTML = `
+        <table>
+          <thead><tr>${headerHtml}</tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
+
+    async function refreshForms() {
+      setReportingBusy(true);
+      setReportStatus('Loading reporting forms...', 'neutral');
+
+      try {
+        const response = await fetch('/api/mdrm/reporting-forms');
+        const forms = await response.json();
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${JSON.stringify(forms)}`);
+        }
+
+        formSelect.innerHTML = '<option value="">Choose reporting form...</option>';
+        forms.forEach(form => {
+          const option = document.createElement('option');
+          option.value = form;
+          option.textContent = form;
+          formSelect.appendChild(option);
+        });
+
+        setReportStatus(`Loaded ${forms.length} reporting forms.`, 'ok');
+      } catch (error) {
+        setReportStatus(`Failed to load reporting forms\n${error.message}`, 'err');
+      } finally {
+        setReportingBusy(false);
+      }
+    }
+
+    async function loadTable() {
+      if (!formSelect.value) {
+        setReportStatus('Please select a reporting form first.', 'err');
+        return;
+      }
+
+      setReportingBusy(true);
+      setReportStatus(`Loading rows for form: ${formSelect.value}`, 'neutral');
+
+      try {
+        const query = encodeURIComponent(formSelect.value);
+        const response = await fetch(`/api/mdrm/data?reportingForm=${query}`);
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
+        }
+
+        renderTable(payload);
+        setReportStatus(`Loaded ${payload.rows.length} row(s) for ${formSelect.value}.`, 'ok');
+      } catch (error) {
+        tableContainer.innerHTML = '';
+        setReportStatus(`Failed to load table data\n${error.message}`, 'err');
+      } finally {
+        setReportingBusy(false);
+      }
+    }
+
+    formSelect.addEventListener('change', () => {
+      loadTableBtn.disabled = !formSelect.value;
+    });
+
+    refreshFormsBtn.addEventListener('click', refreshForms);
+    loadTableBtn.addEventListener('click', loadTable);
+  </script>
+</body>
+</html>
