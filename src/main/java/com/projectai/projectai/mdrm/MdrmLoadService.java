@@ -17,12 +17,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -38,9 +33,6 @@ import java.util.zip.ZipInputStream;
  */
 @Service
 public class MdrmLoadService {
-
-    private static final DateTimeFormatter INPUT_DATE_FORMATTER =
-            DateTimeFormatter.ofPattern(MdrmConstants.INPUT_DATE_TIME_PATTERN, Locale.US);
 
     private final MdrmDownloader mdrmDownloader;
     private final MdrmProperties mdrmProperties;
@@ -94,7 +86,7 @@ public class MdrmLoadService {
     }
 
     /**
-     * Promotes staged rows into master/error using PostgreSQL stored function when available.
+     * Promotes staged rows into master/error using PostgreSQL stored function.
      */
     private IngestionStats transformFromStagingToMaster(String stagingTableName, long runId) {
         List<String> stagingColumns = getTableColumns(stagingTableName);
@@ -104,11 +96,10 @@ public class MdrmLoadService {
         ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_ITEM_CODE, stagingTableName);
         ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_REPORTING_FORM, stagingTableName);
 
-        if (isPostgreSql()) {
-            return promoteFromStagingUsingProcedure(stagingTableName, runId);
+        if (!isPostgreSql()) {
+            throw new IllegalStateException("MDRM promotion requires PostgreSQL");
         }
-
-        return ingestFromStagingToMaster(stagingTableName, runId);
+        return promoteFromStagingUsingProcedure(stagingTableName, runId);
     }
 
     /**
@@ -346,111 +337,6 @@ public class MdrmLoadService {
         );
     }
 
-    /**
-     * Reads all staged rows for a run, validates/converts dates, inserts good rows into master, and logs bad rows.
-     */
-    private IngestionStats ingestFromStagingToMaster(String stagingTableName, long runId) {
-        List<String> stagingColumns = getTableColumns(stagingTableName);
-        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_START_DATE, stagingTableName);
-        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_END_DATE, stagingTableName);
-        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_MNEMONIC, stagingTableName);
-        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_ITEM_CODE, stagingTableName);
-        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_REPORTING_FORM, stagingTableName);
-
-        String selectSql = MdrmConstants.SQL_SELECT_ALL_BY_RUN_ID_PREFIX + stagingTableName
-                + MdrmConstants.SQL_SELECT_ALL_BY_RUN_ID_SUFFIX;
-
-        String dynamicColumns = String.join(", ", stagingColumns.stream()
-                .filter(column -> !MdrmConstants.COLUMN_RUN_ID.equals(column))
-                .toList());
-
-        String placeholders = String.join(", ", Collections.nCopies(stagingColumns.size() + 4, "?"));
-        String insertSql = "INSERT INTO " + MdrmConstants.DEFAULT_MASTER_TABLE
-                + " (run_id"
-                + (dynamicColumns.isBlank() ? "" : ", " + dynamicColumns)
-                + ", start_date_utc, end_date_utc, mdrm_code, is_active) VALUES ("
-                + placeholders + ")";
-
-        int ingested = 0;
-        int errors = 0;
-        int masterBatchCount = 0;
-        int errorBatchCount = 0;
-
-        try (Connection connection = jdbcTemplate.getDataSource().getConnection();
-             PreparedStatement select = connection.prepareStatement(selectSql);
-             PreparedStatement insert = connection.prepareStatement(insertSql);
-             PreparedStatement errorInsert = connection.prepareStatement(
-                     "INSERT INTO " + MdrmConstants.DEFAULT_RUN_ERROR_TABLE + " (run_id, raw_record, error_description) VALUES (?, ?, ?)")
-        ) {
-            select.setLong(1, runId);
-
-            try (ResultSet rs = select.executeQuery()) {
-                while (rs.next()) {
-                    Map<String, String> row = readRow(rs, stagingColumns);
-
-                    String startDateRaw = row.get(MdrmConstants.COLUMN_START_DATE);
-                    String endDateRaw = row.get(MdrmConstants.COLUMN_END_DATE);
-
-                    LocalDateTime startDateUtc;
-                    LocalDateTime endDateUtc;
-                    try {
-                        startDateUtc = parseToUtc(startDateRaw);
-                        endDateUtc = parseToUtc(endDateRaw);
-                    } catch (IllegalArgumentException ex) {
-                        errorInsert.setLong(1, runId);
-                        errorInsert.setString(2, toRawRecord(row, stagingColumns));
-                        errorInsert.setString(3, ex.getMessage());
-                        errorInsert.addBatch();
-                        errorBatchCount++;
-                        if (errorBatchCount >= MdrmConstants.CSV_BATCH_SIZE) {
-                            errorInsert.executeBatch();
-                            errorBatchCount = 0;
-                        }
-                        errors++;
-                        continue;
-                    }
-
-                    int idx = 1;
-                    insert.setLong(idx++, runId);
-                    for (String column : stagingColumns) {
-                        if (!MdrmConstants.COLUMN_RUN_ID.equals(column)) {
-                            insert.setString(idx++, row.get(column));
-                        }
-                    }
-
-                    String mnemonic = normalizeNullable(row.get(MdrmConstants.COLUMN_MNEMONIC));
-                    String itemCode = normalizeNullable(row.get(MdrmConstants.COLUMN_ITEM_CODE));
-                    String mdrmCode = (mnemonic == null ? "" : mnemonic) + (itemCode == null ? "" : itemCode);
-                    if (mdrmCode.isBlank()) {
-                        mdrmCode = null;
-                    }
-
-                    insert.setTimestamp(idx++, Timestamp.from(startDateUtc.toInstant(ZoneOffset.UTC)));
-                    insert.setTimestamp(idx++, Timestamp.from(endDateUtc.toInstant(ZoneOffset.UTC)));
-                    insert.setString(idx++, mdrmCode);
-                    insert.setString(idx, isActive(endDateUtc));
-                    insert.addBatch();
-                    masterBatchCount++;
-                    if (masterBatchCount >= MdrmConstants.CSV_BATCH_SIZE) {
-                        insert.executeBatch();
-                        masterBatchCount = 0;
-                    }
-                    ingested++;
-                }
-            }
-
-            if (masterBatchCount > 0) {
-                insert.executeBatch();
-            }
-            if (errorBatchCount > 0) {
-                errorInsert.executeBatch();
-            }
-        } catch (SQLException ex) {
-            throw new IllegalStateException(MdrmConstants.MSG_CSV_PARSE_LOAD_FAILED, ex);
-        }
-
-        return new IngestionStats(ingested, errors);
-    }
 
     /**
      * Drops and recreates staging table using sanitized CSV headers plus run_id.
@@ -698,51 +584,6 @@ public class MdrmLoadService {
         throw new IllegalStateException(MdrmConstants.MSG_RUN_ID_NOT_GENERATED);
     }
 
-    private LocalDateTime parseToUtc(String rawDate) {
-        String value = normalizeNullable(rawDate);
-        if (value == null) {
-            throw new IllegalArgumentException("Date value is null/blank");
-        }
-
-        try {
-            return LocalDateTime.parse(value, INPUT_DATE_FORMATTER);
-        } catch (DateTimeParseException ex) {
-            throw new IllegalArgumentException("Invalid date format: " + value, ex);
-        }
-    }
-
-    private String isActive(LocalDateTime endDateUtc) {
-        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
-        if (endDateUtc.getYear() == 9999 || endDateUtc.isAfter(nowUtc)) {
-            return "Y";
-        }
-        return "N";
-    }
-
-    private Map<String, String> readRow(ResultSet rs, List<String> columns) throws SQLException {
-        Map<String, String> row = new LinkedHashMap<>();
-        for (String column : columns) {
-            row.put(column, rs.getString(column));
-        }
-        return row;
-    }
-
-    private String toRawRecord(Map<String, String> row, List<String> columns) {
-        List<String> parts = new ArrayList<>(columns.size());
-        for (String column : columns) {
-            String value = row.get(column);
-            parts.add(column + "=" + (value == null ? "" : value));
-        }
-        return String.join(" | ", parts);
-    }
-
-    private String normalizeNullable(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
 
     /**
      * Internal value object for file name + parsed content bytes.

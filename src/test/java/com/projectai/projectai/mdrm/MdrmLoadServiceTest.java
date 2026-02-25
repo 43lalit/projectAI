@@ -2,11 +2,13 @@ package com.projectai.projectai.mdrm;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.ByteArrayOutputStream;
@@ -37,6 +39,12 @@ class MdrmLoadServiceTest {
 
     @BeforeEach
     void resetTables() {
+        Boolean postgres = jdbcTemplate.execute((ConnectionCallback<Boolean>) connection -> {
+            String db = connection.getMetaData().getDatabaseProductName();
+            return db != null && db.toLowerCase().contains("postgresql");
+        });
+        Assumptions.assumeTrue(Boolean.TRUE.equals(postgres), "Skipping: tests require PostgreSQL runtime");
+
         jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_master");
         jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_staging");
         jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_error");

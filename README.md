@@ -128,3 +128,5 @@ Open:
 - Core constants/messages are centralized in `MdrmConstants`
 - Startup schema initialization creates required MDRM tables/indexes
 - PostgreSQL promotion function is created/updated at startup for DB-side staging-to-master processing
+- Promotion from staging to master is PostgreSQL-only (no Java fallback path)
+- MDRM integration tests are PostgreSQL-gated; when test DB is H2, those tests are skipped
