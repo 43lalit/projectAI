@@ -10,7 +10,12 @@ public final class MdrmConstants {
 
     public static final String DEFAULT_LOCAL_FILE_PATH = "FedFiles/MDRM_CSV.csv";
     public static final String DEFAULT_STAGING_TABLE = "mdrm_staging";
+    public static final String DEFAULT_MASTER_TABLE = "mdrm_master";
+    public static final String DEFAULT_RUN_MASTER_TABLE = "mdrm_run_master";
+    public static final String DEFAULT_RUN_ERROR_TABLE = "mdrm_run_error";
+    public static final String DEFAULT_PROMOTE_FUNCTION = "promote_mdrm_run";
     public static final String DEFAULT_CRON = "0 0 1 * * *";
+    public static final String INPUT_DATE_TIME_PATTERN = "M/d/yyyy h:mm:ss a";
 
     public static final String FILE_EXT_ZIP = ".zip";
     public static final String FILE_EXT_TXT = ".txt";
@@ -18,6 +23,7 @@ public final class MdrmConstants {
     public static final String FILE_EXT_DAT = ".dat";
 
     public static final int CSV_BATCH_SIZE = 1000;
+    public static final int CSV_STAGING_BATCH_SIZE = 200;
     public static final String CSV_DEFAULT_COLUMN_PREFIX = "col_";
 
     public static final String VALID_TABLE_NAME_REGEX = "[a-zA-Z_][a-zA-Z0-9_]*";
@@ -32,6 +38,8 @@ public final class MdrmConstants {
     public static final String SQL_SELECT_ALL_BY_REPORTING_FORM_PREFIX = "SELECT * FROM ";
     public static final String SQL_SELECT_ALL_BY_REPORTING_FORM_SUFFIX = " WHERE reporting_form = ?";
     public static final String SQL_SELECT_SINGLE_ROW_SUFFIX = " LIMIT 1";
+    public static final String SQL_SELECT_ALL_BY_RUN_ID_PREFIX = "SELECT * FROM ";
+    public static final String SQL_SELECT_ALL_BY_RUN_ID_SUFFIX = " WHERE run_id = ?";
 
     public static final String MSG_RESOURCE_NOT_FOUND = "MDRM file not found in resources: %s";
     public static final String MSG_RESOURCE_EMPTY = "MDRM file is empty: %s";
@@ -43,6 +51,13 @@ public final class MdrmConstants {
     public static final String MSG_CSV_HEADER_NOT_FOUND = "CSV header row not found on line 2";
     public static final String MSG_CSV_PARSE_LOAD_FAILED = "Unable to parse and load MDRM CSV content";
     public static final String MSG_INVALID_STAGING_TABLE = "Invalid staging table name: %s";
-    public static final String MSG_REPORTING_FORM_COLUMN_MISSING = "Column reporting_form not found in staging table: %s";
+    public static final String MSG_REPORTING_FORM_COLUMN_MISSING = "Column reporting_form not found in table: %s";
+    public static final String MSG_REQUIRED_COLUMN_MISSING = "Column %s not found in table: %s";
+    public static final String MSG_RUN_ID_NOT_GENERATED = "Unable to generate unique run id";
     public static final String COLUMN_REPORTING_FORM = "reporting_form";
+    public static final String COLUMN_RUN_ID = "run_id";
+    public static final String COLUMN_START_DATE = "start_date";
+    public static final String COLUMN_END_DATE = "end_date";
+    public static final String COLUMN_MNEMONIC = "mnemonic";
+    public static final String COLUMN_ITEM_CODE = "item_code";
 }

@@ -1,5 +1,6 @@
 package com.projectai.projectai.mdrm;
 
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -11,11 +12,19 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -24,11 +33,14 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Orchestrates MDRM file ingestion: read source file, rebuild staging table from CSV headers,
- * and load all data rows into the configured staging table.
+ * Orchestrates MDRM file ingestion: reads source file, rebuilds staging table from CSV headers,
+ * persists run metadata, transforms records to master table, and logs row-level ingestion errors.
  */
 @Service
 public class MdrmLoadService {
+
+    private static final DateTimeFormatter INPUT_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern(MdrmConstants.INPUT_DATE_TIME_PATTERN, Locale.US);
 
     private final MdrmDownloader mdrmDownloader;
     private final MdrmProperties mdrmProperties;
@@ -41,38 +53,82 @@ public class MdrmLoadService {
     }
 
     /**
-     * Executes a full MDRM load cycle and returns the source file name with inserted row count.
+     * Creates MDRM operational tables at application startup so schema is visible before first load.
+     */
+    @PostConstruct
+    public void initializeSchema() {
+        ensureRunMasterTable();
+        ensureRunErrorTable();
+        ensureBaseStagingTable();
+        ensureBaseMasterTable();
+        ensureMasterIndexes();
+        ensurePostgresPromotionFunction();
+    }
+
+    /**
+     * Executes a full MDRM load cycle and returns source file name with successfully ingested row count.
      */
     public MdrmLoadResult loadLatestMdrm() {
         DownloadedMdrm downloadedMdrm = mdrmDownloader.download();
         ZipContent content = extractContent(downloadedMdrm);
 
-        String tableName = sanitizeTableName(mdrmProperties.getStagingTable());
-        int rows = parseCsvAndLoad(content.content(), tableName);
+        ensureRunMasterTable();
+        ensureRunErrorTable();
+        long runId = generateRunId();
+        String stagingTableName = sanitizeTableName(mdrmProperties.getStagingTable());
+        createRunMasterRow(runId, content.fileName());
+        int stagedRowCount = 0;
 
-        return new MdrmLoadResult(content.fileName(), rows);
+        try {
+            stagedRowCount = parseCsvAndLoadToStaging(content.content(), stagingTableName, runId);
+            ensureMasterTable(stagingTableName);
+            IngestionStats ingestionStats = transformFromStagingToMaster(stagingTableName, runId);
+
+            updateRunMasterCounts(runId, stagedRowCount, ingestionStats.ingestedCount(), ingestionStats.errorCount());
+            return new MdrmLoadResult(content.fileName(), ingestionStats.ingestedCount());
+        } catch (RuntimeException ex) {
+            int errorRows = countRunErrors(runId);
+            updateRunMasterCounts(runId, stagedRowCount, 0, errorRows);
+            throw ex;
+        }
     }
 
     /**
-     * Returns all distinct reporting form values available in the current staging table.
+     * Promotes staged rows into master/error using PostgreSQL stored function when available.
+     */
+    private IngestionStats transformFromStagingToMaster(String stagingTableName, long runId) {
+        List<String> stagingColumns = getTableColumns(stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_START_DATE, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_END_DATE, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_MNEMONIC, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_ITEM_CODE, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_REPORTING_FORM, stagingTableName);
+
+        if (isPostgreSql()) {
+            return promoteFromStagingUsingProcedure(stagingTableName, runId);
+        }
+
+        return ingestFromStagingToMaster(stagingTableName, runId);
+    }
+
+    /**
+     * Returns all distinct reporting form values available in the master table.
      */
     public List<String> getReportingForms() {
-        String tableName = sanitizeTableName(mdrmProperties.getStagingTable());
-        ensureReportingFormColumnExists(tableName);
+        ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
         return jdbcTemplate.queryForList(
-                MdrmConstants.SQL_SELECT_DISTINCT_REPORTING_FORM_PREFIX + tableName
+                MdrmConstants.SQL_SELECT_DISTINCT_REPORTING_FORM_PREFIX + MdrmConstants.DEFAULT_MASTER_TABLE
                         + MdrmConstants.SQL_SELECT_DISTINCT_REPORTING_FORM_SUFFIX,
                 String.class
         );
     }
 
     /**
-     * Returns all rows for a given reporting form with dynamic columns for table rendering.
+     * Returns all master rows for a given reporting form with dynamic columns for table rendering.
      */
     public MdrmTableResponse getRowsByReportingForm(String reportingForm) {
-        String tableName = sanitizeTableName(mdrmProperties.getStagingTable());
-        ensureReportingFormColumnExists(tableName);
-        String sql = MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_PREFIX + tableName
+        ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
+        String sql = MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_PREFIX + MdrmConstants.DEFAULT_MASTER_TABLE
                 + MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_SUFFIX;
 
         return jdbcTemplate.query(
@@ -86,7 +142,318 @@ public class MdrmLoadService {
     }
 
     /**
-     * Drops and recreates the staging table using sanitized CSV header names as TEXT columns.
+     * Creates one run metadata row before ingestion starts.
+     */
+    private void createRunMasterRow(long runId, String fileName) {
+        String sql = "INSERT INTO " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE
+                + " (run_id, run_datetime, file_name, num_file_records, num_records_ingested, num_records_error) "
+                + "VALUES (?, ?, ?, 0, 0, 0)";
+        jdbcTemplate.update(sql, runId, runId, fileName);
+    }
+
+    /**
+     * Updates run totals after transformation is complete.
+     */
+    private void updateRunMasterCounts(long runId, int fileRecords, int ingestedRecords, int errorRecords) {
+        String sql = "UPDATE " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE
+                + " SET num_file_records = ?, num_records_ingested = ?, num_records_error = ? WHERE run_id = ?";
+        jdbcTemplate.update(sql, fileRecords, ingestedRecords, errorRecords, runId);
+    }
+
+    /**
+     * Ensures run metadata table exists.
+     */
+    private void ensureRunMasterTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE + " ("
+                + "run_id BIGINT PRIMARY KEY, "
+                + "run_datetime BIGINT NOT NULL, "
+                + "file_name TEXT, "
+                + "num_file_records INT NOT NULL, "
+                + "num_records_ingested INT NOT NULL, "
+                + "num_records_error INT NOT NULL"
+                + ")");
+    }
+
+    /**
+     * Ensures row-level error table exists.
+     */
+    private void ensureRunErrorTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + MdrmConstants.DEFAULT_RUN_ERROR_TABLE + " ("
+                + "error_id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, "
+                + "run_id BIGINT NOT NULL, "
+                + "raw_record TEXT, "
+                + "error_description TEXT"
+                + ")");
+    }
+
+    /**
+     * Ensures master table exists and contains current staging columns plus derived columns.
+     */
+    private void ensureMasterTable(String stagingTableName) {
+        ensureBaseMasterTable();
+
+        List<String> masterColumns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
+        List<String> stagingColumns = getTableColumns(stagingTableName);
+        for (String stagingColumn : stagingColumns) {
+            if (!MdrmConstants.COLUMN_RUN_ID.equals(stagingColumn) && !masterColumns.contains(stagingColumn)) {
+                jdbcTemplate.execute("ALTER TABLE " + MdrmConstants.DEFAULT_MASTER_TABLE
+                        + " ADD COLUMN " + stagingColumn + " TEXT");
+            }
+        }
+
+        ensureMasterIndexes();
+    }
+
+    /**
+     * Creates a lightweight staging table at startup; load will rebuild it from CSV headers.
+     */
+    private void ensureBaseStagingTable() {
+        String stagingTableName = sanitizeTableName(mdrmProperties.getStagingTable());
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + stagingTableName + " (run_id BIGINT)");
+    }
+
+    /**
+     * Creates master table with core columns so reporting APIs can target it before first load.
+     */
+    private void ensureBaseMasterTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + MdrmConstants.DEFAULT_MASTER_TABLE + " ("
+                + "master_id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, "
+                + "run_id BIGINT NOT NULL, "
+                + "reporting_form TEXT, "
+                + "start_date_utc TIMESTAMP, "
+                + "end_date_utc TIMESTAMP, "
+                + "mdrm_code TEXT, "
+                + "is_active CHAR(1)"
+                + ")");
+    }
+
+    /**
+     * Ensures required reporting/performance indexes exist on the master table.
+     */
+    private void ensureMasterIndexes() {
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_mdrm_master_mdrm_code ON "
+                + MdrmConstants.DEFAULT_MASTER_TABLE + " (mdrm_code)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_mdrm_master_reporting_form ON "
+                + MdrmConstants.DEFAULT_MASTER_TABLE + " (reporting_form)");
+    }
+
+    /**
+     * Creates PostgreSQL promotion function used to process staged rows inside the database.
+     */
+    private void ensurePostgresPromotionFunction() {
+        if (!isPostgreSql()) {
+            return;
+        }
+
+        String sql = """
+                CREATE OR REPLACE FUNCTION __PROMOTE_FN__(p_run_id BIGINT, p_staging_table TEXT)
+                RETURNS TABLE(ingested_count INT, error_count INT)
+                LANGUAGE plpgsql
+                AS $$
+                DECLARE
+                    data_columns TEXT;
+                    valid_condition TEXT;
+                    insert_sql TEXT;
+                    error_sql TEXT;
+                    inserted_rows INT := 0;
+                    error_rows INT := 0;
+                BEGIN
+                    SELECT string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position)
+                    INTO data_columns
+                    FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = p_staging_table
+                      AND column_name <> 'run_id';
+
+                    IF data_columns IS NULL THEN
+                        data_columns := '';
+                    END IF;
+
+                    valid_condition := '('
+                        || 'start_date IS NOT NULL AND btrim(start_date) <> '''' '
+                        || 'AND end_date IS NOT NULL AND btrim(end_date) <> '''' '
+                        || 'AND start_date ~ ''^([1-9]|0[1-9]|1[0-2])/([1-9]|0[1-9]|[12][0-9]|3[01])/[0-9]{4} ([1-9]|0[1-9]|1[0-2]):[0-5][0-9]:[0-5][0-9] (AM|PM)$'' '
+                        || 'AND end_date ~ ''^([1-9]|0[1-9]|1[0-2])/([1-9]|0[1-9]|[12][0-9]|3[01])/[0-9]{4} ([1-9]|0[1-9]|1[0-2]):[0-5][0-9]:[0-5][0-9] (AM|PM)$'''
+                        || ')';
+
+                    error_sql := format(
+                        'INSERT INTO %I (run_id, raw_record, error_description) '
+                        || 'SELECT run_id, row_to_json(s)::text, '
+                        || 'CASE '
+                        || 'WHEN start_date IS NULL OR btrim(start_date) = '''' OR end_date IS NULL OR btrim(end_date) = '''' '
+                        || 'THEN ''Date value is null/blank'' '
+                        || 'ELSE ''Invalid date format'' '
+                        || 'END '
+                        || 'FROM %I s '
+                        || 'WHERE run_id = $1 AND NOT %s',
+                        '__RUN_ERROR_TABLE__',
+                        p_staging_table,
+                        valid_condition
+                    );
+                    EXECUTE error_sql USING p_run_id;
+                    GET DIAGNOSTICS error_rows = ROW_COUNT;
+
+                    insert_sql := format(
+                        'INSERT INTO %I (run_id%sstart_date_utc, end_date_utc, mdrm_code, is_active) '
+                        || 'SELECT run_id%s'
+                        || 'to_timestamp(start_date, ''MM/DD/YYYY HH12:MI:SS AM'') AT TIME ZONE ''UTC'', '
+                        || 'to_timestamp(end_date, ''MM/DD/YYYY HH12:MI:SS AM'') AT TIME ZONE ''UTC'', '
+                        || 'NULLIF(COALESCE(mnemonic, '''') || COALESCE(item_code, ''''), ''''), '
+                        || 'CASE '
+                        || 'WHEN EXTRACT(YEAR FROM (to_timestamp(end_date, ''MM/DD/YYYY HH12:MI:SS AM'') AT TIME ZONE ''UTC'')) = 9999 '
+                        || 'OR (to_timestamp(end_date, ''MM/DD/YYYY HH12:MI:SS AM'') AT TIME ZONE ''UTC'') > (NOW() AT TIME ZONE ''UTC'') '
+                        || 'THEN ''Y'' ELSE ''N'' END '
+                        || 'FROM %I '
+                        || 'WHERE run_id = $1 AND %s',
+                        '__MASTER_TABLE__',
+                        CASE WHEN data_columns = '' THEN '' ELSE ', ' || data_columns || ', ' END,
+                        CASE WHEN data_columns = '' THEN '' ELSE ', ' || data_columns || ', ' END,
+                        p_staging_table,
+                        valid_condition
+                    );
+                    EXECUTE insert_sql USING p_run_id;
+                    GET DIAGNOSTICS inserted_rows = ROW_COUNT;
+
+                    RETURN QUERY SELECT inserted_rows, error_rows;
+                END;
+                $$;
+                """
+                .replace("__PROMOTE_FN__", MdrmConstants.DEFAULT_PROMOTE_FUNCTION)
+                .replace("__RUN_ERROR_TABLE__", MdrmConstants.DEFAULT_RUN_ERROR_TABLE)
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE);
+
+        jdbcTemplate.execute(sql);
+    }
+
+    /**
+     * Executes the PostgreSQL promotion function for a run and returns processed counts.
+     */
+    private IngestionStats promoteFromStagingUsingProcedure(String stagingTableName, long runId) {
+        String sql = "SELECT ingested_count, error_count FROM " + MdrmConstants.DEFAULT_PROMOTE_FUNCTION + "(?, ?)";
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setLong(1, runId);
+                    ps.setString(2, stagingTableName);
+                    return ps;
+                },
+                rs -> {
+                    if (!rs.next()) {
+                        return new IngestionStats(0, 0);
+                    }
+                    return new IngestionStats(rs.getInt("ingested_count"), rs.getInt("error_count"));
+                }
+        );
+    }
+
+    /**
+     * Reads all staged rows for a run, validates/converts dates, inserts good rows into master, and logs bad rows.
+     */
+    private IngestionStats ingestFromStagingToMaster(String stagingTableName, long runId) {
+        List<String> stagingColumns = getTableColumns(stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_START_DATE, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_END_DATE, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_MNEMONIC, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_ITEM_CODE, stagingTableName);
+        ensureRequiredColumnExists(stagingColumns, MdrmConstants.COLUMN_REPORTING_FORM, stagingTableName);
+
+        String selectSql = MdrmConstants.SQL_SELECT_ALL_BY_RUN_ID_PREFIX + stagingTableName
+                + MdrmConstants.SQL_SELECT_ALL_BY_RUN_ID_SUFFIX;
+
+        String dynamicColumns = String.join(", ", stagingColumns.stream()
+                .filter(column -> !MdrmConstants.COLUMN_RUN_ID.equals(column))
+                .toList());
+
+        String placeholders = String.join(", ", Collections.nCopies(stagingColumns.size() + 4, "?"));
+        String insertSql = "INSERT INTO " + MdrmConstants.DEFAULT_MASTER_TABLE
+                + " (run_id"
+                + (dynamicColumns.isBlank() ? "" : ", " + dynamicColumns)
+                + ", start_date_utc, end_date_utc, mdrm_code, is_active) VALUES ("
+                + placeholders + ")";
+
+        int ingested = 0;
+        int errors = 0;
+        int masterBatchCount = 0;
+        int errorBatchCount = 0;
+
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection();
+             PreparedStatement select = connection.prepareStatement(selectSql);
+             PreparedStatement insert = connection.prepareStatement(insertSql);
+             PreparedStatement errorInsert = connection.prepareStatement(
+                     "INSERT INTO " + MdrmConstants.DEFAULT_RUN_ERROR_TABLE + " (run_id, raw_record, error_description) VALUES (?, ?, ?)")
+        ) {
+            select.setLong(1, runId);
+
+            try (ResultSet rs = select.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, String> row = readRow(rs, stagingColumns);
+
+                    String startDateRaw = row.get(MdrmConstants.COLUMN_START_DATE);
+                    String endDateRaw = row.get(MdrmConstants.COLUMN_END_DATE);
+
+                    LocalDateTime startDateUtc;
+                    LocalDateTime endDateUtc;
+                    try {
+                        startDateUtc = parseToUtc(startDateRaw);
+                        endDateUtc = parseToUtc(endDateRaw);
+                    } catch (IllegalArgumentException ex) {
+                        errorInsert.setLong(1, runId);
+                        errorInsert.setString(2, toRawRecord(row, stagingColumns));
+                        errorInsert.setString(3, ex.getMessage());
+                        errorInsert.addBatch();
+                        errorBatchCount++;
+                        if (errorBatchCount >= MdrmConstants.CSV_BATCH_SIZE) {
+                            errorInsert.executeBatch();
+                            errorBatchCount = 0;
+                        }
+                        errors++;
+                        continue;
+                    }
+
+                    int idx = 1;
+                    insert.setLong(idx++, runId);
+                    for (String column : stagingColumns) {
+                        if (!MdrmConstants.COLUMN_RUN_ID.equals(column)) {
+                            insert.setString(idx++, row.get(column));
+                        }
+                    }
+
+                    String mnemonic = normalizeNullable(row.get(MdrmConstants.COLUMN_MNEMONIC));
+                    String itemCode = normalizeNullable(row.get(MdrmConstants.COLUMN_ITEM_CODE));
+                    String mdrmCode = (mnemonic == null ? "" : mnemonic) + (itemCode == null ? "" : itemCode);
+                    if (mdrmCode.isBlank()) {
+                        mdrmCode = null;
+                    }
+
+                    insert.setTimestamp(idx++, Timestamp.from(startDateUtc.toInstant(ZoneOffset.UTC)));
+                    insert.setTimestamp(idx++, Timestamp.from(endDateUtc.toInstant(ZoneOffset.UTC)));
+                    insert.setString(idx++, mdrmCode);
+                    insert.setString(idx, isActive(endDateUtc));
+                    insert.addBatch();
+                    masterBatchCount++;
+                    if (masterBatchCount >= MdrmConstants.CSV_BATCH_SIZE) {
+                        insert.executeBatch();
+                        masterBatchCount = 0;
+                    }
+                    ingested++;
+                }
+            }
+
+            if (masterBatchCount > 0) {
+                insert.executeBatch();
+            }
+            if (errorBatchCount > 0) {
+                errorInsert.executeBatch();
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException(MdrmConstants.MSG_CSV_PARSE_LOAD_FAILED, ex);
+        }
+
+        return new IngestionStats(ingested, errors);
+    }
+
+    /**
+     * Drops and recreates staging table using sanitized CSV headers plus run_id.
      */
     private void recreateStagingTable(String tableName, List<String> columns) {
         if (columns.isEmpty()) {
@@ -95,7 +462,13 @@ public class MdrmLoadService {
 
         jdbcTemplate.execute(MdrmConstants.SQL_DROP_TABLE_IF_EXISTS + tableName);
 
-        String columnSql = String.join(", ", columns.stream().map(c -> c + " TEXT").toList());
+        List<String> stagingColumns = new ArrayList<>(columns.size() + 1);
+        stagingColumns.add(MdrmConstants.COLUMN_RUN_ID + " BIGINT");
+        for (String column : columns) {
+            stagingColumns.add(column + " TEXT");
+        }
+
+        String columnSql = String.join(", ", stagingColumns);
         jdbcTemplate.execute(MdrmConstants.SQL_CREATE_TABLE_PREFIX + tableName + " (" + columnSql + MdrmConstants.SQL_CLOSE_PAREN);
     }
 
@@ -130,9 +503,9 @@ public class MdrmLoadService {
     }
 
     /**
-     * Parses MDRM CSV where line 1 is metadata and line 2 is the header row, then batch loads rows.
+     * Parses MDRM CSV where line 1 is metadata and line 2 is the header row, then loads rows into staging.
      */
-    private int parseCsvAndLoad(byte[] content, String tableName) {
+    private int parseCsvAndLoadToStaging(byte[] content, String tableName, long runId) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(content), StandardCharsets.UTF_8))) {
             String metadataLine = reader.readLine();
             if (metadataLine == null) {
@@ -155,23 +528,26 @@ public class MdrmLoadService {
                 List<String> columns = sanitizeCsvHeaders(headerNames);
                 recreateStagingTable(tableName, columns);
 
-                String placeholders = String.join(", ", java.util.Collections.nCopies(columns.size(), "?"));
+                String placeholders = String.join(", ", Collections.nCopies(columns.size() + 1, "?"));
                 String sql = MdrmConstants.SQL_INSERT_VALUES_PREFIX + tableName
                         + MdrmConstants.SQL_INSERT_VALUES_INFIX + placeholders + MdrmConstants.SQL_CLOSE_PAREN;
 
                 int insertedRows = 0;
-                int batchCount = 0;
 
-                try (PreparedStatement ps = jdbcTemplate.getDataSource().getConnection().prepareStatement(sql)) {
+                try (Connection connection = jdbcTemplate.getDataSource().getConnection();
+                     PreparedStatement ps = connection.prepareStatement(sql)) {
+                    int batchCount = 0;
+
                     for (CSVRecord record : parser) {
+                        ps.setLong(1, runId);
                         for (int i = 0; i < headerNames.size(); i++) {
-                            ps.setString(i + 1, record.isSet(i) ? record.get(i) : null);
+                            ps.setString(i + 2, record.isSet(i) ? record.get(i) : null);
                         }
                         ps.addBatch();
                         batchCount++;
                         insertedRows++;
 
-                        if (batchCount >= MdrmConstants.CSV_BATCH_SIZE) {
+                        if (batchCount >= MdrmConstants.CSV_STAGING_BATCH_SIZE) {
                             ps.executeBatch();
                             batchCount = 0;
                         }
@@ -187,6 +563,15 @@ public class MdrmLoadService {
         } catch (IOException | SQLException ex) {
             throw new IllegalStateException(MdrmConstants.MSG_CSV_PARSE_LOAD_FAILED, ex);
         }
+    }
+
+    private int countRunErrors(long runId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + MdrmConstants.DEFAULT_RUN_ERROR_TABLE + " WHERE run_id = ?",
+                Integer.class,
+                runId
+        );
+        return count == null ? 0 : count;
     }
 
     /**
@@ -268,9 +653,106 @@ public class MdrmLoadService {
         }
     }
 
+    private void ensureRequiredColumnExists(List<String> columns, String requiredColumn, String tableName) {
+        if (!columns.contains(requiredColumn)) {
+            throw new IllegalStateException(MdrmConstants.MSG_REQUIRED_COLUMN_MISSING.formatted(requiredColumn, tableName));
+        }
+    }
+
+    private List<String> getTableColumns(String tableName) {
+        return jdbcTemplate.query(
+                MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_PREFIX + tableName + MdrmConstants.SQL_SELECT_SINGLE_ROW_SUFFIX,
+                rs -> {
+                    ResultSetMetaData meta = rs.getMetaData();
+                    List<String> columns = new ArrayList<>();
+                    for (int i = 1; i <= meta.getColumnCount(); i++) {
+                        columns.add(meta.getColumnLabel(i));
+                    }
+                    return columns;
+                }
+        );
+    }
+
+    private boolean isPostgreSql() {
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            String productName = connection.getMetaData().getDatabaseProductName();
+            return productName != null && productName.toLowerCase(Locale.ROOT).contains("postgresql");
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Unable to determine database product", ex);
+        }
+    }
+
+    private long generateRunId() {
+        long candidate = Instant.now().toEpochMilli();
+        for (int attempt = 0; attempt < 1000; attempt++) {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE + " WHERE run_id = ?",
+                    Integer.class,
+                    candidate
+            );
+            if (count == null || count == 0) {
+                return candidate;
+            }
+            candidate++;
+        }
+        throw new IllegalStateException(MdrmConstants.MSG_RUN_ID_NOT_GENERATED);
+    }
+
+    private LocalDateTime parseToUtc(String rawDate) {
+        String value = normalizeNullable(rawDate);
+        if (value == null) {
+            throw new IllegalArgumentException("Date value is null/blank");
+        }
+
+        try {
+            return LocalDateTime.parse(value, INPUT_DATE_FORMATTER);
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("Invalid date format: " + value, ex);
+        }
+    }
+
+    private String isActive(LocalDateTime endDateUtc) {
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        if (endDateUtc.getYear() == 9999 || endDateUtc.isAfter(nowUtc)) {
+            return "Y";
+        }
+        return "N";
+    }
+
+    private Map<String, String> readRow(ResultSet rs, List<String> columns) throws SQLException {
+        Map<String, String> row = new LinkedHashMap<>();
+        for (String column : columns) {
+            row.put(column, rs.getString(column));
+        }
+        return row;
+    }
+
+    private String toRawRecord(Map<String, String> row, List<String> columns) {
+        List<String> parts = new ArrayList<>(columns.size());
+        for (String column : columns) {
+            String value = row.get(column);
+            parts.add(column + "=" + (value == null ? "" : value));
+        }
+        return String.join(" | ", parts);
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     /**
      * Internal value object for file name + parsed content bytes.
      */
     private record ZipContent(String fileName, byte[] content) {
+    }
+
+    /**
+     * Ingestion counters grouped for run finalization.
+     */
+    private record IngestionStats(int ingestedCount, int errorCount) {
     }
 }

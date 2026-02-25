@@ -1,6 +1,7 @@
 package com.projectai.projectai.mdrm;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -19,6 +20,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 class MdrmLoadServiceTest {
@@ -32,46 +35,78 @@ class MdrmLoadServiceTest {
     @Autowired
     private TestMdrmDownloader mdrmDownloader;
 
-    @Test
-    void shouldRecreateStagingTableAndLoadFreshRows() throws IOException {
-        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
-                "FILE_DATE,2026-02-24",
-                "code,reporting form,description",
-                "A,FFIEC 101,Alpha",
-                "B,FFIEC 101,Beta",
-                "C,FR Y-9C,Gamma"
-        ))));
-        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
-                "FILE_DATE,2026-02-25",
-                "code,reporting form,description",
-                "X,FFIEC 101,Xray"
-        ))));
-
-        MdrmLoadResult first = mdrmLoadService.loadLatestMdrm();
-        assertEquals("MDRM.csv", first.sourceFileName());
-        assertEquals(3, first.loadedRows());
-        assertEquals(3, rowCount());
-
-        MdrmLoadResult second = mdrmLoadService.loadLatestMdrm();
-        assertEquals("MDRM.csv", second.sourceFileName());
-        assertEquals(1, second.loadedRows());
-        assertEquals(1, rowCount());
-
-        String row = jdbcTemplate.queryForObject(
-                "SELECT description FROM mdrm_staging ORDER BY code LIMIT 1",
-                String.class
-        );
-        assertEquals("Xray", row);
+    @BeforeEach
+    void resetTables() {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_master");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_staging");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_error");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_master");
     }
 
     @Test
-    void shouldReturnReportingFormsAndFilteredRows() throws IOException {
+    void shouldCreateRunAndLoadMasterWithRunId() throws IOException {
         mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
                 "FILE_DATE,2026-02-24",
-                "code,reporting form,description",
-                "A,FFIEC 101,Alpha",
-                "B,FFIEC 101,Beta",
-                "C,FR Y-9C,Gamma"
+                "mnemonic,item code,reporting form,description,start date,end date",
+                "AAA,111,FFIEC 101,Alpha,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM",
+                "BBB,222,FFIEC 101,Beta,01/01/2020 12:00:00 AM,01/01/2021 12:00:00 AM"
+        ))));
+
+        MdrmLoadResult result = mdrmLoadService.loadLatestMdrm();
+        assertEquals("MDRM.csv", result.sourceFileName());
+        assertEquals(2, result.loadedRows());
+
+        Integer runCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_run_master", Integer.class);
+        assertEquals(1, runCount);
+
+        Integer stagingCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_staging", Integer.class);
+        assertEquals(2, stagingCount);
+
+        Integer masterCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_master", Integer.class);
+        assertEquals(2, masterCount);
+
+        String runIdFromStaging = jdbcTemplate.queryForObject("SELECT CAST(run_id AS VARCHAR) FROM mdrm_staging LIMIT 1", String.class);
+        String runIdFromMaster = jdbcTemplate.queryForObject("SELECT CAST(run_id AS VARCHAR) FROM mdrm_master LIMIT 1", String.class);
+        assertEquals(runIdFromStaging, runIdFromMaster);
+
+        String activeFlag = jdbcTemplate.queryForObject(
+                "SELECT is_active FROM mdrm_master WHERE mdrm_code = 'AAA111'",
+                String.class
+        );
+        assertEquals("Y", activeFlag);
+    }
+
+    @Test
+    void shouldLogErrorsForInvalidOrNullDates() throws IOException {
+        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
+                "FILE_DATE,2026-02-24",
+                "mnemonic,item code,reporting form,description,start date,end date",
+                "AAA,111,FFIEC 101,Alpha,invalid date,12/31/9999 12:00:00 AM",
+                "BBB,222,FFIEC 101,Beta,01/01/2020 12:00:00 AM,",
+                "CCC,333,FFIEC 101,Gamma,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM"
+        ))));
+
+        MdrmLoadResult result = mdrmLoadService.loadLatestMdrm();
+        assertEquals(1, result.loadedRows());
+
+        Integer masterCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_master", Integer.class);
+        assertEquals(1, masterCount);
+
+        Integer errorCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_run_error", Integer.class);
+        assertEquals(2, errorCount);
+
+        String errorText = jdbcTemplate.queryForObject("SELECT error_description FROM mdrm_run_error LIMIT 1", String.class);
+        assertTrue(errorText.contains("Invalid date format") || errorText.contains("Date value is null/blank"));
+    }
+
+    @Test
+    void shouldReturnReportingFormsAndFilteredRowsFromMaster() throws IOException {
+        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
+                "FILE_DATE,2026-02-24",
+                "mnemonic,item code,reporting form,description,start date,end date",
+                "AAA,111,FFIEC 101,Alpha,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM",
+                "BBB,222,FFIEC 101,Beta,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM",
+                "CCC,333,FR Y-9C,Gamma,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM"
         ))));
 
         mdrmLoadService.loadLatestMdrm();
@@ -80,18 +115,29 @@ class MdrmLoadServiceTest {
         assertEquals(List.of("FFIEC 101", "FR Y-9C"), forms);
 
         MdrmTableResponse response = mdrmLoadService.getRowsByReportingForm("FFIEC 101");
-        assertEquals(List.of("code", "reporting_form", "description"), response.columns());
+        assertTrue(response.columns().contains("mdrm_code"));
+        assertTrue(response.columns().contains("is_active"));
         assertEquals(2, response.rows().size());
 
         Map<String, String> firstRow = response.rows().get(0);
-        assertEquals("A", firstRow.get("code"));
         assertEquals("FFIEC 101", firstRow.get("reporting_form"));
-        assertEquals("Alpha", firstRow.get("description"));
     }
 
-    private int rowCount() {
-        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_staging", Integer.class);
-        return count == null ? 0 : count;
+    @Test
+    void shouldPersistRunMasterEntryEvenWhenLoadFails() throws IOException {
+        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
+                "FILE_DATE,2026-02-24"
+        ))));
+
+        assertThrows(IllegalStateException.class, () -> mdrmLoadService.loadLatestMdrm());
+
+        Integer runCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mdrm_run_master", Integer.class);
+        assertEquals(1, runCount);
+
+        Integer ingested = jdbcTemplate.queryForObject("SELECT num_records_ingested FROM mdrm_run_master LIMIT 1", Integer.class);
+        Integer errors = jdbcTemplate.queryForObject("SELECT num_records_error FROM mdrm_run_master LIMIT 1", Integer.class);
+        assertEquals(0, ingested);
+        assertEquals(0, errors);
     }
 
     private byte[] zip(String fileName, List<String> lines) throws IOException {
