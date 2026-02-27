@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDRM Page</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/mdrm-console.css">
+</head>
+<body class="bg-body-tertiary">
+  <main class="shell container-fluid">
+    <section class="panel hero">
+      <h1>MDRM Workspace</h1>
+    </section>
+
+    <section class="panel view active">
+      <div class="d-flex gap-2 align-items-center mb-3">
+        <button id="backBtn" class="btn btn-outline-secondary btn-sm" type="button">Back</button>
+        <a class="btn btn-primary btn-sm" href="/index.html">Go To Console</a>
+      </div>
+
+      <div id="selectedMdrmBanner" class="status ok mb-3" style="display: none;"></div>
+
+      <div class="status neutral">
+        Initial MDRM page is ready. Share next improvements and I will build them here.
+      </div>
+
+      <div class="mt-3 p-3 border rounded bg-white">
+        <label for="semanticQueryInput" class="form-label fw-semibold">Semantic MDRM Search</label>
+        <div class="input-group">
+          <input id="semanticQueryInput" class="form-control" type="text"
+                 placeholder="Example: i want to search all asset related mdrms for FRY9C report">
+          <button id="semanticSearchBtn" class="btn btn-primary" type="button">Search</button>
+        </div>
+        <div id="semanticSearchStatus" class="status neutral mt-2">Ready.</div>
+        <div id="semanticSearchResults" class="table-shell mt-2"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const backBtn = document.getElementById('backBtn');
+    const selectedMdrmBanner = document.getElementById('selectedMdrmBanner');
+    const semanticQueryInput = document.getElementById('semanticQueryInput');
+    const semanticSearchBtn = document.getElementById('semanticSearchBtn');
+    const semanticSearchStatus = document.getElementById('semanticSearchStatus');
+    const semanticSearchResults = document.getElementById('semanticSearchResults');
+    backBtn.addEventListener('click', () => {
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+      window.location.href = '/index.html';
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const selectedMdrm = params.get('mdrm');
+    if (selectedMdrm) {
+      selectedMdrmBanner.textContent = `Selected MDRM: ${selectedMdrm}`;
+      selectedMdrmBanner.style.display = 'block';
+      semanticQueryInput.value = selectedMdrm;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function setSearchStatus(text, css) {
+      semanticSearchStatus.textContent = text;
+      semanticSearchStatus.className = `status ${css} mt-2`;
+    }
+
+    function renderSemanticResults(payload) {
+      const table = payload && payload.results ? payload.results : null;
+      const columns = table && Array.isArray(table.columns) ? table.columns : [];
+      const rows = table && Array.isArray(table.rows) ? table.rows : [];
+
+      if (!rows.length || !columns.length) {
+        semanticSearchResults.innerHTML = '<div class="text-muted small p-2">No results found.</div>';
+        return;
+      }
+
+      const headerHtml = columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
+      const rowsHtml = rows.map(row => {
+        const cells = columns.map(col => {
+          if (col === 'mdrm_code') {
+            const code = row[col];
+            if (code) {
+              return `<td><a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a></td>`;
+            }
+          }
+          return `<td>${escapeHtml(row[col])}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+
+      semanticSearchResults.innerHTML = `
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead><tr>${headerHtml}</tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
+
+    async function semanticSearch() {
+      const query = (semanticQueryInput.value || '').trim();
+      if (!query) {
+        setSearchStatus('Enter a search query.', 'err');
+        return;
+      }
+      semanticSearchBtn.disabled = true;
+      setSearchStatus('Searching...', 'neutral');
+      semanticSearchResults.innerHTML = '';
+      try {
+        const response = await fetch(`/api/mdrm/semantic-search?q=${encodeURIComponent(query)}`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const interpretedForm = payload.interpretedReportingForm || 'Not inferred';
+        const keywords = Array.isArray(payload.interpretedKeywords) && payload.interpretedKeywords.length
+          ? payload.interpretedKeywords.join(', ')
+          : 'None';
+        setSearchStatus(
+          `Report: ${interpretedForm} | Keywords: ${keywords} | Results: ${payload.totalResults ?? 0}`,
+          'ok'
+        );
+        renderSemanticResults(payload);
+      } catch (error) {
+        setSearchStatus(`Search failed: ${error.message}`, 'err');
+      } finally {
+        semanticSearchBtn.disabled = false;
+      }
+    }
+
+    semanticSearchBtn.addEventListener('click', semanticSearch);
+    semanticQueryInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        semanticSearch();
+      }
+    });
+
+    if (selectedMdrm) {
+      semanticSearch();
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

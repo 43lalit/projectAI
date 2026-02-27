@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MdrmProperties {
 
     private String localFilePath = MdrmConstants.DEFAULT_LOCAL_FILE_PATH;
+    private String migrationFilePattern = MdrmConstants.DEFAULT_MIGRATION_FILE_PATTERN;
     private String stagingTable = MdrmConstants.DEFAULT_STAGING_TABLE;
     private String cron = MdrmConstants.DEFAULT_CRON;
 
@@ -22,6 +23,14 @@ public class MdrmProperties {
 
     public String getStagingTable() {
         return stagingTable;
+    }
+
+    public String getMigrationFilePattern() {
+        return migrationFilePattern;
+    }
+
+    public void setMigrationFilePattern(String migrationFilePattern) {
+        this.migrationFilePattern = migrationFilePattern;
     }
 
     public void setStagingTable(String stagingTable) {

@@ -16,3 +16,4 @@ target/
 
 # Local data files (do not commit)
 src/main/resources/FedFiles/MDRM_CSV.csv
+src/main/resources/FedFiles/

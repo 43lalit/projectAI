@@ -8,12 +8,15 @@ public final class MdrmConstants {
     private MdrmConstants() {
     }
 
-    public static final String DEFAULT_LOCAL_FILE_PATH = "FedFiles/MDRM_CSV.csv";
+    public static final String DEFAULT_LOCAL_FILE_PATH = "FedFiles/MDRM_0226.csv";
+    public static final String DEFAULT_MIGRATION_FILE_PATTERN = "FedFiles/MDRM_*.csv";
     public static final String DEFAULT_STAGING_TABLE = "mdrm_staging";
     public static final String DEFAULT_MASTER_TABLE = "mdrm_master";
     public static final String DEFAULT_RUN_MASTER_TABLE = "mdrm_run_master";
     public static final String DEFAULT_RUN_ERROR_TABLE = "mdrm_run_error";
     public static final String DEFAULT_RUN_SUMMARY_TABLE = "mdrm_run_summary";
+    public static final String DEFAULT_RUN_INCREMENTAL_TABLE = "mdrm_run_incremental";
+    public static final String DEFAULT_FILE_SUMMARY_TABLE = "mdrm_file_summary";
     public static final String DEFAULT_PROMOTE_FUNCTION = "promote_mdrm_run";
     public static final String DEFAULT_CRON = "0 0 1 * * *";
     public static final String INPUT_DATE_TIME_PATTERN = "M/d/yyyy h:mm:ss a";
@@ -55,6 +58,7 @@ public final class MdrmConstants {
     public static final String MSG_REPORTING_FORM_COLUMN_MISSING = "Column reporting_form not found in table: %s";
     public static final String MSG_REQUIRED_COLUMN_MISSING = "Column %s not found in table: %s";
     public static final String MSG_RUN_ID_NOT_GENERATED = "Unable to generate unique run id";
+    public static final String MSG_INVALID_UPLOAD_FILE_NAME = "Uploaded file must match MDRM_ddyy.csv format";
     public static final String COLUMN_REPORTING_FORM = "reporting_form";
     public static final String COLUMN_RUN_ID = "run_id";
     public static final String COLUMN_START_DATE = "start_date";

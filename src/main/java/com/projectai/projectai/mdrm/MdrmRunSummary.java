@@ -10,6 +10,9 @@ public record MdrmRunSummary(
         int totalUniqueMdrms,
         int activeMdrms,
         int inactiveMdrms,
-        int updatedMdrms
+        int updatedMdrms,
+        int addedMdrms,
+        int modifiedMdrms,
+        int deletedMdrms
 ) {
 }

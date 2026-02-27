@@ -24,7 +24,8 @@ public class MdrmScheduler {
      */
     @Scheduled(cron = "${mdrm.cron}")
     public void scheduledLoad() {
-        MdrmLoadResult result = mdrmLoadService.loadLatestMdrm();
-        log.info("MDRM load complete. file={}, rows={}", result.sourceFileName(), result.loadedRows());
+        MdrmLoadResult result = mdrmLoadService.loadFreshMigration();
+        log.info("MDRM load complete. runs={}, rows={}, latestFile={}",
+                result.runsProcessed(), result.loadedRows(), result.sourceFileName());
     }
 }
