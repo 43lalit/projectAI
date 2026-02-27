@@ -45,4 +45,23 @@ public class MdrmController {
     public ResponseEntity<MdrmTableResponse> getDataByReportingForm(@RequestParam String reportingForm) {
         return ResponseEntity.ok(mdrmLoadService.getRowsByReportingForm(reportingForm));
     }
+
+    /**
+     * Returns run history summary for a reporting form.
+     */
+    @GetMapping("/run-history")
+    public ResponseEntity<MdrmRunHistoryResponse> getRunHistoryByReportingForm(@RequestParam String reportingForm) {
+        return ResponseEntity.ok(mdrmLoadService.getRunHistoryByReportingForm(reportingForm));
+    }
+
+    /**
+     * Returns MDRM code list for one run and one status bucket (TOTAL/ACTIVE/INACTIVE/UPDATED).
+     */
+    @GetMapping("/run-mdrms")
+    public ResponseEntity<MdrmCodeListResponse> getMdrmCodesForRunBucket(
+            @RequestParam String reportingForm,
+            @RequestParam long runId,
+            @RequestParam String bucket) {
+        return ResponseEntity.ok(mdrmLoadService.getMdrmCodesForRunBucket(reportingForm, runId, bucket));
+    }
 }

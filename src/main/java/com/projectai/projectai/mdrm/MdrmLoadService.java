@@ -53,8 +53,11 @@ public class MdrmLoadService {
         ensureRunErrorTable();
         ensureBaseStagingTable();
         ensureBaseMasterTable();
+        ensureRunSummaryTable();
         ensureMasterIndexes();
+        ensureRunSummaryIndexes();
         ensurePostgresPromotionFunction();
+        backfillMissingRunSummaries();
     }
 
     /**
@@ -66,6 +69,7 @@ public class MdrmLoadService {
 
         ensureRunMasterTable();
         ensureRunErrorTable();
+        ensureRunSummaryTable();
         long runId = generateRunId();
         String stagingTableName = sanitizeTableName(mdrmProperties.getStagingTable());
         createRunMasterRow(runId, content.fileName());
@@ -77,6 +81,7 @@ public class MdrmLoadService {
             IngestionStats ingestionStats = transformFromStagingToMaster(stagingTableName, runId);
 
             updateRunMasterCounts(runId, stagedRowCount, ingestionStats.ingestedCount(), ingestionStats.errorCount());
+            refreshRunSummary(runId);
             return new MdrmLoadResult(content.fileName(), ingestionStats.ingestedCount());
         } catch (RuntimeException ex) {
             int errorRows = countRunErrors(runId);
@@ -115,21 +120,106 @@ public class MdrmLoadService {
     }
 
     /**
-     * Returns all master rows for a given reporting form with dynamic columns for table rendering.
+     * Returns master rows for a given reporting form from only that form's latest run.
      */
     public MdrmTableResponse getRowsByReportingForm(String reportingForm) {
         ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
         String sql = MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_PREFIX + MdrmConstants.DEFAULT_MASTER_TABLE
-                + MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_SUFFIX;
+                + " WHERE reporting_form = ? AND run_id = (SELECT MAX(run_id) FROM "
+                + MdrmConstants.DEFAULT_MASTER_TABLE + " WHERE reporting_form = ?)";
 
         return jdbcTemplate.query(
                 connection -> {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setString(1, reportingForm);
+                    ps.setString(2, reportingForm);
                     return ps;
                 },
                 this::extractTableResponse
         );
+    }
+
+    /**
+     * Returns run history for a reporting form with unique MDRM counts by status category.
+     */
+    public MdrmRunHistoryResponse getRunHistoryByReportingForm(String reportingForm) {
+        ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
+        ensureRunSummaryTable();
+        String sql = """
+                SELECT
+                    s.run_id,
+                    COALESCE(rm.run_datetime, s.run_id) AS run_datetime,
+                    COALESCE(rm.file_name, '') AS file_name,
+                    s.total_unique_mdrms,
+                    s.active_mdrms,
+                    s.inactive_mdrms,
+                    s.updated_mdrms
+                FROM __RUN_SUMMARY_TABLE__ s
+                LEFT JOIN __RUN_MASTER_TABLE__ rm ON rm.run_id = s.run_id
+                WHERE s.reporting_form = ?
+                ORDER BY s.run_id DESC
+                """
+                .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE)
+                .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE);
+
+        List<MdrmRunSummary> runs = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, reportingForm);
+                    return ps;
+                },
+                (rs, rowNum) -> new MdrmRunSummary(
+                        rs.getLong("run_id"),
+                        rs.getLong("run_datetime"),
+                        rs.getString("file_name"),
+                        rs.getInt("total_unique_mdrms"),
+                        rs.getInt("active_mdrms"),
+                        rs.getInt("inactive_mdrms"),
+                        rs.getInt("updated_mdrms")
+                )
+        );
+
+        return new MdrmRunHistoryResponse(reportingForm, runs);
+    }
+
+    /**
+     * Returns MDRM codes for one run/category bucket for drill-down in the reporting UI.
+     */
+    public MdrmCodeListResponse getMdrmCodesForRunBucket(String reportingForm, long runId, String bucket) {
+        ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
+        String normalizedBucket = normalizeBucket(bucket);
+        String sql = """
+                WITH code_flags AS (
+                    SELECT
+                        m.mdrm_code,
+                        MAX(CASE WHEN m.is_active = 'Y' THEN 1 ELSE 0 END) AS has_active,
+                        MAX(CASE WHEN m.is_active = 'N' THEN 1 ELSE 0 END) AS has_inactive
+                    FROM __MASTER_TABLE__ m
+                    WHERE m.reporting_form = ?
+                      AND m.run_id = ?
+                      AND m.mdrm_code IS NOT NULL
+                      AND btrim(m.mdrm_code) <> ''
+                    GROUP BY m.mdrm_code
+                )
+                SELECT c.mdrm_code
+                FROM code_flags c
+                WHERE __BUCKET_CONDITION__
+                ORDER BY c.mdrm_code
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__BUCKET_CONDITION__", bucketConditionSql(normalizedBucket));
+
+        List<String> mdrmCodes = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, reportingForm);
+                    ps.setLong(2, runId);
+                    return ps;
+                },
+                (rs, rowNum) -> rs.getString("mdrm_code")
+        );
+
+        return new MdrmCodeListResponse(reportingForm, runId, normalizedBucket, mdrmCodes);
     }
 
     /**
@@ -174,6 +264,21 @@ public class MdrmLoadService {
                 + "run_id BIGINT NOT NULL, "
                 + "raw_record TEXT, "
                 + "error_description TEXT"
+                + ")");
+    }
+
+    /**
+     * Stores precomputed run/reporting-form summary counts for fast UI reads.
+     */
+    private void ensureRunSummaryTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE + " ("
+                + "run_id BIGINT NOT NULL, "
+                + "reporting_form TEXT NOT NULL, "
+                + "total_unique_mdrms INT NOT NULL, "
+                + "active_mdrms INT NOT NULL, "
+                + "inactive_mdrms INT NOT NULL, "
+                + "updated_mdrms INT NOT NULL, "
+                + "PRIMARY KEY (run_id, reporting_form)"
                 + ")");
     }
 
@@ -226,6 +331,109 @@ public class MdrmLoadService {
                 + MdrmConstants.DEFAULT_MASTER_TABLE + " (mdrm_code)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_mdrm_master_reporting_form ON "
                 + MdrmConstants.DEFAULT_MASTER_TABLE + " (reporting_form)");
+    }
+
+    /**
+     * Ensures summary lookup indexes exist for reporting-form and run filters.
+     */
+    private void ensureRunSummaryIndexes() {
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_mdrm_run_summary_form_run ON "
+                + MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE + " (reporting_form, run_id DESC)");
+    }
+
+    /**
+     * Recomputes summary rows for one run across all reporting forms in that run.
+     */
+    private void refreshRunSummary(long runId) {
+        String deleteSql = "DELETE FROM " + MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE + " WHERE run_id = ?";
+        jdbcTemplate.update(deleteSql, runId);
+
+        String insertSql = """
+                WITH code_flags AS (
+                    SELECT
+                        m.run_id,
+                        m.reporting_form,
+                        m.mdrm_code,
+                        MAX(CASE WHEN m.is_active = 'Y' THEN 1 ELSE 0 END) AS has_active,
+                        MAX(CASE WHEN m.is_active = 'N' THEN 1 ELSE 0 END) AS has_inactive
+                    FROM __MASTER_TABLE__ m
+                    WHERE m.run_id = ?
+                      AND m.reporting_form IS NOT NULL
+                      AND btrim(m.reporting_form) <> ''
+                      AND m.mdrm_code IS NOT NULL
+                      AND btrim(m.mdrm_code) <> ''
+                    GROUP BY m.run_id, m.reporting_form, m.mdrm_code
+                )
+                INSERT INTO __RUN_SUMMARY_TABLE__ (
+                    run_id, reporting_form, total_unique_mdrms, active_mdrms, inactive_mdrms, updated_mdrms
+                )
+                SELECT
+                    c.run_id,
+                    c.reporting_form,
+                    COUNT(*) AS total_unique_mdrms,
+                    SUM(CASE WHEN c.has_active = 1 AND c.has_inactive = 0 THEN 1 ELSE 0 END) AS active_mdrms,
+                    SUM(CASE WHEN c.has_active = 0 AND c.has_inactive = 1 THEN 1 ELSE 0 END) AS inactive_mdrms,
+                    SUM(CASE WHEN c.has_active = 1 AND c.has_inactive = 1 THEN 1 ELSE 0 END) AS updated_mdrms
+                FROM code_flags c
+                GROUP BY c.run_id, c.reporting_form
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE);
+
+        jdbcTemplate.update(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(insertSql);
+                    ps.setLong(1, runId);
+                    return ps;
+                }
+        );
+    }
+
+    /**
+     * Backfills summary rows only for run/form combinations that do not yet exist.
+     */
+    private void backfillMissingRunSummaries() {
+        ensureRunSummaryTable();
+        String sql = """
+                WITH code_flags AS (
+                    SELECT
+                        m.run_id,
+                        m.reporting_form,
+                        m.mdrm_code,
+                        MAX(CASE WHEN m.is_active = 'Y' THEN 1 ELSE 0 END) AS has_active,
+                        MAX(CASE WHEN m.is_active = 'N' THEN 1 ELSE 0 END) AS has_inactive
+                    FROM __MASTER_TABLE__ m
+                    WHERE m.reporting_form IS NOT NULL
+                      AND btrim(m.reporting_form) <> ''
+                      AND m.mdrm_code IS NOT NULL
+                      AND btrim(m.mdrm_code) <> ''
+                    GROUP BY m.run_id, m.reporting_form, m.mdrm_code
+                ),
+                aggregated AS (
+                    SELECT
+                        c.run_id,
+                        c.reporting_form,
+                        COUNT(*) AS total_unique_mdrms,
+                        SUM(CASE WHEN c.has_active = 1 AND c.has_inactive = 0 THEN 1 ELSE 0 END) AS active_mdrms,
+                        SUM(CASE WHEN c.has_active = 0 AND c.has_inactive = 1 THEN 1 ELSE 0 END) AS inactive_mdrms,
+                        SUM(CASE WHEN c.has_active = 1 AND c.has_inactive = 1 THEN 1 ELSE 0 END) AS updated_mdrms
+                    FROM code_flags c
+                    GROUP BY c.run_id, c.reporting_form
+                )
+                INSERT INTO __RUN_SUMMARY_TABLE__ (
+                    run_id, reporting_form, total_unique_mdrms, active_mdrms, inactive_mdrms, updated_mdrms
+                )
+                SELECT
+                    a.run_id, a.reporting_form, a.total_unique_mdrms, a.active_mdrms, a.inactive_mdrms, a.updated_mdrms
+                FROM aggregated a
+                LEFT JOIN __RUN_SUMMARY_TABLE__ s
+                  ON s.run_id = a.run_id AND s.reporting_form = a.reporting_form
+                WHERE s.run_id IS NULL
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE);
+
+        jdbcTemplate.execute(sql);
     }
 
     /**
@@ -582,6 +790,24 @@ public class MdrmLoadService {
             candidate++;
         }
         throw new IllegalStateException(MdrmConstants.MSG_RUN_ID_NOT_GENERATED);
+    }
+
+    private String normalizeBucket(String bucket) {
+        String normalized = bucket == null ? "" : bucket.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "TOTAL", "ACTIVE", "INACTIVE", "UPDATED" -> normalized;
+            default -> throw new IllegalArgumentException("Unsupported bucket: " + bucket);
+        };
+    }
+
+    private String bucketConditionSql(String bucket) {
+        return switch (bucket) {
+            case "TOTAL" -> "1 = 1";
+            case "ACTIVE" -> "c.has_active = 1 AND c.has_inactive = 0";
+            case "INACTIVE" -> "c.has_active = 0 AND c.has_inactive = 1";
+            case "UPDATED" -> "c.has_active = 1 AND c.has_inactive = 1";
+            default -> throw new IllegalArgumentException("Unsupported bucket: " + bucket);
+        };
     }
 
 

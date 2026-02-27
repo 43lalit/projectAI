@@ -4,112 +4,148 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MDRM Console</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/mdrm-console.css">
 </head>
-<body>
-  <main class="shell">
+<body class="bg-body-tertiary">
+  <main class="shell container-fluid">
     <section class="panel hero">
-      <h1>MDRM Operations Console</h1>
-      <p>Use one page to run staging loads and browse rows by reporting form.</p>
+      <h1>Fed Micro Data Reference Management Discovery Tool</h1>
     </section>
 
-    <section class="panel menu" aria-label="MDRM Menu">
-      <button id="menu-load" class="active" data-view="view-load" type="button">Load MDRM</button>
-      <button id="menu-reporting" data-view="view-reporting" type="button">Reporting Viewer</button>
-    </section>
+    <nav class="panel menu" aria-label="MDRM Menu">
+      <a id="menu-load" class="menu-link active" data-view="view-load" href="#">Load MDRM</a>
+      <a id="menu-reporting" class="menu-link" data-view="view-reporting" href="#">Reporting Viewer</a>
+    </nav>
 
     <section id="view-load" class="panel view active">
       <div class="row">
-        <button id="runLoadBtn" class="primary" type="button">Run MDRM Load</button>
+        <button id="runLoadBtn" class="primary btn btn-primary" type="button">Run MDRM Load</button>
       </div>
       <div id="loadStatus" class="status neutral">Ready.</div>
     </section>
 
     <section id="view-reporting" class="panel view">
-      <div class="row">
-        <button id="refreshFormsBtn" class="primary" type="button">Refresh Forms</button>
-        <select id="formSelect">
-          <option value="">Choose reporting form...</option>
-        </select>
-        <button id="loadTableBtn" class="primary" type="button" disabled>Load Table</button>
+      <div class="reporting-layout">
+        <aside class="report-list-pane">
+          <select id="leftNavMode" class="form-select form-select-sm">
+            <option value="reports">Reports (0)</option>
+            <option value="mdrms">MDRMs</option>
+          </select>
+          <input id="reportSearchInput" class="form-control" type="text" placeholder="Search reports...">
+          <div id="reportListContainer" class="report-list"></div>
+        </aside>
+
+        <section class="report-main-pane">
+          <div class="report-header">
+            <div id="selectedReportLabel" class="selected-report">Selected Report: -</div>
+            <div class="tab-row" role="tablist" aria-label="Report views">
+              <a id="tabSummaryBtn" class="tab-link active" href="#" data-tab="summaryTab" role="tab" aria-selected="true">Run Summary</a>
+              <a id="tabDetailsBtn" class="tab-link" href="#" data-tab="detailsTab" role="tab" aria-selected="false">Regular Details</a>
+            </div>
+          </div>
+
+          <section id="summaryTab" class="tab-panel active" role="tabpanel" aria-labelledby="tabSummaryBtn">
+            <div id="summaryTableContainer" class="table-shell"></div>
+            <div id="drilldownTitle" class="status neutral">Select a count to view MDRM codes.</div>
+            <div id="drilldownTableContainer" class="table-shell"></div>
+          </section>
+
+          <section id="detailsTab" class="tab-panel" role="tabpanel" aria-labelledby="tabDetailsBtn">
+            <div id="tableContainer" class="table-shell"></div>
+          </section>
+        </section>
       </div>
-      <div id="reportStatus" class="status neutral">Ready. Refresh forms to begin.</div>
-      <div id="tableContainer" class="table-shell"></div>
     </section>
   </main>
 
   <script>
-    const menuButtons = Array.from(document.querySelectorAll('.menu button'));
+    const menuButtons = Array.from(document.querySelectorAll('.menu-link'));
     const views = Array.from(document.querySelectorAll('.view'));
+    let formsLoaded = false;
+    let allForms = [];
+    let selectedReportingForm = '';
 
     function switchView(targetViewId) {
       views.forEach(view => view.classList.toggle('active', view.id === targetViewId));
       menuButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === targetViewId));
+      if (targetViewId === 'view-reporting' && !formsLoaded) {
+        refreshForms();
+      }
     }
 
     menuButtons.forEach(button => {
-      button.addEventListener('click', () => switchView(button.dataset.view));
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        switchView(button.dataset.view);
+      });
     });
 
     const runLoadBtn = document.getElementById('runLoadBtn');
     const loadStatus = document.getElementById('loadStatus');
+    const leftNavMode = document.getElementById('leftNavMode');
+    const reportSearchInput = document.getElementById('reportSearchInput');
+    const reportListContainer = document.getElementById('reportListContainer');
+    const selectedReportLabel = document.getElementById('selectedReportLabel');
+    const tableContainer = document.getElementById('tableContainer');
+    const summaryTableContainer = document.getElementById('summaryTableContainer');
+    const drilldownTitle = document.getElementById('drilldownTitle');
+    const drilldownTableContainer = document.getElementById('drilldownTableContainer');
+    const tabButtons = Array.from(document.querySelectorAll('.tab-link'));
+    const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 
     function setLoadStatus(text, css) {
       loadStatus.textContent = text;
       loadStatus.className = `status ${css}`;
     }
 
-    async function runLoad() {
-      runLoadBtn.disabled = true;
-      setLoadStatus('Loading... calling /api/mdrm/load', 'neutral');
-
-      try {
-        const response = await fetch('/api/mdrm/load', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        const bodyText = await response.text();
-        let payload;
-        try {
-          payload = bodyText ? JSON.parse(bodyText) : null;
-        } catch {
-          payload = bodyText;
-        }
-
-        if (!response.ok) {
-          setLoadStatus(
-            `Load failed (HTTP ${response.status})\n${typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)}`,
-            'err'
-          );
-          return;
-        }
-
-        setLoadStatus(`Load successful\n${JSON.stringify(payload, null, 2)}`, 'ok');
-      } catch (error) {
-        setLoadStatus(`Request error\n${error.message}`, 'err');
-      } finally {
-        runLoadBtn.disabled = false;
-      }
-    }
-
-    runLoadBtn.addEventListener('click', runLoad);
-
-    const refreshFormsBtn = document.getElementById('refreshFormsBtn');
-    const loadTableBtn = document.getElementById('loadTableBtn');
-    const formSelect = document.getElementById('formSelect');
-    const reportStatus = document.getElementById('reportStatus');
-    const tableContainer = document.getElementById('tableContainer');
-
-    function setReportStatus(text, css) {
-      reportStatus.textContent = text;
-      reportStatus.className = `status ${css}`;
-    }
-
     function setReportingBusy(isBusy) {
-      refreshFormsBtn.disabled = isBusy;
-      formSelect.disabled = isBusy;
-      loadTableBtn.disabled = isBusy || !formSelect.value;
+      reportSearchInput.disabled = isBusy;
+      leftNavMode.disabled = isBusy;
+      reportListContainer.classList.toggle('busy', isBusy);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function clearReportData() {
+      summaryTableContainer.innerHTML = '';
+      drilldownTitle.textContent = 'Select a count to view MDRM codes.';
+      drilldownTitle.className = 'status neutral';
+      drilldownTableContainer.innerHTML = '';
+      tableContainer.innerHTML = '';
+    }
+
+    function renderReportList(filteredForms) {
+      if (leftNavMode.value !== 'reports') {
+        reportListContainer.innerHTML = '<div class="text-muted small p-2">MDRM view coming soon.</div>';
+        return;
+      }
+      if (!filteredForms.length) {
+        reportListContainer.innerHTML = '<div class="text-muted small p-2">No matching reports.</div>';
+        return;
+      }
+      reportListContainer.innerHTML = filteredForms.map(form => `
+        <button class="report-item ${form === selectedReportingForm ? 'active' : ''}" type="button" data-report="${escapeHtml(form)}">
+          ${escapeHtml(form)}
+        </button>
+      `).join('');
+    }
+
+    function filterAndRenderReportList() {
+      if (leftNavMode.value !== 'reports') {
+        renderReportList([]);
+        return;
+      }
+      const q = reportSearchInput.value.trim().toLowerCase();
+      const filtered = q ? allForms.filter(form => form.toLowerCase().includes(q)) : allForms;
+      renderReportList(filtered);
     }
 
     function renderTable(payload) {
@@ -117,83 +153,240 @@
         tableContainer.innerHTML = '';
         return;
       }
-
-      const headerHtml = payload.columns.map(c => `<th>${c}</th>`).join('');
+      const headerHtml = payload.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('');
       const rowsHtml = payload.rows.map(row => {
-        const cells = payload.columns.map(c => `<td>${row[c] ?? ''}</td>`).join('');
+        const cells = payload.columns.map(c => `<td>${escapeHtml(row[c])}</td>`).join('');
         return `<tr>${cells}</tr>`;
       }).join('');
-
       tableContainer.innerHTML = `
-        <table>
+        <table class="table table-sm table-striped table-hover mb-0">
           <thead><tr>${headerHtml}</tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       `;
     }
 
+    function formatRunDate(epochMillis) {
+      if (!epochMillis) {
+        return '';
+      }
+      const value = Number(epochMillis);
+      if (Number.isNaN(value)) {
+        return '';
+      }
+      return new Date(value).toLocaleString();
+    }
+
+    function renderRunHistory(payload) {
+      const runs = payload && payload.runs ? payload.runs : [];
+      if (!runs.length) {
+        summaryTableContainer.innerHTML = '';
+        return;
+      }
+      const rowsHtml = runs.map(run => `
+        <tr>
+          <td>${escapeHtml(run.runId)}</td>
+          <td>${escapeHtml(formatRunDate(run.runDatetime))}</td>
+          <td>${escapeHtml(run.fileName)}</td>
+          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="TOTAL">${escapeHtml(run.totalUniqueMdrms)}</a></td>
+          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="ACTIVE">${escapeHtml(run.activeMdrms)}</a></td>
+          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="INACTIVE">${escapeHtml(run.inactiveMdrms)}</a></td>
+          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="UPDATED">${escapeHtml(run.updatedMdrms)}</a></td>
+        </tr>
+      `).join('');
+      summaryTableContainer.innerHTML = `
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Run ID</th>
+              <th>Run Date</th>
+              <th>Source File</th>
+              <th>Total Unique MDRMs</th>
+              <th>Active</th>
+              <th>Inactive</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
+
+    function renderDrilldown(payload) {
+      const codes = payload && payload.mdrmCodes ? payload.mdrmCodes : [];
+      drilldownTitle.textContent = `Run ${payload.runId} | ${payload.bucket} MDRMs: ${codes.length}`;
+      drilldownTitle.className = 'status ok';
+      if (!codes.length) {
+        drilldownTableContainer.innerHTML = '';
+        return;
+      }
+      const rowsHtml = codes.map(code => `<tr><td>${escapeHtml(code)}</td></tr>`).join('');
+      drilldownTableContainer.innerHTML = `
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead><tr><th>MDRM Code</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
+
+    function switchReportTab(targetTabId) {
+      tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === targetTabId));
+      tabButtons.forEach(button => {
+        const active = button.dataset.tab === targetTabId;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+      });
+    }
+
+    async function runLoad() {
+      runLoadBtn.disabled = true;
+      setLoadStatus('Loading... calling /api/mdrm/load', 'neutral');
+      try {
+        const response = await fetch('/api/mdrm/load', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const bodyText = await response.text();
+        let payload;
+        try {
+          payload = bodyText ? JSON.parse(bodyText) : null;
+        } catch {
+          payload = bodyText;
+        }
+        if (!response.ok) {
+          setLoadStatus(
+            `Load failed (HTTP ${response.status})\n${typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)}`,
+            'err'
+          );
+          return;
+        }
+        setLoadStatus(`Load successful\n${JSON.stringify(payload, null, 2)}`, 'ok');
+        formsLoaded = false;
+      } catch (error) {
+        setLoadStatus(`Request error\n${error.message}`, 'err');
+      } finally {
+        runLoadBtn.disabled = false;
+      }
+    }
+
     async function refreshForms() {
       setReportingBusy(true);
-      setReportStatus('Loading reporting forms...', 'neutral');
-
       try {
         const response = await fetch('/api/mdrm/reporting-forms');
         const forms = await response.json();
-
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${JSON.stringify(forms)}`);
         }
-
-        formSelect.innerHTML = '<option value="">Choose reporting form...</option>';
-        forms.forEach(form => {
-          const option = document.createElement('option');
-          option.value = form;
-          option.textContent = form;
-          formSelect.appendChild(option);
-        });
-
-        setReportStatus(`Loaded ${forms.length} reporting forms.`, 'ok');
+        allForms = Array.isArray(forms) ? forms : [];
+        formsLoaded = true;
+        const reportOption = leftNavMode.querySelector('option[value="reports"]');
+        if (reportOption) {
+          reportOption.textContent = `Reports (${allForms.length})`;
+        }
+        filterAndRenderReportList();
       } catch (error) {
-        setReportStatus(`Failed to load reporting forms\n${error.message}`, 'err');
+        console.error('Failed to load report list', error);
       } finally {
         setReportingBusy(false);
       }
     }
 
-    async function loadTable() {
-      if (!formSelect.value) {
-        setReportStatus('Please select a reporting form first.', 'err');
+    async function loadTable(reportingForm) {
+      if (!reportingForm) {
         return;
       }
-
       setReportingBusy(true);
-      setReportStatus(`Loading rows for form: ${formSelect.value}`, 'neutral');
-
+      selectedReportLabel.textContent = `Selected Report: ${reportingForm}`;
+      clearReportData();
       try {
-        const query = encodeURIComponent(formSelect.value);
-        const response = await fetch(`/api/mdrm/data?reportingForm=${query}`);
-        const payload = await response.json();
+        const query = encodeURIComponent(reportingForm);
+        const [historyResponse, detailsResponse] = await Promise.all([
+          fetch(`/api/mdrm/run-history?reportingForm=${query}`),
+          fetch(`/api/mdrm/data?reportingForm=${query}`)
+        ]);
+        const historyPayload = await historyResponse.json();
+        const detailsPayload = await detailsResponse.json();
+        if (!historyResponse.ok) {
+          throw new Error(`Run history HTTP ${historyResponse.status}: ${JSON.stringify(historyPayload)}`);
+        }
+        if (!detailsResponse.ok) {
+          throw new Error(`Details HTTP ${detailsResponse.status}: ${JSON.stringify(detailsPayload)}`);
+        }
+        renderRunHistory(historyPayload);
+        renderTable(detailsPayload);
+      } catch (error) {
+        summaryTableContainer.innerHTML = '';
+        tableContainer.innerHTML = '';
+        console.error('Failed to load report data', error);
+      } finally {
+        setReportingBusy(false);
+      }
+    }
 
+    runLoadBtn.addEventListener('click', runLoad);
+
+    reportSearchInput.addEventListener('input', filterAndRenderReportList);
+
+    leftNavMode.addEventListener('change', () => {
+      if (leftNavMode.value === 'mdrms') {
+        reportSearchInput.disabled = true;
+        selectedReportLabel.textContent = 'Selected Report: -';
+        selectedReportingForm = '';
+        clearReportData();
+      } else {
+        reportSearchInput.disabled = false;
+      }
+      filterAndRenderReportList();
+    });
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        switchReportTab(button.dataset.tab);
+      });
+    });
+
+    reportListContainer.addEventListener('click', event => {
+      if (leftNavMode.value !== 'reports') {
+        return;
+      }
+      const button = event.target.closest('.report-item');
+      if (!button) {
+        return;
+      }
+      selectedReportingForm = button.dataset.report || '';
+      filterAndRenderReportList();
+      loadTable(selectedReportingForm);
+    });
+
+    summaryTableContainer.addEventListener('click', async event => {
+      if (leftNavMode.value !== 'reports') {
+        return;
+      }
+      const link = event.target.closest('.count-link');
+      if (!link || !selectedReportingForm) {
+        return;
+      }
+      event.preventDefault();
+      const runId = link.dataset.runId;
+      const bucket = link.dataset.bucket;
+      const query = encodeURIComponent(selectedReportingForm);
+      drilldownTitle.textContent = `Loading ${bucket} MDRM codes for run ${runId}...`;
+      drilldownTitle.className = 'status neutral';
+      drilldownTableContainer.innerHTML = '';
+      try {
+        const response = await fetch(`/api/mdrm/run-mdrms?reportingForm=${query}&runId=${encodeURIComponent(runId)}&bucket=${encodeURIComponent(bucket)}`);
+        const payload = await response.json();
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
         }
-
-        renderTable(payload);
-        setReportStatus(`Loaded ${payload.rows.length} row(s) for ${formSelect.value}.`, 'ok');
+        renderDrilldown(payload);
       } catch (error) {
-        tableContainer.innerHTML = '';
-        setReportStatus(`Failed to load table data\n${error.message}`, 'err');
-      } finally {
-        setReportingBusy(false);
+        drilldownTitle.textContent = `Failed to load MDRM drilldown\n${error.message}`;
+        drilldownTitle.className = 'status err';
       }
-    }
-
-    formSelect.addEventListener('change', () => {
-      loadTableBtn.disabled = !formSelect.value;
     });
-
-    refreshFormsBtn.addEventListener('click', refreshForms);
-    loadTableBtn.addEventListener('click', loadTable);
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

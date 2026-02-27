@@ -1,7 +1,7 @@
 # ProjectAI - MDRM Loader (Spring Boot)
 
 ## Overview
-ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL with run tracking, error logging, and a master table for reporting.
+ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL with run tracking, error logging, a master table for reporting, and precomputed run summaries for fast UI exploration.
 
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Create `run_id` (UTC epoch milliseconds) and insert a row in `mdrm_run_master`
@@ -35,6 +35,13 @@ Current ingestion flow (`POST /api/mdrm/load`):
   - `run_id`
   - `raw_record`
   - `error_description`
+- `mdrm_run_summary`
+  - `run_id` + `reporting_form` (composite PK)
+  - `total_unique_mdrms`
+  - `active_mdrms`
+  - `inactive_mdrms`
+  - `updated_mdrms`
+  - populated during each successful load and backfilled for older runs at startup
 
 ## Derived Rules
 - Date parsing format: `M/d/yyyy h:mm:ss a`
@@ -43,6 +50,11 @@ Current ingestion flow (`POST /api/mdrm/load`):
   - end date is greater than current UTC time
 - otherwise `is_active = 'N'`
 - Rows with null/invalid dates are skipped from `mdrm_master` and logged to `mdrm_run_error`
+- Run summary classification by unique `mdrm_code` per run/report:
+  - `active`: has only `is_active = 'Y'`
+  - `inactive`: has only `is_active = 'N'`
+  - `updated`: has both active and inactive records
+  - `total_unique_mdrms`: count of distinct `mdrm_code`
 
 ## Tech Stack
 - Java 17
@@ -92,15 +104,30 @@ Base path: `/api/mdrm`
 - `GET /reporting-forms`
   - Returns distinct `reporting_form` values from `mdrm_master`
 - `GET /data?reportingForm=<value>`
-  - Returns rows from `mdrm_master` in tabular JSON
+  - Returns rows from `mdrm_master` in tabular JSON for selected form from **latest run only**
+- `GET /run-history?reportingForm=<value>`
+  - Returns run summary rows for a report form:
+  - `run_id`, `run_datetime`, `file_name`, `total_unique_mdrms`, `active_mdrms`, `inactive_mdrms`, `updated_mdrms`
+- `GET /run-mdrms?reportingForm=<value>&runId=<runId>&bucket=<TOTAL|ACTIVE|INACTIVE|UPDATED>`
+  - Returns MDRM code list for drill-down of a selected run/bucket
 
 ## UI
 Single-page menu console:
 - `http://localhost:8080/`
 
-Menu options:
+Main menu:
 - **Load MDRM**
 - **Reporting Viewer**
+
+Reporting Viewer:
+- full-width split layout
+- left pane:
+  - mode selector with `Reports (N)` and placeholder `MDRMs`
+  - search filter + scrollable report list
+- right pane:
+  - selected report heading
+  - tabbed sections: `Run Summary` and `Regular Details`
+  - run-summary count hyperlinks for MDRM drill-down
 
 Legacy pages redirect to `/`:
 - `/mdrm-ui.html`
@@ -130,3 +157,4 @@ Open:
 - PostgreSQL promotion function is created/updated at startup for DB-side staging-to-master processing
 - Promotion from staging to master is PostgreSQL-only (no Java fallback path)
 - MDRM integration tests are PostgreSQL-gated; when test DB is H2, those tests are skipped
+- Bootstrap CDN is used for base UI styling in static pages

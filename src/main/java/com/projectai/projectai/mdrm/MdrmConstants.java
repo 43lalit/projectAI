@@ -13,6 +13,7 @@ public final class MdrmConstants {
     public static final String DEFAULT_MASTER_TABLE = "mdrm_master";
     public static final String DEFAULT_RUN_MASTER_TABLE = "mdrm_run_master";
     public static final String DEFAULT_RUN_ERROR_TABLE = "mdrm_run_error";
+    public static final String DEFAULT_RUN_SUMMARY_TABLE = "mdrm_run_summary";
     public static final String DEFAULT_PROMOTE_FUNCTION = "promote_mdrm_run";
     public static final String DEFAULT_CRON = "0 0 1 * * *";
     public static final String INPUT_DATE_TIME_PATTERN = "M/d/yyyy h:mm:ss a";
