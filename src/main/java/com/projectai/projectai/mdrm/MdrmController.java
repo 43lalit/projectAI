@@ -1,5 +1,7 @@
 package com.projectai.projectai.mdrm;
 
+import com.projectai.projectai.auth.CsrfService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,21 +23,28 @@ import java.util.List;
 public class MdrmController {
 
     private final MdrmLoadService mdrmLoadService;
+    private final CsrfService csrfService;
 
-    public MdrmController(MdrmLoadService mdrmLoadService) {
+    public MdrmController(MdrmLoadService mdrmLoadService, CsrfService csrfService) {
         this.mdrmLoadService = mdrmLoadService;
+        this.csrfService = csrfService;
     }
 
     /**
      * Triggers a fresh MDRM migration run: truncate all MDRM tables then process MDRM_mmyy files in sequence.
      */
     @PostMapping("/load")
-    public ResponseEntity<MdrmLoadResult> loadMdrm() {
+    public ResponseEntity<MdrmLoadResult> loadMdrm(HttpServletRequest request) {
+        csrfService.requireValidToken(request, request.getSession());
         return ResponseEntity.ok(mdrmLoadService.loadFreshMigration());
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<MdrmLoadResult> uploadMdrm(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<MdrmLoadResult> uploadMdrm(
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest request
+    ) {
+        csrfService.requireValidToken(request, request.getSession());
         try {
             return ResponseEntity.ok(mdrmLoadService.loadUploadedMdrm(file.getOriginalFilename(), file.getBytes()));
         } catch (IllegalArgumentException ex) {

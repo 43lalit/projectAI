@@ -3,6 +3,30 @@
 ## Overview
 ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL with run tracking, error logging, a master table for reporting, and precomputed run summaries for fast UI exploration.
 
+## Latest Updates (2026-02-28)
+- Discovery-first UX with AG Grid search results and pagination.
+- Search results simplified to core business columns:
+  - MDRM Code
+  - Description (with tooltip for long text)
+  - Reporting Form
+- Favorites/bookmarks system with user-specific persistence:
+  - Save MDRMs to default list or groups
+  - Create/rename/delete groups
+  - Move/remove bookmarks
+  - Dedicated `Bookmarks` view
+- Authentication upgrades:
+  - Login, Sign Up, Logout
+  - Reset Password (email + new password)
+  - Mode-based auth UI (fields shown per selected action)
+  - Password visibility toggle and confirm-password checks
+- Dark/light theme improvements with reliable switching and readable contrast.
+- Header/nav redesign with icon pills and theme-safe color treatment.
+- Dashboard KPI refresh:
+  - `Unique Reports`
+  - `MDRMs`
+  - `Current View`
+  - locale-formatted counts (e.g., `12,345`)
+
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
 2. Discover files by pattern `mdrm.migration-file-pattern` and keep only `MDRM_mmyy.csv`

@@ -1,0 +1,1431 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FedMDRM Search & Discovery — Interactive Mock</title>
+    <style>
+        :root{
+            --bg:#0b1220;
+            --panel:#0f1a30;
+            --card:#101f3a;
+            --card2:#0d1930;
+            --text:#e9eefc;
+            --muted:#9fb1d1;
+            --border:rgba(255,255,255,.10);
+            --brand:#4ea3ff;
+            --brand2:#ff8a3d;
+            --good:#2ee59d;
+            --warn:#ffd166;
+            --bad:#ff4d6d;
+            --shadow: 0 10px 30px rgba(0,0,0,.35);
+            --radius:16px;
+            --radius2:22px;
+            --max:1100px;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+            margin:0;
+            font-family:var(--sans);
+            color:var(--text);
+            background:
+            radial-gradient(1200px 700px at 20% -10%, rgba(78,163,255,.22), transparent 60%),
+            radial-gradient(900px 600px at 90% 10%, rgba(255,138,61,.18), transparent 55%),
+            linear-gradient(180deg, #070b14, var(--bg) 18%, #070b14 120%);
+        }
+        a{color:inherit}
+        .wrap{max-width:var(--max); margin:0 auto; padding:18px 18px 80px}
+        .topbar{
+            display:flex; align-items:center; justify-content:space-between;
+            gap:14px; padding:14px 16px;
+            background:rgba(255,255,255,.04);
+            border:1px solid var(--border);
+            border-radius:var(--radius2);
+            box-shadow: var(--shadow);
+            position: sticky; top: 10px; backdrop-filter: blur(10px); z-index: 50;
+        }
+        .brand{
+            display:flex; align-items:center; gap:12px; min-width: 220px;
+        }
+        .logo{
+            width:34px; height:34px; border-radius:10px;
+            background: linear-gradient(135deg, var(--brand), rgba(78,163,255,.3));
+            display:grid; place-items:center;
+            border:1px solid rgba(255,255,255,.12);
+        }
+        .logo:before{
+            content:"";
+            width:14px; height:14px; border-radius:4px;
+            border:2px solid rgba(255,255,255,.85);
+            box-shadow: 10px 0 0 -6px rgba(255,255,255,.85), 0 10px 0 -6px rgba(255,255,255,.85);
+            transform: rotate(12deg);
+            opacity:.95;
+        }
+        .brand h1{font-size:14px; margin:0; line-height:1.15}
+        .brand p{margin:0; font-size:12px; color:var(--muted)}
+        .nav{
+            display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+        }
+        .pill{
+            display:inline-flex; align-items:center; gap:8px;
+            padding:8px 10px; border-radius:999px;
+            border:1px solid var(--border);
+            background:rgba(255,255,255,.03);
+            color:var(--muted); text-decoration:none;
+            font-size:13px;
+            cursor:pointer;
+        }
+        .pill.active{color:var(--text); border-color:rgba(78,163,255,.45); background:rgba(78,163,255,.12)}
+        .actions{display:flex; align-items:center; gap:10px}
+        .btn{
+            border:1px solid var(--border);
+            background: rgba(255,255,255,.04);
+            color: var(--text);
+            border-radius: 12px;
+            padding: 10px 12px;
+            cursor:pointer;
+            display:inline-flex; align-items:center; gap:8px;
+            font-size:13px;
+        }
+        .btn.primary{
+            border-color: rgba(78,163,255,.5);
+            background: linear-gradient(135deg, rgba(78,163,255,.22), rgba(78,163,255,.06));
+        }
+        .btn.orange{
+            border-color: rgba(255,138,61,.55);
+            background: linear-gradient(135deg, rgba(255,138,61,.20), rgba(255,138,61,.06));
+        }
+        .btn:active{transform: translateY(1px)}
+        .icon{
+            width:16px; height:16px; display:inline-grid; place-items:center;
+            border-radius:6px; background: rgba(255,255,255,.05);
+            border:1px solid rgba(255,255,255,.10);
+            font-family: var(--mono);
+            font-size:11px; color: var(--muted);
+        }
+
+        /* Layout */
+        .grid{display:grid; gap:16px}
+        .hero{
+            margin-top:16px;
+            background: linear-gradient(135deg, rgba(78,163,255,.18), rgba(255,138,61,.10));
+            border:1px solid var(--border);
+            border-radius: var(--radius2);
+            box-shadow: var(--shadow);
+            overflow:hidden;
+        }
+        .heroInner{
+            display:grid;
+            grid-template-columns: 1.25fr .75fr;
+            gap: 16px;
+            padding: 22px;
+            align-items: center;
+        }
+        .hero h2{margin:0 0 10px; font-size:34px; letter-spacing:-.02em}
+        .hero p{margin:0 0 14px; color: var(--muted); line-height:1.45}
+        .heroCard{
+            background: rgba(10,18,34,.55);
+            border:1px solid rgba(255,255,255,.10);
+            border-radius: var(--radius);
+            padding: 14px;
+        }
+        .heroCard .kpiRow{display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px}
+        .kpi{
+            background: rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.08);
+            border-radius: 14px;
+            padding: 12px;
+        }
+        .kpi .big{font-size:18px; font-weight:700}
+        .kpi .small{font-size:12px; color:var(--muted); margin-top:4px}
+        .searchBox{
+            margin-top: 14px;
+            display:flex; gap:10px; flex-wrap:wrap;
+            background: rgba(10,18,34,.55);
+            border:1px solid rgba(255,255,255,.10);
+            border-radius: var(--radius);
+            padding: 12px;
+            align-items: center;
+        }
+        .searchBox input{
+            flex: 1 1 360px;
+            border:1px solid rgba(255,255,255,.10);
+            background: rgba(255,255,255,.03);
+            color: var(--text);
+            border-radius: 12px;
+            padding: 12px 12px;
+            font-size: 14px;
+            outline:none;
+        }
+        .filters{
+            display:flex; gap:10px; flex-wrap:wrap;
+            margin-top: 12px;
+        }
+        select, .chip{
+            border:1px solid rgba(255,255,255,.10);
+            background: rgba(255,255,255,.03);
+            color: var(--text);
+            border-radius: 12px;
+            padding: 10px 10px;
+            font-size: 13px;
+            outline:none;
+        }
+        .chip{
+            cursor:pointer;
+            display:inline-flex; gap:8px; align-items:center;
+            color: var(--muted);
+        }
+        .chip.on{color: var(--text); border-color: rgba(78,163,255,.45); background: rgba(78,163,255,.10)}
+        .sectionTitle{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px}
+        .sectionTitle h3{margin:0; font-size:16px}
+        .sectionTitle p{margin:0; color:var(--muted); font-size:13px}
+        .cards{
+            display:grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 12px;
+        }
+        .card{
+            background: rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.10);
+            border-radius: var(--radius);
+            padding: 14px;
+            box-shadow: 0 10px 25px rgba(0,0,0,.22);
+        }
+        .card h4{margin:0 0 8px; font-size:14px}
+        .card p{margin:0; color:var(--muted); font-size:13px; line-height:1.4}
+        .card .row{display:flex; justify-content:space-between; gap:10px; margin-top:12px; align-items:center}
+        .tag{
+            font-size:12px; padding:6px 8px;
+            border-radius: 999px;
+            border:1px solid rgba(255,255,255,.10);
+            background: rgba(255,255,255,.02);
+            color: var(--muted);
+        }
+        .tag.good{border-color: rgba(46,229,157,.35); color: rgba(46,229,157,.95); background: rgba(46,229,157,.08)}
+        .tag.warn{border-color: rgba(255,209,102,.35); color: rgba(255,209,102,.95); background: rgba(255,209,102,.08)}
+        .tag.bad{border-color: rgba(255,77,109,.35); color: rgba(255,77,109,.95); background: rgba(255,77,109,.08)}
+        .linkBtn{
+            padding:8px 10px; border-radius: 12px;
+            border:1px solid rgba(78,163,255,.35);
+            background: rgba(78,163,255,.10);
+            color: var(--text);
+            cursor:pointer;
+            font-size: 13px;
+            text-decoration:none;
+            display:inline-flex; gap:8px; align-items:center;
+        }
+        .table{
+            width:100%;
+            border-collapse: collapse;
+            overflow:hidden;
+            border-radius: var(--radius);
+            border:1px solid rgba(255,255,255,.10);
+            background: rgba(255,255,255,.03);
+        }
+        .table th, .table td{
+            padding: 12px 12px;
+            border-bottom:1px solid rgba(255,255,255,.08);
+            font-size: 13px;
+            vertical-align: top;
+        }
+        .table th{
+            text-align:left;
+            color: var(--muted);
+            font-weight: 600;
+            background: rgba(255,255,255,.03);
+        }
+        .table tr:hover td{background: rgba(78,163,255,.06)}
+        .mono{font-family: var(--mono)}
+        .muted{color: var(--muted)}
+        .twoCol{
+            display:grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 14px;
+        }
+        .panel{
+            background: rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.10);
+            border-radius: var(--radius2);
+            padding: 16px;
+            box-shadow: var(--shadow);
+        }
+        .panel h3{margin:0 0 8px; font-size:16px}
+        .crumbs{
+            margin-top:16px;
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .crumbs a{color: var(--muted); text-decoration:none}
+        .crumbs a:hover{color: var(--text)}
+        .crumbSep{opacity:.6}
+        .kv{
+            display:grid; grid-template-columns: 160px 1fr; gap:10px;
+            padding:10px 0; border-bottom:1px solid rgba(255,255,255,.08);
+            font-size: 13px;
+        }
+        .kv:last-child{border-bottom:none}
+        .kv .k{color: var(--muted)}
+        .right{
+            position: fixed; right: 14px; bottom: 14px;
+            width: 320px;
+            max-height: 70vh;
+            overflow:auto;
+            background: rgba(16,31,58,.92);
+            border:1px solid rgba(255,255,255,.12);
+            border-radius: var(--radius2);
+            box-shadow: var(--shadow);
+            padding: 12px;
+            display:none;
+            backdrop-filter: blur(10px);
+            z-index: 60;
+        }
+        .right.show{display:block}
+        .drawerHead{display:flex; justify-content:space-between; align-items:center; gap:10px}
+        .drawerHead h4{margin:0; font-size:14px}
+        .drawerItem{
+            margin-top:10px;
+            padding:10px;
+            border-radius: 14px;
+            border:1px solid rgba(255,255,255,.10);
+            background: rgba(255,255,255,.03);
+        }
+        .drawerItem .t{font-size:13px; font-weight:600}
+        .drawerItem .s{font-size:12px; color: var(--muted); margin-top:4px}
+        .drawerItem .row{display:flex; gap:8px; margin-top:10px; align-items:center}
+        .smallBtn{
+            font-size:12px; padding:7px 9px;
+            border-radius: 12px;
+            border:1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.03);
+            color: var(--text);
+            cursor:pointer;
+        }
+        .toast{
+            position: fixed; left: 50%; transform: translateX(-50%);
+            bottom: 18px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border:1px solid rgba(255,255,255,.12);
+            background: rgba(10,18,34,.92);
+            box-shadow: var(--shadow);
+            color: var(--text);
+            display:none;
+            z-index: 80;
+            font-size: 13px;
+            backdrop-filter: blur(10px);
+        }
+        .toast.show{display:block}
+        @media (max-width: 980px){
+            .heroInner{grid-template-columns: 1fr}
+            .cards{grid-template-columns: 1fr}
+            .twoCol{grid-template-columns: 1fr}
+            .right{width: calc(100% - 28px)}
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="topbar">
+        <div class="brand" onclick="go('#/')" style="cursor:pointer">
+            <div class="logo"></div>
+            <div>
+                <h1>FedMDRM</h1>
+                <p>Search & Discovery (mock)</p>
+            </div>
+        </div>
+
+        <div class="nav">
+            <a class="pill" id="nav-home" href="#/">Home</a>
+            <a class="pill" id="nav-reports" href="#/search?type=report">Reports</a>
+            <a class="pill" id="nav-elements" href="#/search?type=element">MDRM Elements</a>
+            <a class="pill" id="nav-glossary" href="#/glossary">Glossary</a>
+        </div>
+
+        <div class="actions">
+            <button class="btn" id="btnDrawer"><span class="icon">★</span> Saved</button>
+            <button class="btn primary" onclick="toast('This is a mock — wire to auth later')">
+                <span class="icon">↳</span> Sign In
+            </button>
+        </div>
+    </div>
+
+    <div id="app"></div>
+</div>
+
+<!-- Saved drawer -->
+<div class="right" id="drawer">
+    <div class="drawerHead">
+        <h4>Saved items</h4>
+        <button class="smallBtn" onclick="toggleDrawer(false)">Close</button>
+    </div>
+    <div class="muted" style="margin-top:8px; font-size:12px">
+        Save reports/elements to compare later (client-side only).
+    </div>
+    <div id="drawerBody"></div>
+    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn orange" onclick="compareSaved()">Compare</button>
+        <button class="btn" onclick="clearSaved()">Clear</button>
+        <button class="btn" onclick="exportSaved()">Export JSON</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    /** ----------------------------
+     *  MOCK DATA (replace later with API)
+     *  ---------------------------- */
+    const DB = {
+        reports: [
+            {
+                id: "FRY9C",
+                name: "FR Y-9C (Consolidated Financial Statements for Holding Companies)",
+                agency: "Federal Reserve",
+                domain: "Banking",
+                updated: "2026-01-18",
+                status: "active",
+                description: "Quarterly reporting for bank holding companies; includes balance sheet, income, capital, and risk-based metrics.",
+                schedules: [
+                    { code: "HC", name: "Balance Sheet" },
+                    { code: "HI", name: "Income Statement" },
+                    { code: "HC-R", name: "Regulatory Capital" },
+                    { code: "HC-N", name: "Past Due & Nonaccrual" }
+                ],
+                elements: ["MDRM_1001","MDRM_1020","MDRM_2205","MDRM_3007","MDRM_4012"]
+            },
+            {
+                id: "FFIEC031",
+                name: "FFIEC 031 (Call Report — Domestic Offices Only)",
+                agency: "FFIEC",
+                domain: "Banking",
+                updated: "2026-02-02",
+                status: "active",
+                description: "Quarterly call report for banks with domestic offices only; core regulatory metrics and schedules.",
+                schedules: [
+                    { code: "RC", name: "Balance Sheet" },
+                    { code: "RI", name: "Income Statement" },
+                    { code: "RC-R", name: "Regulatory Capital" }
+                ],
+                elements: ["MDRM_1001","MDRM_1020","MDRM_2110","MDRM_2205","MDRM_4020"]
+            },
+            {
+                id: "FR2900",
+                name: "FR 2900 (Report of Transaction Accounts, Other Deposits and Vault Cash)",
+                agency: "Federal Reserve",
+                domain: "Liquidity",
+                updated: "2025-12-10",
+                status: "active",
+                description: "Deposits and vault cash reporting for reserve requirement and liquidity monitoring.",
+                schedules: [
+                    { code: "FR2900", name: "Main Schedule" }
+                ],
+                elements: ["MDRM_1020","MDRM_1050","MDRM_1901"]
+            }
+        ],
+        elements: [
+            {
+                id: "MDRM_1001",
+                name: "Total Assets",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Total assets held by the reporting entity at quarter end.",
+                status: "active",
+                cde: true,
+                confidentiality: "public",
+                lineageCompleteness: "high",
+                usedIn: [
+                    { reportId: "FRY9C", schedule: "HC", line: "12", label: "Total assets" },
+                    { reportId: "FFIEC031", schedule: "RC", line: "12", label: "Total assets" }
+                ],
+                synonyms: ["Assets, Total", "Total balance sheet assets"],
+                validations: [">= 0", "Cross-check sum of components (where applicable)"]
+            },
+            {
+                id: "MDRM_1020",
+                name: "Total Deposits",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Total deposit liabilities (transaction + non-transaction).",
+                status: "active",
+                cde: true,
+                confidentiality: "restricted",
+                lineageCompleteness: "medium",
+                usedIn: [
+                    { reportId: "FRY9C", schedule: "HC", line: "14", label: "Total deposits" },
+                    { reportId: "FFIEC031", schedule: "RC", line: "15", label: "Total deposits" },
+                    { reportId: "FR2900", schedule: "FR2900", line: "1", label: "Transaction accounts + other deposits" }
+                ],
+                synonyms: ["Deposits Total", "Deposit liabilities"],
+                validations: ["Should reconcile with deposit breakdown schedules"]
+            },
+            {
+                id: "MDRM_2205",
+                name: "Net Interest Income",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Interest income minus interest expense for the reporting period.",
+                status: "active",
+                cde: true,
+                confidentiality: "public",
+                lineageCompleteness: "high",
+                usedIn: [
+                    { reportId: "FRY9C", schedule: "HI", line: "1", label: "Net interest income" },
+                    { reportId: "FFIEC031", schedule: "RI", line: "1", label: "Net interest income" }
+                ],
+                synonyms: ["NII", "Interest margin (partial)"],
+                validations: ["Should equal interest income - interest expense"]
+            },
+            {
+                id: "MDRM_3007",
+                name: "Tier 1 Capital",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Tier 1 capital as defined by regulatory capital rules.",
+                status: "active",
+                cde: true,
+                confidentiality: "public",
+                lineageCompleteness: "high",
+                usedIn: [
+                    { reportId: "FRY9C", schedule: "HC-R", line: "2", label: "Tier 1 capital" },
+                    { reportId: "FFIEC031", schedule: "RC-R", line: "2", label: "Tier 1 capital" }
+                ],
+                synonyms: ["Core capital"],
+                validations: [">= 0", "Check consistency with CET1 and components"]
+            },
+            {
+                id: "MDRM_4012",
+                name: "Nonaccrual Loans",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Loans in nonaccrual status at quarter end.",
+                status: "active",
+                cde: true,
+                confidentiality: "restricted",
+                lineageCompleteness: "low",
+                usedIn: [
+                    { reportId: "FRY9C", schedule: "HC-N", line: "1", label: "Loans in nonaccrual" }
+                ],
+                synonyms: ["NAC loans"],
+                validations: ["Should reconcile with past due schedules"]
+            },
+            {
+                id: "MDRM_4020",
+                name: "Allowance for Credit Losses (ACL)",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Allowance for credit losses measured under applicable accounting guidance.",
+                status: "active",
+                cde: true,
+                confidentiality: "restricted",
+                lineageCompleteness: "medium",
+                usedIn: [
+                    { reportId: "FFIEC031", schedule: "RC", line: "4.c", label: "Allowance for credit losses" }
+                ],
+                synonyms: ["ALLL / ACL"],
+                validations: [">= 0"]
+            },
+            {
+                id: "MDRM_1050",
+                name: "Vault Cash",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Currency and coin in the reporting entity’s vaults.",
+                status: "active",
+                cde: false,
+                confidentiality: "restricted",
+                lineageCompleteness: "medium",
+                usedIn: [
+                    { reportId: "FR2900", schedule: "FR2900", line: "2", label: "Vault cash" }
+                ],
+                synonyms: ["Cash on hand"],
+                validations: [">= 0"]
+            },
+            {
+                id: "MDRM_1901",
+                name: "Transaction Accounts",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Accounts with withdrawal/payment features used for transactions.",
+                status: "active",
+                cde: false,
+                confidentiality: "restricted",
+                lineageCompleteness: "medium",
+                usedIn: [
+                    { reportId: "FR2900", schedule: "FR2900", line: "1.a", label: "Transaction accounts" }
+                ],
+                synonyms: ["Demand deposits (subset)"],
+                validations: ["Should reconcile with deposit categories"]
+            },
+            {
+                id: "MDRM_2110",
+                name: "Total Loans and Leases",
+                datatype: "decimal(18,2)",
+                uom: "USD",
+                definition: "Gross loans and lease financing receivables.",
+                status: "active",
+                cde: true,
+                confidentiality: "restricted",
+                lineageCompleteness: "high",
+                usedIn: [
+                    { reportId: "FFIEC031", schedule: "RC", line: "4", label: "Loans and leases, net of unearned income" }
+                ],
+                synonyms: ["Loans total"],
+                validations: [">= 0"]
+            }
+        ]
+    };
+
+    /** ----------------------------
+     *  Simple Router + UI helpers
+     *  ---------------------------- */
+    const app = document.getElementById("app");
+
+    function setActiveNav(hash){
+        const navIds = ["nav-home","nav-reports","nav-elements","nav-glossary"];
+        navIds.forEach(id => document.getElementById(id).classList.remove("active"));
+        if(hash.startsWith("#/search?type=report")) document.getElementById("nav-reports").classList.add("active");
+        else if(hash.startsWith("#/search?type=element")) document.getElementById("nav-elements").classList.add("active");
+        else if(hash.startsWith("#/glossary")) document.getElementById("nav-glossary").classList.add("active");
+        else document.getElementById("nav-home").classList.add("active");
+    }
+
+    function go(hash){ location.hash = hash; }
+
+    function qs(){
+        const h = location.hash || "#/";
+        const [path, query] = h.replace("#","").split("?");
+        const params = new URLSearchParams(query || "");
+        return { path, params };
+    }
+
+    function fmtDate(iso){
+        try{
+            const d = new Date(iso+"T00:00:00");
+            return d.toLocaleDateString(undefined, {year:"numeric", month:"short", day:"2-digit"});
+        }catch(e){ return iso; }
+    }
+
+    function badgeForCompleteness(level){
+        if(level === "high") return `<span class="tag good">Lineage: High</span>`;
+        if(level === "medium") return `<span class="tag warn">Lineage: Medium</span>`;
+        return `<span class="tag bad">Lineage: Low</span>`;
+    }
+
+    function badgeForStatus(status){
+        if(status === "active") return `<span class="tag good">Active</span>`;
+        return `<span class="tag warn">Draft</span>`;
+    }
+
+    function iconText(t){ return `<span class="icon">${t}</span>`; }
+
+    /** ----------------------------
+     *  Saved items (localStorage)
+     *  ---------------------------- */
+    const SAVED_KEY = "fedmdrm_saved_v1";
+
+    function loadSaved(){
+        try{ return JSON.parse(localStorage.getItem(SAVED_KEY) || "[]"); }
+        catch(e){ return []; }
+    }
+
+    function saveSaved(items){
+        localStorage.setItem(SAVED_KEY, JSON.stringify(items));
+        renderDrawer();
+    }
+
+    function toggleDrawer(force){
+        const d = document.getElementById("drawer");
+        const show = (typeof force === "boolean") ? force : !d.classList.contains("show");
+        d.classList.toggle("show", show);
+        renderDrawer();
+    }
+
+    function addSaved(item){
+        const items = loadSaved();
+        if(items.some(x => x.kind === item.kind && x.id === item.id)){
+            toast("Already saved");
+            return;
+        }
+        items.unshift({ ...item, savedAt: new Date().toISOString() });
+        saveSaved(items);
+        toast("Saved");
+    }
+
+    function removeSaved(kind, id){
+        const items = loadSaved().filter(x => !(x.kind === kind && x.id === id));
+        saveSaved(items);
+        toast("Removed");
+    }
+
+    function clearSaved(){
+        saveSaved([]);
+        toast("Cleared");
+    }
+
+    function exportSaved(){
+        const blob = new Blob([JSON.stringify(loadSaved(), null, 2)], {type:"application/json"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "fedmdrm_saved.json";
+        a.click();
+        toast("Exported JSON");
+    }
+
+    function compareSaved(){
+        const items = loadSaved();
+        if(items.length < 2){ toast("Save at least 2 items to compare"); return; }
+        go(`#/compare`);
+    }
+
+    function toast(msg){
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+    }
+
+    document.getElementById("btnDrawer").addEventListener("click", ()=>toggleDrawer());
+
+    function renderDrawer(){
+        const body = document.getElementById("drawerBody");
+        const items = loadSaved();
+        if(!items.length){
+            body.innerHTML = `<div class="drawerItem"><div class="t">Nothing saved yet</div><div class="s">Open a report or MDRM element and click “Save”.</div></div>`;
+            return;
+        }
+        body.innerHTML = items.map(it => `
+    <div class="drawerItem">
+      <div class="t">${it.kind === "report" ? "Report" : "MDRM Element"}: ${it.title}</div>
+      <div class="s">${it.subtitle || ""}</div>
+      <div class="row">
+        <button class="smallBtn" onclick="go('${it.href}')">Open</button>
+        <button class="smallBtn" onclick="removeSaved('${it.kind}','${it.id}')">Remove</button>
+      </div>
+    </div>
+  `).join("");
+    }
+
+    /** ----------------------------
+     *  Search engine (mock)
+     *  ---------------------------- */
+    function searchAll({q, type, domain, cdeOnly, confidential}){
+        q = (q || "").trim().toLowerCase();
+        let reportHits = [];
+        let elementHits = [];
+
+        if(type === "report" || type === "all"){
+            reportHits = DB.reports.filter(r => {
+                if(domain && domain !== "all" && r.domain !== domain) return false;
+                if(!q) return true;
+                return (
+                r.id.toLowerCase().includes(q) ||
+                r.name.toLowerCase().includes(q) ||
+                r.description.toLowerCase().includes(q) ||
+                r.agency.toLowerCase().includes(q)
+                );
+            });
+        }
+
+        if(type === "element" || type === "all"){
+            elementHits = DB.elements.filter(e => {
+                if(domain && domain !== "all"){
+                    const usedDomains = e.usedIn
+                        .map(u => DB.reports.find(r => r.id === u.reportId)?.domain)
+                        .filter(Boolean);
+                    if(!usedDomains.includes(domain)) return false;
+                }
+                if(cdeOnly && !e.cde) return false;
+                if(confidential && confidential !== "all" && e.confidentiality !== confidential) return false;
+                if(!q) return true;
+                return (
+                e.id.toLowerCase().includes(q) ||
+                e.name.toLowerCase().includes(q) ||
+                e.definition.toLowerCase().includes(q) ||
+                (e.synonyms || []).some(s => s.toLowerCase().includes(q))
+                );
+            });
+        }
+
+        return { reportHits, elementHits };
+    }
+
+    /** ----------------------------
+     *  Views
+     *  ---------------------------- */
+    function viewHome(){
+        app.innerHTML = `
+    <div class="hero">
+      <div class="heroInner">
+        <div>
+          <h2>Discover & Search MDRM Metadata</h2>
+          <p>
+            Fast keyword search, report drill-down, and MDRM element details with “where-used” mapping.
+            This interactive mock shows the full flow you can wire to your API.
+          </p>
+
+          <div class="searchBox">
+            <input id="homeQ" placeholder="Search MDRM elements, reports, schedules, synonyms… e.g., 'Tier 1', 'deposits', 'FR Y-9C'" />
+            <button class="btn primary" onclick="homeSearch()">${iconText("🔎")} Search</button>
+            <button class="btn" onclick="go('#/search?type=all')">${iconText("⚙")} Advanced</button>
+          </div>
+
+          <div class="filters">
+            <span class="chip on" id="chipAll" onclick="setHomeType('all')">${iconText("∑")} All</span>
+            <span class="chip" id="chipReports" onclick="setHomeType('report')">${iconText("R")} Reports</span>
+            <span class="chip" id="chipElements" onclick="setHomeType('element')">${iconText("M")} MDRM Elements</span>
+
+            <select id="homeDomain">
+              <option value="all">All domains</option>
+              <option value="Banking">Banking</option>
+              <option value="Liquidity">Liquidity</option>
+            </select>
+
+            <span class="chip" id="chipCde" onclick="toggleChip('chipCde')">${iconText("C")} CDE only</span>
+          </div>
+
+          <div class="crumbs">
+            <span class="muted">Try:</span>
+            <a href="#/search?type=element&q=deposits">deposits</a><span class="crumbSep">•</span>
+            <a href="#/search?type=report&q=Y-9C">Y-9C</a><span class="crumbSep">•</span>
+            <a href="#/element/MDRM_1001">MDRM_1001</a>
+          </div>
+        </div>
+
+        <div class="heroCard">
+          <div class="kpiRow">
+            <div class="kpi">
+              <div class="big">${DB.reports.length}</div>
+              <div class="small">Reports in catalog (mock)</div>
+            </div>
+            <div class="kpi">
+              <div class="big">${DB.elements.length}</div>
+              <div class="small">MDRM elements indexed</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="kpi">
+            <div class="big">Discovery shortcuts</div>
+            <div class="small" style="margin-top:8px; line-height:1.45">
+              • Browse top reports and drill to elements<br/>
+              • Open element details (definition, datatype, usage)<br/>
+              • Save and compare items
+            </div>
+            <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
+              <a class="linkBtn" href="#/search?type=report">${iconText("R")} Browse reports</a>
+              <a class="linkBtn" href="#/search?type=element">${iconText("M")} Browse elements</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sectionTitle">
+      <div>
+        <h3>Popular discovery cards</h3>
+        <p>Click through to see report → MDRM mapping and detailed element pages.</p>
+      </div>
+    </div>
+
+    <div class="cards">
+      ${cardReport(DB.reports[0])}
+      ${cardElement(DB.elements.find(e => e.id === "MDRM_1020"))}
+      ${cardElement(DB.elements.find(e => e.id === "MDRM_3007"))}
+    </div>
+
+    <div class="sectionTitle">
+      <div>
+        <h3>Recent updates</h3>
+        <p>Show “what changed” once you have version history from Fed MDRM drops.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table class="table">
+        <thead>
+          <tr><th>Date</th><th>Object</th><th>Change</th><th>Impact</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${fmtDate("2026-02-02")}</td>
+            <td><a href="#/report/FFIEC031">FFIEC 031</a></td>
+            <td>Schedule metadata refreshed (mock)</td>
+            <td><span class="tag warn">Review mappings</span></td>
+          </tr>
+          <tr>
+            <td>${fmtDate("2026-01-18")}</td>
+            <td><a href="#/report/FRY9C">FR Y-9C</a></td>
+            <td>Element usage list expanded (mock)</td>
+            <td><span class="tag good">Low risk</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+        // default state
+        window.__homeType = "all";
+    }
+
+    function cardReport(r){
+        return `
+    <div class="card">
+      <h4>${r.id} — ${r.name}</h4>
+      <p>${r.description}</p>
+      <div class="row">
+        <span class="tag">${r.domain}</span>
+        <a class="linkBtn" href="#/report/${r.id}">${iconText("↪")} Open report</a>
+      </div>
+    </div>
+  `;
+    }
+    function cardElement(e){
+        return `
+    <div class="card">
+      <h4 class="mono">${e.id}</h4>
+      <p><b>${e.name}</b><br/><span class="muted">${e.definition}</span></p>
+      <div class="row">
+        <span class="tag ${e.cde ? "good":""}">${e.cde ? "CDE" : "Non-CDE"}</span>
+        <a class="linkBtn" href="#/element/${e.id}">${iconText("↪")} Open element</a>
+      </div>
+    </div>
+  `;
+    }
+
+    function setHomeType(type){
+        window.__homeType = type;
+        const all = document.getElementById("chipAll");
+        const rep = document.getElementById("chipReports");
+        const ele = document.getElementById("chipElements");
+        [all,rep,ele].forEach(x => x.classList.remove("on"));
+        if(type==="all") all.classList.add("on");
+        if(type==="report") rep.classList.add("on");
+        if(type==="element") ele.classList.add("on");
+    }
+    function toggleChip(id){
+        const el = document.getElementById(id);
+        el.classList.toggle("on");
+    }
+    function homeSearch(){
+        const q = document.getElementById("homeQ").value || "";
+        const domain = document.getElementById("homeDomain").value || "all";
+        const cdeOnly = document.getElementById("chipCde").classList.contains("on");
+        const type = window.__homeType || "all";
+        const params = new URLSearchParams();
+        params.set("type", type);
+        if(q.trim()) params.set("q", q.trim());
+        if(domain !== "all") params.set("domain", domain);
+        if(cdeOnly) params.set("cde", "1");
+        go("#/search?" + params.toString());
+    }
+
+    function viewSearch(params){
+        const type = params.get("type") || "all";
+        const q = params.get("q") || "";
+        const domain = params.get("domain") || "all";
+        const cdeOnly = params.get("cde") === "1";
+        const confidential = params.get("conf") || "all";
+
+        const { reportHits, elementHits } = searchAll({q, type, domain, cdeOnly, confidential});
+
+        app.innerHTML = `
+    <div class="crumbs">
+      <a href="#/">Home</a> <span class="crumbSep">›</span>
+      <span>Search</span>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between">
+        <div>
+          <h3>Search</h3>
+          <div class="muted" style="font-size:13px; margin-top:6px">
+            Query across reports and MDRM elements (mock). Add faceted filters to match MDRM taxonomy.
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+          <button class="btn" onclick="go('#/')">${iconText("⌂")} Home</button>
+          <button class="btn orange" onclick="toggleDrawer(true)">${iconText("★")} Saved</button>
+        </div>
+      </div>
+
+      <div class="searchBox" style="margin-top:14px">
+        <input id="q" value="${escapeHtml(q)}" placeholder="Search..." />
+        <button class="btn primary" onclick="doSearch()">${iconText("↵")} Search</button>
+      </div>
+
+      <div class="filters">
+        <select id="type">
+          <option value="all" ${type==="all"?"selected":""}>All</option>
+          <option value="report" ${type==="report"?"selected":""}>Reports</option>
+          <option value="element" ${type==="element"?"selected":""}>MDRM Elements</option>
+        </select>
+
+        <select id="domain">
+          <option value="all" ${domain==="all"?"selected":""}>All domains</option>
+          <option value="Banking" ${domain==="Banking"?"selected":""}>Banking</option>
+          <option value="Liquidity" ${domain==="Liquidity"?"selected":""}>Liquidity</option>
+        </select>
+
+        <select id="conf">
+          <option value="all" ${confidential==="all"?"selected":""}>All confidentiality</option>
+          <option value="public" ${confidential==="public"?"selected":""}>Public</option>
+          <option value="restricted" ${confidential==="restricted"?"selected":""}>Restricted</option>
+        </select>
+
+        <span class="chip ${cdeOnly ? "on":""}" id="cdeOnly" onclick="document.getElementById('cdeOnly').classList.toggle('on')">
+          ${iconText("C")} CDE only
+        </span>
+      </div>
+    </div>
+
+    <div class="twoCol">
+      <div class="panel">
+        <div class="sectionTitle" style="margin-top:0">
+          <div>
+            <h3>Reports <span class="muted">(${reportHits.length})</span></h3>
+            <p>Drill down to schedules and MDRM mappings.</p>
+          </div>
+        </div>
+        ${reportHits.length ? `
+          <table class="table">
+            <thead><tr><th>Report</th><th>Domain</th><th>Updated</th></tr></thead>
+            <tbody>
+              ${reportHits.map(r => `
+                <tr onclick="go('#/report/${r.id}')" style="cursor:pointer">
+                  <td>
+                    <div><b>${r.id}</b> — ${r.name}</div>
+                    <div class="muted" style="margin-top:4px; font-size:12px">${truncate(r.description, 110)}</div>
+                  </td>
+                  <td>${r.domain}</td>
+                  <td>${fmtDate(r.updated)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        ` : `<div class="muted">No report matches. Try searching “Y-9C” or “Call Report”.</div>`}
+      </div>
+
+      <div class="panel">
+        <div class="sectionTitle" style="margin-top:0">
+          <div>
+            <h3>MDRM Elements <span class="muted">(${elementHits.length})</span></h3>
+            <p>Open definition, datatype, validations, and where-used.</p>
+          </div>
+        </div>
+
+        ${elementHits.length ? `
+          <table class="table">
+            <thead><tr><th>Element</th><th>CDE</th><th>Lineage</th></tr></thead>
+            <tbody>
+              ${elementHits.map(e => `
+                <tr onclick="go('#/element/${e.id}')" style="cursor:pointer">
+                  <td>
+                    <div class="mono"><b>${e.id}</b></div>
+                    <div><b>${e.name}</b></div>
+                    <div class="muted" style="margin-top:4px; font-size:12px">${truncate(e.definition, 105)}</div>
+                  </td>
+                  <td>${e.cde ? `<span class="tag good">CDE</span>` : `<span class="tag">Non-CDE</span>`}</td>
+                  <td>${badgeForCompleteness(e.lineageCompleteness)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        ` : `<div class="muted">No element matches. Try “deposits”, “Tier 1”, or “assets”.</div>`}
+      </div>
+    </div>
+  `;
+
+        // enter-to-search
+        const input = document.getElementById("q");
+        input.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
+
+        window.doSearch = () => {
+            const q2 = document.getElementById("q").value || "";
+            const type2 = document.getElementById("type").value;
+            const domain2 = document.getElementById("domain").value;
+            const conf2 = document.getElementById("conf").value;
+            const cde2 = document.getElementById("cdeOnly").classList.contains("on");
+            const p = new URLSearchParams();
+            p.set("type", type2);
+            if(q2.trim()) p.set("q", q2.trim());
+            if(domain2 !== "all") p.set("domain", domain2);
+            if(conf2 !== "all") p.set("conf", conf2);
+            if(cde2) p.set("cde", "1");
+            go("#/search?" + p.toString());
+        };
+    }
+
+    function viewReport(reportId){
+        const r = DB.reports.find(x => x.id === reportId);
+        if(!r){ return viewNotFound("Report not found"); }
+
+        const elems = r.elements.map(id => DB.elements.find(e => e.id === id)).filter(Boolean);
+
+        app.innerHTML = `
+    <div class="crumbs">
+      <a href="#/">Home</a> <span class="crumbSep">›</span>
+      <a href="#/search?type=report">Reports</a> <span class="crumbSep">›</span>
+      <span>${r.id}</span>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start">
+        <div style="min-width: 260px; flex: 1 1 420px">
+          <h3>${r.id} — ${r.name}</h3>
+          <div class="muted" style="margin-top:6px; line-height:1.45">${r.description}</div>
+
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+            ${badgeForStatus(r.status)}
+            <span class="tag">${r.domain}</span>
+            <span class="tag">${r.agency}</span>
+            <span class="tag">Updated: ${fmtDate(r.updated)}</span>
+          </div>
+
+          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+            <button class="btn primary" onclick="addSaved({kind:'report', id:'${r.id}', title:'${escapeAttr(r.id)}', subtitle:'${escapeAttr(r.name)}', href:'#/report/${r.id}'})">
+              ${iconText("★")} Save report
+            </button>
+            <button class="btn" onclick="go('#/search?type=element&domain=${encodeURIComponent(r.domain)}')">
+              ${iconText("M")} Browse elements in ${r.domain}
+            </button>
+          </div>
+        </div>
+
+        <div style="min-width: 260px; flex: 0 1 360px" class="card">
+          <h4>Discovery actions</h4>
+          <p class="muted">Common tasks for analysts and data governance.</p>
+          <div class="row" style="justify-content:flex-start; margin-top:10px; gap:10px; flex-wrap:wrap">
+            <button class="btn" onclick="toast('Wire this to: version history + diff view')">${iconText("Δ")} Version diff</button>
+            <button class="btn" onclick="toast('Wire this to: lineage graph view')">${iconText("⟂")} Lineage graph</button>
+            <button class="btn" onclick="toast('Wire this to: export to CSV/JSON/PDF')">${iconText("⇩")} Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="twoCol">
+      <div class="panel">
+        <h3>Schedules</h3>
+        <div class="muted" style="font-size:13px; margin-top:6px">
+          Show schedule hierarchy (sections, sub-sections, line items) once you parse full MDRM mappings.
+        </div>
+
+        <table class="table" style="margin-top:12px">
+          <thead><tr><th>Code</th><th>Schedule</th><th>Action</th></tr></thead>
+          <tbody>
+            ${r.schedules.map(s => `
+              <tr>
+                <td class="mono"><b>${s.code}</b></td>
+                <td>${s.name}</td>
+                <td><button class="smallBtn" onclick="toast('Mock: schedule page not implemented — you can add #/report/${r.id}/schedule/${s.code}')">Open</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h3>MDRM elements in this report</h3>
+        <div class="muted" style="font-size:13px; margin-top:6px">
+          Click an element to see full MDRM-level details + “where-used” mapping.
+        </div>
+
+        <table class="table" style="margin-top:12px">
+          <thead><tr><th>Element</th><th>CDE</th><th>Lineage</th></tr></thead>
+          <tbody>
+            ${elems.map(e => `
+              <tr style="cursor:pointer" onclick="go('#/element/${e.id}')">
+                <td>
+                  <div class="mono"><b>${e.id}</b></div>
+                  <div><b>${e.name}</b></div>
+                  <div class="muted" style="margin-top:4px; font-size:12px">${truncate(e.definition, 110)}</div>
+                </td>
+                <td>${e.cde ? `<span class="tag good">CDE</span>` : `<span class="tag">Non-CDE</span>`}</td>
+                <td>${badgeForCompleteness(e.lineageCompleteness)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+    }
+
+    function viewElement(elementId){
+        const e = DB.elements.find(x => x.id === elementId);
+        if(!e){ return viewNotFound("MDRM element not found"); }
+
+        const usedIn = (e.usedIn || []).map(u => {
+            const r = DB.reports.find(x => x.id === u.reportId);
+            return { ...u, reportName: r?.name || u.reportId, domain: r?.domain || "—" };
+        });
+
+        app.innerHTML = `
+    <div class="crumbs">
+      <a href="#/">Home</a> <span class="crumbSep">›</span>
+      <a href="#/search?type=element">MDRM Elements</a> <span class="crumbSep">›</span>
+      <span class="mono">${e.id}</span>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start">
+        <div style="min-width: 280px; flex: 1 1 520px">
+          <h3><span class="mono">${e.id}</span> — ${e.name}</h3>
+          <div class="muted" style="margin-top:6px; line-height:1.45">${e.definition}</div>
+
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+            ${e.cde ? `<span class="tag good">Critical Data Element (CDE)</span>` : `<span class="tag">Non-CDE</span>`}
+            <span class="tag">${e.confidentiality}</span>
+            ${badgeForCompleteness(e.lineageCompleteness)}
+            ${badgeForStatus(e.status)}
+          </div>
+
+          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+            <button class="btn primary" onclick="addSaved({kind:'element', id:'${e.id}', title:'${escapeAttr(e.id)}', subtitle:'${escapeAttr(e.name)}', href:'#/element/${e.id}'})">
+              ${iconText("★")} Save element
+            </button>
+            <button class="btn" onclick="toast('Wire to: stewardship workflow / request access')">
+              ${iconText("✉")} Request access
+            </button>
+            <button class="btn" onclick="toast('Wire to: data quality rules engine / profiling')">
+              ${iconText("✓")} DQ rules
+            </button>
+          </div>
+        </div>
+
+        <div style="min-width: 280px; flex: 0 1 420px" class="card">
+          <h4>Element snapshot</h4>
+          <div class="kv"><div class="k">Datatype</div><div class="v mono">${e.datatype}</div></div>
+          <div class="kv"><div class="k">Unit of measure</div><div class="v">${e.uom}</div></div>
+          <div class="kv"><div class="k">Synonyms</div><div class="v">${(e.synonyms||[]).join(", ") || "—"}</div></div>
+          <div class="kv"><div class="k">Validations</div><div class="v">${(e.validations||[]).map(v=>`<div>• ${escapeHtml(v)}</div>`).join("") || "—"}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="twoCol">
+      <div class="panel">
+        <h3>Where used</h3>
+        <div class="muted" style="font-size:13px; margin-top:6px">
+          This is the key “discovery” feature: report → schedule → line mapping.
+        </div>
+
+        <table class="table" style="margin-top:12px">
+          <thead><tr><th>Report</th><th>Schedule</th><th>Line</th><th>Label</th></tr></thead>
+          <tbody>
+            ${usedIn.map(u => `
+              <tr>
+                <td>
+                  <div><a href="#/report/${u.reportId}"><b>${u.reportId}</b></a></div>
+                  <div class="muted" style="margin-top:4px; font-size:12px">${escapeHtml(u.reportName)}</div>
+                </td>
+                <td class="mono"><b>${u.schedule}</b></td>
+                <td class="mono">${u.line}</td>
+                <td>${escapeHtml(u.label)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h3>Governance + lineage signals</h3>
+        <div class="muted" style="font-size:13px; margin-top:6px">
+          Add these to boost UX: completeness flags, stewardship, ownership, downstream impact, and change alerts.
+        </div>
+
+        <div style="margin-top:12px" class="card">
+          <h4>Lineage completeness</h4>
+          <p class="muted">Current: <b>${e.lineageCompleteness.toUpperCase()}</b> (mock)</p>
+          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap">
+            <span class="tag ${e.lineageCompleteness==="high"?"good":(e.lineageCompleteness==="medium"?"warn":"bad")}">
+              ${e.lineageCompleteness==="high" ? "All endpoints mapped" : e.lineageCompleteness==="medium" ? "Some endpoints missing" : "Major gaps"}
+            </span>
+            <button class="btn" onclick="toast('Wire to: list missing endpoints + remediation tasks')">
+              ${iconText("↯")} View gaps
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="card">
+          <h4>Downstream impact (mock)</h4>
+          <p class="muted">Show number of reports, consumers, dashboards, and controls impacted by changes.</p>
+          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap">
+            <span class="tag">Reports: ${usedIn.length}</span>
+            <span class="tag">Consumers: ${Math.max(3, usedIn.length + 2)}</span>
+            <span class="tag">Controls: ${Math.max(1, usedIn.length - 1)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+    }
+
+    function viewGlossary(){
+        app.innerHTML = `
+    <div class="crumbs">
+      <a href="#/">Home</a> <span class="crumbSep">›</span>
+      <span>Glossary</span>
+    </div>
+
+    <div class="panel">
+      <h3>Glossary (mock)</h3>
+      <div class="muted" style="margin-top:6px; line-height:1.5">
+        This page shows the kind of context users expect when they don’t know MDRM terms.
+        You can populate it from MDRM “definitions”, governance policy, and internal naming standards.
+      </div>
+
+      <div style="margin-top:14px" class="twoCol">
+        <div class="card">
+          <h4>CDE</h4>
+          <p class="muted">Critical Data Element. Data points requiring stronger governance, controls, and traceability.</p>
+        </div>
+        <div class="card">
+          <h4>Where-used</h4>
+          <p class="muted">A mapping of an MDRM element to reports/schedules/lines that reference it.</p>
+        </div>
+        <div class="card">
+          <h4>Lineage completeness</h4>
+          <p class="muted">Signal describing how fully the element is mapped to downstream endpoints and consumers.</p>
+        </div>
+        <div class="card">
+          <h4>Confidentiality</h4>
+          <p class="muted">Classification level that influences access control and sharing policies.</p>
+        </div>
+      </div>
+    </div>
+  `;
+    }
+
+    function viewCompare(){
+        const items = loadSaved();
+        const reports = items.filter(x => x.kind === "report").map(x => DB.reports.find(r => r.id === x.id)).filter(Boolean);
+        const elements = items.filter(x => x.kind === "element").map(x => DB.elements.find(e => e.id === x.id)).filter(Boolean);
+
+        app.innerHTML = `
+    <div class="crumbs">
+      <a href="#/">Home</a> <span class="crumbSep">›</span>
+      <span>Compare</span>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center">
+        <div>
+          <h3>Compare saved items</h3>
+          <div class="muted" style="margin-top:6px">Quick side-by-side to support discovery and impact analysis.</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          <button class="btn" onclick="toggleDrawer(true)">${iconText("★")} Manage saved</button>
+          <button class="btn orange" onclick="go('#/')">${iconText("⌂")} Home</button>
+        </div>
+      </div>
+
+      <div class="twoCol" style="margin-top:14px">
+        <div class="card">
+          <h4>Reports (${reports.length})</h4>
+          ${reports.length ? `
+            <table class="table" style="margin-top:10px">
+              <thead><tr><th>Report</th><th>Domain</th><th>Updated</th></tr></thead>
+              <tbody>
+                ${reports.map(r => `
+                  <tr>
+                    <td><a href="#/report/${r.id}"><b>${r.id}</b></a><div class="muted" style="margin-top:4px; font-size:12px">${escapeHtml(r.name)}</div></td>
+                    <td>${r.domain}</td>
+                    <td>${fmtDate(r.updated)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          ` : `<div class="muted" style="margin-top:10px">Save reports to compare.</div>`}
+        </div>
+
+        <div class="card">
+          <h4>MDRM Elements (${elements.length})</h4>
+          ${elements.length ? `
+            <table class="table" style="margin-top:10px">
+              <thead><tr><th>Element</th><th>CDE</th><th>Where-used</th></tr></thead>
+              <tbody>
+                ${elements.map(e => `
+                  <tr>
+                    <td><a class="mono" href="#/element/${e.id}"><b>${e.id}</b></a><div><b>${escapeHtml(e.name)}</b></div></td>
+                    <td>${e.cde ? `<span class="tag good">CDE</span>` : `<span class="tag">Non-CDE</span>`}</td>
+                    <td>${(e.usedIn||[]).length} mappings</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          ` : `<div class="muted" style="margin-top:10px">Save elements to compare.</div>`}
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h4>Comparison ideas you can add next</h4>
+        <p class="muted" style="line-height:1.5">
+          • Diff MDRM attributes across versions (definition/datatype/confidentiality)<br/>
+          • Compare overlap of elements between reports<br/>
+          • Highlight elements with low lineage completeness<br/>
+          • Show downstream “impact count” by consumer system
+        </p>
+      </div>
+    </div>
+  `;
+    }
+
+    function viewNotFound(msg){
+        app.innerHTML = `
+    <div class="panel">
+      <h3>Not found</h3>
+      <div class="muted" style="margin-top:6px">${escapeHtml(msg || "Page not found")}</div>
+      <div style="margin-top:12px">
+        <button class="btn primary" onclick="go('#/')">${iconText("⌂")} Back to Home</button>
+      </div>
+    </div>
+  `;
+    }
+
+    /** ----------------------------
+     *  Router dispatcher
+     *  ---------------------------- */
+    function render(){
+        const hash = location.hash || "#/";
+        setActiveNav(hash);
+        const { path, params } = qs();
+
+        if(path === "/") return viewHome();
+        if(path === "/search") return viewSearch(params);
+        if(path.startsWith("/report/")) return viewReport(path.split("/")[2]);
+        if(path.startsWith("/element/")) return viewElement(path.split("/")[2]);
+        if(path === "/glossary") return viewGlossary();
+        if(path === "/compare") return viewCompare();
+
+        return viewNotFound();
+    }
+
+    window.addEventListener("hashchange", render);
+    window.addEventListener("load", () => {
+        renderDrawer();
+        render();
+    });
+
+    /** ----------------------------
+     *  Small helpers
+     *  ---------------------------- */
+    function truncate(s, n){
+        s = s || "";
+        return s.length > n ? s.slice(0, n-1) + "…" : s;
+    }
+    function escapeHtml(str){
+        return String(str ?? "")
+            .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+            .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    }
+    function escapeAttr(str){ return escapeHtml(str).replaceAll("\n"," "); }
+</script>
+</body>
+</html>

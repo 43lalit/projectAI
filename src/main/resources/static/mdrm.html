@@ -3,63 +3,123 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MDRM Page</title>
+  <title>MDRM Element Discovery</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/mdrm-console.css">
 </head>
-<body class="bg-body-tertiary">
-  <main class="shell container-fluid">
-    <section class="panel hero">
-      <h1>MDRM Workspace</h1>
+<body>
+  <main class="shell">
+    <header class="topbar panel">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>FedMDRM</h1>
+          <p>Element Discovery</p>
+        </div>
+      </div>
+      <nav class="menu" aria-label="MDRM menu">
+        <a id="menu-discovery" class="menu-link" href="/index.html">
+          <span class="menu-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M11 4a7 7 0 105.2 11.7l3.6 3.6 1.4-1.4-3.6-3.6A7 7 0 0011 4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="menu-link-label">Discovery</span>
+        </a>
+        <a id="menu-bookmarks" class="menu-link" href="/index.html">
+          <span class="menu-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 17.3l-5.2 3 1.2-5.9-4.4-4.2 6-.7L12 4l2.4 5.5 6 .7-4.4 4.2 1.2 5.9-5.2-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="menu-link-label">Bookmarks</span>
+        </a>
+        <a id="menu-reporting" class="menu-link" href="/index.html">
+          <span class="menu-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 20.5h17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </span>
+          <span class="menu-link-label">Reporting Viewer</span>
+        </a>
+        <a id="menu-load" class="menu-link" href="/index.html">
+          <span class="menu-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="menu-link-label">Load MDRM</span>
+        </a>
+      </nav>
+      <div class="header-actions">
+        <button id="themeIconBtn" class="theme-icon-btn" type="button" aria-label="Toggle theme">☀</button>
+        <div class="profile-wrap">
+          <button id="profileMenuBtn" class="profile-btn" type="button" aria-haspopup="true" aria-expanded="false">
+            <span id="profileNameLabel" class="profile-name">Guest</span>
+            <span class="chev" aria-hidden="true">▾</span>
+          </button>
+          <div id="profileMenu" class="profile-menu" role="menu" aria-label="Profile options">
+            <div class="profile-item">Element Details View</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="crumbs">
+        <a href="/index.html">Console</a> <span class="crumbSep">›</span>
+        <span>MDRM Elements</span> <span class="crumbSep">›</span>
+        <span class="mono" id="crumbMdrmCode">-</span>
+      </div>
+
+      <div class="element-head mt-3">
+        <div class="element-main">
+          <h2><span class="mono" id="elementCodeLabel">MDRM</span> - <span id="elementNameLabel">Element Discovery View</span></h2>
+          <p id="elementDefinition" class="muted mb-0">Choose an MDRM code to load element details and where-used mapping from your latest run.</p>
+          <div id="elementTagRow" class="tag-row mt-3"></div>
+        </div>
+
+        <aside class="detail-card">
+          <h3>Element snapshot</h3>
+          <div id="snapshotList" class="snapshot-list"></div>
+        </aside>
+      </div>
     </section>
 
-    <section class="panel view active">
-      <div class="d-flex gap-2 align-items-center mb-3">
-        <button id="backBtn" class="btn btn-outline-secondary btn-sm" type="button">Back</button>
-        <a class="btn btn-primary btn-sm" href="/index.html">Go To Console</a>
-      </div>
-
-      <div id="selectedMdrmBanner" class="status ok mb-3" style="display: none;"></div>
-
-      <div class="status neutral">
-        Initial MDRM page is ready. Share next improvements and I will build them here.
-      </div>
-
-      <div class="mt-3 p-3 border rounded bg-white">
-        <label for="semanticQueryInput" class="form-label fw-semibold">Semantic MDRM Search</label>
-        <div class="input-group">
-          <input id="semanticQueryInput" class="form-control" type="text"
-                 placeholder="Example: i want to search all asset related mdrms for FRY9C report">
-          <button id="semanticSearchBtn" class="btn btn-primary" type="button">Search</button>
+    <section class="two-col">
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h3>Where used</h3>
+            <p class="muted">Report and line-level mappings for the selected MDRM in the latest dataset.</p>
+          </div>
         </div>
-        <div id="semanticSearchStatus" class="status neutral mt-2">Ready.</div>
-        <div id="semanticSearchResults" class="table-shell mt-2"></div>
-      </div>
+        <div id="whereUsedContainer" class="table-shell card-shell mt-2"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h3>Element context</h3>
+            <p class="muted">Discovery search moved to the landing page. Use this view for element details and where-used mapping.</p>
+          </div>
+        </div>
+        <div class="status neutral mt-2" id="detailStatus">Ready.</div>
+        <div class="mt-2">
+          <a class="btn btn-outline-primary" id="openDiscoveryLink" href="/index.html">Open discovery page</a>
+        </div>
+      </section>
     </section>
   </main>
 
   <script>
-    const backBtn = document.getElementById('backBtn');
-    const selectedMdrmBanner = document.getElementById('selectedMdrmBanner');
-    const semanticQueryInput = document.getElementById('semanticQueryInput');
-    const semanticSearchBtn = document.getElementById('semanticSearchBtn');
-    const semanticSearchStatus = document.getElementById('semanticSearchStatus');
-    const semanticSearchResults = document.getElementById('semanticSearchResults');
-    backBtn.addEventListener('click', () => {
-      if (window.history.length > 1) {
-        window.history.back();
-        return;
-      }
-      window.location.href = '/index.html';
-    });
+    const detailStatus = document.getElementById('detailStatus');
+    const openDiscoveryLink = document.getElementById('openDiscoveryLink');
+    const whereUsedContainer = document.getElementById('whereUsedContainer');
+    const elementCodeLabel = document.getElementById('elementCodeLabel');
+    const elementNameLabel = document.getElementById('elementNameLabel');
+    const elementDefinition = document.getElementById('elementDefinition');
+    const snapshotList = document.getElementById('snapshotList');
+    const elementTagRow = document.getElementById('elementTagRow');
+    const crumbMdrmCode = document.getElementById('crumbMdrmCode');
 
-    const params = new URLSearchParams(window.location.search);
-    const selectedMdrm = params.get('mdrm');
-    if (selectedMdrm) {
-      selectedMdrmBanner.textContent = `Selected MDRM: ${selectedMdrm}`;
-      selectedMdrmBanner.style.display = 'block';
-      semanticQueryInput.value = selectedMdrm;
-    }
+    const profileMenuBtn = document.getElementById('profileMenuBtn');
+    const profileMenu = document.getElementById('profileMenu');
+    const profileNameLabel = document.getElementById('profileNameLabel');
+    const themeIconBtn = document.getElementById('themeIconBtn');
+    const THEME_KEY = 'mdrm-ui-theme';
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -70,84 +130,248 @@
         .replaceAll("'", '&#39;');
     }
 
-    function setSearchStatus(text, css) {
-      semanticSearchStatus.textContent = text;
-      semanticSearchStatus.className = `status ${css} mt-2`;
+    function getValue(row, keys) {
+      if (!row || !keys || !keys.length) {
+        return null;
+      }
+      const byLower = {};
+      Object.keys(row).forEach(key => {
+        byLower[key.toLowerCase()] = row[key];
+      });
+      for (const key of keys) {
+        const value = byLower[key.toLowerCase()];
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+          return value;
+        }
+      }
+      return null;
     }
 
-    function renderSemanticResults(payload) {
-      const table = payload && payload.results ? payload.results : null;
-      const columns = table && Array.isArray(table.columns) ? table.columns : [];
-      const rows = table && Array.isArray(table.rows) ? table.rows : [];
+    function closeProfileMenu() {
+      if (!profileMenu || !profileMenuBtn) {
+        return;
+      }
+      profileMenu.classList.remove('open');
+      profileMenuBtn.setAttribute('aria-expanded', 'false');
+    }
 
-      if (!rows.length || !columns.length) {
-        semanticSearchResults.innerHTML = '<div class="text-muted small p-2">No results found.</div>';
+    function setTheme(theme) {
+      const nextTheme = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+      localStorage.setItem(THEME_KEY, nextTheme);
+      if (themeIconBtn) {
+        themeIconBtn.textContent = nextTheme === 'dark' ? '☀' : '☾';
+        themeIconBtn.setAttribute('aria-label', nextTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+      }
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'light' || saved === 'dark') {
+        setTheme(saved);
+        return;
+      }
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+
+    function setDetailStatus(text, css) {
+      detailStatus.textContent = text;
+      detailStatus.className = `status ${css} mt-2`;
+    }
+
+    function renderWhereUsed(rows, mdrmCode) {
+      if (!rows.length) {
+        whereUsedContainer.innerHTML = '<div class="text-muted small p-2">No mappings found for this MDRM in the current run.</div>';
         return;
       }
 
-      const headerHtml = columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
-      const rowsHtml = rows.map(row => {
-        const cells = columns.map(col => {
-          if (col === 'mdrm_code') {
-            const code = row[col];
-            if (code) {
-              return `<td><a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a></td>`;
-            }
-          }
-          return `<td>${escapeHtml(row[col])}</td>`;
-        }).join('');
-        return `<tr>${cells}</tr>`;
-      }).join('');
+      const normalizedCode = String(mdrmCode || '').trim().toLowerCase();
+      const mappings = rows
+        .filter(row => {
+          const code = getValue(row, ['mdrm_code', 'mdrm']);
+          return normalizedCode ? String(code || '').trim().toLowerCase() === normalizedCode : true;
+        })
+        .map(row => ({
+          reportingForm: getValue(row, ['reporting_form', 'report', 'reportingform']) || '-',
+          schedule: getValue(row, ['schedule', 'schedule_code', 'schedule_name']) || '-',
+          line: getValue(row, ['line', 'line_number', 'line_num', 'line_item']) || '-',
+          label: getValue(row, ['line_description', 'item_name', 'description', 'label']) || '-'
+        }));
 
-      semanticSearchResults.innerHTML = `
+      const seen = new Set();
+      const unique = mappings.filter(item => {
+        const key = `${item.reportingForm}||${item.schedule}||${item.line}||${item.label}`;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+
+      if (!unique.length) {
+        whereUsedContainer.innerHTML = '<div class="text-muted small p-2">No mappings found for this MDRM in the current run.</div>';
+        return;
+      }
+
+      whereUsedContainer.innerHTML = `
         <table class="table table-sm table-striped table-hover mb-0">
-          <thead><tr>${headerHtml}</tr></thead>
-          <tbody>${rowsHtml}</tbody>
+          <thead>
+            <tr>
+              <th>Report</th>
+              <th>Schedule</th>
+              <th>Line</th>
+              <th>Label</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${unique.map(item => `
+              <tr>
+                <td>${escapeHtml(item.reportingForm)}</td>
+                <td>${escapeHtml(item.schedule)}</td>
+                <td>${escapeHtml(item.line)}</td>
+                <td>${escapeHtml(item.label)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
         </table>
       `;
     }
 
-    async function semanticSearch() {
-      const query = (semanticQueryInput.value || '').trim();
-      if (!query) {
-        setSearchStatus('Enter a search query.', 'err');
+    function renderSnapshot(row, fallbackCode) {
+      if (!row) {
+        snapshotList.innerHTML = '<div class="text-muted small">No detail attributes available.</div>';
         return;
       }
-      semanticSearchBtn.disabled = true;
-      setSearchStatus('Searching...', 'neutral');
-      semanticSearchResults.innerHTML = '';
+
+      const baseItems = [
+        ['MDRM Code', getValue(row, ['mdrm_code', 'mdrm']) || fallbackCode || '-'],
+        ['Reporting Form', getValue(row, ['reporting_form', 'report']) || '-'],
+        ['Status', getValue(row, ['is_active', 'status']) || '-'],
+        ['Start Date', getValue(row, ['start_date_utc', 'start_date']) || '-'],
+        ['End Date', getValue(row, ['end_date_utc', 'end_date']) || '-']
+      ];
+
+      const ignored = new Set(['master_id', 'run_id']);
+      const extras = Object.entries(row)
+        .filter(([key, value]) => !ignored.has(key.toLowerCase()) && value !== null && value !== undefined && String(value).trim() !== '')
+        .slice(0, 6)
+        .map(([key, value]) => [key.replaceAll('_', ' '), value]);
+
+      const allItems = [...baseItems, ...extras].slice(0, 9);
+
+      snapshotList.innerHTML = allItems.map(([key, value]) => `
+        <div class="kv">
+          <div class="k">${escapeHtml(key)}</div>
+          <div class="v">${escapeHtml(value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderElementHeader(payload, rows, mdrmCode) {
+      const first = rows[0] || null;
+      const discoveredName = getValue(first, ['item_name', 'description', 'line_description', 'label']) || 'Element Discovery View';
+      const report = payload.interpretedReportingForm || 'Across all reports';
+      const keywords = Array.isArray(payload.interpretedKeywords) && payload.interpretedKeywords.length
+        ? payload.interpretedKeywords.join(', ')
+        : 'none';
+
+      elementCodeLabel.textContent = mdrmCode || getValue(first, ['mdrm_code', 'mdrm']) || 'MDRM';
+      elementNameLabel.textContent = discoveredName;
+      crumbMdrmCode.textContent = elementCodeLabel.textContent;
+      elementDefinition.textContent = `Source report scope: ${report}. Interpreted keywords: ${keywords}.`;
+
+      const totalMappings = rows.length;
+      elementTagRow.innerHTML = `
+        <span class="tag good">Mappings: ${totalMappings}</span>
+        <span class="tag">Report: ${escapeHtml(report)}</span>
+        <span class="tag">Keywords: ${escapeHtml(keywords)}</span>
+      `;
+
+      renderSnapshot(first, mdrmCode);
+    }
+
+    async function loadMdrmProfile(query) {
+      const searchText = String(query || '').trim();
+      if (!searchText) {
+        setDetailStatus('Open this page with an MDRM query parameter, e.g. /mdrm.html?mdrm=MDRM_1001', 'err');
+        return;
+      }
+
+      setDetailStatus('Loading latest MDRM mapping...', 'neutral');
+      whereUsedContainer.innerHTML = '';
+
       try {
-        const response = await fetch(`/api/mdrm/semantic-search?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`/api/mdrm/semantic-search?q=${encodeURIComponent(searchText)}`);
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
+
+        const rows = payload && payload.results && Array.isArray(payload.results.rows) ? payload.results.rows : [];
+        const exactRows = rows.filter(row => {
+          const code = getValue(row, ['mdrm_code', 'mdrm']);
+          return String(code || '').trim().toLowerCase() === searchText.toLowerCase();
+        });
+        const mdrmRows = exactRows.length ? exactRows : rows;
+
+        renderElementHeader(payload, mdrmRows, searchText.toUpperCase());
+        renderWhereUsed(mdrmRows, searchText);
+
         const interpretedForm = payload.interpretedReportingForm || 'Not inferred';
         const keywords = Array.isArray(payload.interpretedKeywords) && payload.interpretedKeywords.length
           ? payload.interpretedKeywords.join(', ')
           : 'None';
-        setSearchStatus(
+
+        setDetailStatus(
           `Report: ${interpretedForm} | Keywords: ${keywords} | Results: ${payload.totalResults ?? 0}`,
           'ok'
         );
-        renderSemanticResults(payload);
       } catch (error) {
-        setSearchStatus(`Search failed: ${error.message}`, 'err');
-      } finally {
-        semanticSearchBtn.disabled = false;
+        setDetailStatus(`Load failed: ${error.message}`, 'err');
+        whereUsedContainer.innerHTML = '<div class="text-danger small p-2">Failed to load where-used mappings.</div>';
       }
     }
 
-    semanticSearchBtn.addEventListener('click', semanticSearch);
-    semanticQueryInput.addEventListener('keydown', event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        semanticSearch();
-      }
-    });
+    if (profileMenuBtn && profileMenu) {
+      profileMenuBtn.addEventListener('click', () => {
+        const isOpen = profileMenu.classList.toggle('open');
+        profileMenuBtn.setAttribute('aria-expanded', String(isOpen));
+      });
+      document.addEventListener('click', event => {
+        if (!event.target.closest('.profile-wrap')) {
+          closeProfileMenu();
+        }
+      });
+    }
 
+    if (themeIconBtn) {
+      themeIconBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      });
+    }
+
+    initTheme();
+    fetch('/api/auth/me')
+      .then(response => response.ok ? response.json() : null)
+      .then(payload => {
+        if (payload && payload.authenticated && payload.user && payload.user.displayName) {
+          profileNameLabel.textContent = payload.user.displayName;
+        }
+      })
+      .catch(() => {});
+
+    const params = new URLSearchParams(window.location.search);
+    const selectedMdrm = params.get('mdrm');
     if (selectedMdrm) {
-      semanticSearch();
+      openDiscoveryLink.href = `/index.html`;
+    }
+    if (selectedMdrm) {
+      loadMdrmProfile(selectedMdrm);
+    } else {
+      setDetailStatus('Select an MDRM from Discovery to view this page.', 'neutral');
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
