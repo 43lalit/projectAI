@@ -350,6 +350,45 @@
       }
     }
 
+    function getInitialViewFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get('view');
+      const allowed = new Set(['view-discovery', 'view-bookmarks', 'view-reporting', 'view-load']);
+      if (fromQuery && allowed.has(fromQuery)) {
+        return fromQuery;
+      }
+      const hash = (window.location.hash || '').replace('#', '');
+      if (hash && allowed.has(hash)) {
+        return hash;
+      }
+      return 'view-discovery';
+    }
+
+    async function applyDiscoveryStateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const q = (params.get('q') || '').trim();
+      const fc = (params.get('fc') || '').trim();
+      const fd = (params.get('fd') || '').trim();
+      const fr = (params.get('fr') || '').trim();
+      const qf = (params.get('qf') || '').trim();
+
+      if (discoveryQueryInput) discoveryQueryInput.value = q;
+      if (filterCodeInput) filterCodeInput.value = fc;
+      if (filterDescriptionInput) filterDescriptionInput.value = fd;
+      if (filterReportingFormInput) filterReportingFormInput.value = fr;
+      if (discoveryQuickFilterInput) discoveryQuickFilterInput.value = qf;
+
+      if (!q) {
+        setDiscoveryResultsVisible(false);
+        return;
+      }
+      await runDiscoverySearch();
+      if (qf && discoveryGridApi) {
+        discoveryGridApi.setGridOption('quickFilterText', qf);
+        updateDiscoveryMetaCounts();
+      }
+    }
+
     menuButtons.forEach(button => {
       button.addEventListener('click', event => {
         if (!button.dataset.view) {
@@ -485,6 +524,18 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    }
+
+    function statusCapsule(value) {
+      const raw = String(value ?? '').trim();
+      const normalized = raw.toLowerCase();
+      if (normalized === 'y' || normalized === 'active') {
+        return '<span class="status-capsule active">Active</span>';
+      }
+      if (normalized === 'n' || normalized === 'inactive') {
+        return '<span class="status-capsule inactive">Inactive</span>';
+      }
+      return escapeHtml(raw || '-');
     }
 
     function clearReportData() {
@@ -963,6 +1014,33 @@
       discoveryGrid.classList.toggle('ag-theme-quartz', !dark);
     }
 
+    function buildDiscoveryReturnUrl() {
+      const params = new URLSearchParams();
+      params.set('view', 'view-discovery');
+      const q = (discoveryQueryInput?.value || '').trim();
+      const codeFilter = (filterCodeInput?.value || '').trim();
+      const descriptionFilter = (filterDescriptionInput?.value || '').trim();
+      const reportingFilter = (filterReportingFormInput?.value || '').trim();
+      const quickFilter = (discoveryQuickFilterInput?.value || '').trim();
+      if (q) params.set('q', q);
+      if (codeFilter) params.set('fc', codeFilter);
+      if (descriptionFilter) params.set('fd', descriptionFilter);
+      if (reportingFilter) params.set('fr', reportingFilter);
+      if (quickFilter) params.set('qf', quickFilter);
+      return `/index.html?${params.toString()}`;
+    }
+
+    function buildMdrmProfileUrl(mdrmCode) {
+      const code = String(mdrmCode || '').trim();
+      if (!code) {
+        return '/mdrm.html';
+      }
+      const params = new URLSearchParams();
+      params.set('mdrm', code);
+      params.set('returnTo', buildDiscoveryReturnUrl());
+      return `/mdrm.html?${params.toString()}`;
+    }
+
     function initDiscoveryGrid() {
       if (discoveryGridApi || !discoveryGrid || !window.agGrid) {
         return;
@@ -1013,7 +1091,7 @@
               code,
               code,
               subtitle,
-              `/mdrm.html?mdrm=${encodeURIComponent(code)}`
+              buildMdrmProfileUrl(code)
             ));
           } catch (error) {
             console.error('Bookmark action failed', error);
@@ -1029,8 +1107,9 @@
             cellRenderer: params => {
               const value = String(params.value || '').trim();
               const reportingForm = String(params.data && params.data.reportingForm ? params.data.reportingForm : '').trim();
+              const href = buildMdrmProfileUrl(value);
               return value
-                ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(value)}" data-reporting-form="${escapeHtml(reportingForm)}">${escapeHtml(value)}</a>`
+                ? `<a href="${escapeHtml(href)}" data-reporting-form="${escapeHtml(reportingForm)}">${escapeHtml(value)}</a>`
                 : '-';
             }
           },
@@ -1094,7 +1173,7 @@
                         data-item-key="${escapeHtml(code)}"
                         data-title="${escapeHtml(code)}"
                         data-subtitle="${escapeHtml(subtitle)}"
-                        data-url="/mdrm.html?mdrm=${encodeURIComponent(code)}">${isBookmarked ? '★' : '☆'}</button>`;
+                        data-url="${escapeHtml(buildMdrmProfileUrl(code))}">${isBookmarked ? '★' : '☆'}</button>`;
             }
           }
         ],
@@ -1661,7 +1740,14 @@
       }
       const headerHtml = payload.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('');
       const rowsHtml = payload.rows.map(row => {
-        const cells = payload.columns.map(c => `<td>${escapeHtml(row[c])}</td>`).join('');
+        const cells = payload.columns.map(c => {
+          const lower = String(c || '').toLowerCase();
+          const value = row[c];
+          if (lower === 'is_active' || lower === 'status') {
+            return `<td>${statusCapsule(value)}</td>`;
+          }
+          return `<td>${escapeHtml(value)}</td>`;
+        }).join('');
         return `<tr>${cells}</tr>`;
       }).join('');
       tableContainer.innerHTML = `
@@ -2339,7 +2425,7 @@
                 key: mdrm,
                 label: mdrm,
                 subtitle: reportingForm ? `Reporting form: ${reportingForm}` : '',
-                url: `/mdrm.html?mdrm=${encodeURIComponent(mdrm)}`
+                url: buildMdrmProfileUrl(mdrm)
               });
             }
           } catch (error) {
@@ -2366,7 +2452,7 @@
             key: mdrm,
             label: mdrm,
             subtitle: reportingForm ? `Reporting form: ${reportingForm}` : '',
-            url: `/mdrm.html?mdrm=${encodeURIComponent(mdrm)}`
+            url: buildMdrmProfileUrl(mdrm)
           });
         }
       } catch (error) {
@@ -2420,6 +2506,8 @@
     ensureCsrfToken().catch(() => {});
     setPasswordVisibility(false);
     setAuthMode('');
+    switchView(getInitialViewFromUrl());
+    applyDiscoveryStateFromUrl().catch(() => {});
     loadRecentItems();
     refreshAuthState();
     refreshForms();

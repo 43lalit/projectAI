@@ -104,6 +104,11 @@ public class MdrmController {
         return ResponseEntity.ok(mdrmLoadService.semanticSearch(query));
     }
 
+    @GetMapping("/profile")
+    public ResponseEntity<MdrmProfileResponse> getMdrmProfile(@RequestParam("mdrm") String mdrmCode) {
+        return ResponseEntity.ok(mdrmLoadService.getMdrmProfile(mdrmCode));
+    }
+
     @GetMapping("/run-incremental-mdrms")
     public ResponseEntity<MdrmIncrementalCodeListResponse> getIncrementalCodesForRun(
             @RequestParam String reportingForm,

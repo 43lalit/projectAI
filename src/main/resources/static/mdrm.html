@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MDRM Element Discovery</title>
+  <title>MDRM Profile</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/mdrm-console.css">
 </head>
@@ -14,33 +14,39 @@
         <div class="logo" aria-hidden="true"></div>
         <div>
           <h1>FedMDRM</h1>
-          <p>Element Discovery</p>
+          <p>Element Profile</p>
         </div>
       </div>
       <nav class="menu" aria-label="MDRM menu">
-        <a id="menu-discovery" class="menu-link" href="/index.html">
+        <a id="menu-discovery" class="menu-link" href="/index.html?view=view-discovery">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M11 4a7 7 0 105.2 11.7l3.6 3.6 1.4-1.4-3.6-3.6A7 7 0 0011 4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
           <span class="menu-link-label">Discovery</span>
         </a>
-        <a id="menu-bookmarks" class="menu-link" href="/index.html">
+        <a id="menu-bookmarks" class="menu-link" href="/index.html?view=view-bookmarks">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 17.3l-5.2 3 1.2-5.9-4.4-4.2 6-.7L12 4l2.4 5.5 6 .7-4.4 4.2 1.2 5.9-5.2-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
           </span>
           <span class="menu-link-label">Bookmarks</span>
         </a>
-        <a id="menu-reporting" class="menu-link" href="/index.html">
+        <a id="menu-reporting" class="menu-link" href="/index.html?view=view-reporting">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 20.5h17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </span>
           <span class="menu-link-label">Reporting Viewer</span>
         </a>
-        <a id="menu-load" class="menu-link" href="/index.html">
+        <a id="menu-load" class="menu-link" href="/index.html?view=view-load">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
           <span class="menu-link-label">Load MDRM</span>
+        </a>
+        <a id="menu-mdrm-page" class="menu-link active" href="/mdrm.html">
+          <span class="menu-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 4h7l5 5v11H7z" stroke="currentColor" stroke-width="1.6"/><path d="M14 4v5h5M10 13h6M10 17h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </span>
+          <span class="menu-link-label">MDRM Profile</span>
         </a>
       </nav>
       <div class="header-actions">
@@ -51,7 +57,47 @@
             <span class="chev" aria-hidden="true">▾</span>
           </button>
           <div id="profileMenu" class="profile-menu" role="menu" aria-label="Profile options">
-            <div class="profile-item">Element Details View</div>
+            <div id="authStatusLabel" class="status neutral">Not logged in</div>
+            <div id="authInputRows" class="row g-2 mt-2">
+              <div id="authModeRow" class="col-12 d-flex gap-2">
+                <button id="authModeLoginBtn" class="btn btn-outline-primary w-100" type="button">Login</button>
+                <button id="authModeRegisterBtn" class="btn btn-outline-primary w-100" type="button">Sign Up</button>
+                <button id="authModeResetBtn" class="btn btn-outline-primary w-100" type="button">Reset</button>
+              </div>
+              <div id="authEmailCol" class="col-12">
+                <input id="authEmailInput" class="form-control" type="email" placeholder="Email">
+              </div>
+              <div id="authFirstNameCol" class="col-6">
+                <input id="authFirstNameInput" class="form-control" type="text" placeholder="First name (sign up)">
+              </div>
+              <div id="authLastNameCol" class="col-6">
+                <input id="authLastNameInput" class="form-control" type="text" placeholder="Last name (sign up)">
+              </div>
+              <div id="authPasswordCol" class="col-12">
+                <input id="authPasswordInput" class="form-control" type="password" placeholder="Password">
+              </div>
+              <div id="authConfirmPasswordCol" class="col-12">
+                <input id="authConfirmPasswordInput" class="form-control" type="password" placeholder="Re-enter password">
+              </div>
+              <div id="authShowPasswordCol" class="col-12">
+                <div class="form-check">
+                  <input id="authShowPasswordInput" class="form-check-input" type="checkbox">
+                  <label class="form-check-label small" for="authShowPasswordInput">Show password</label>
+                </div>
+              </div>
+              <div id="authLoginCol" class="col-12">
+                <button id="authLoginBtn" class="btn btn-primary w-100" type="button">Login</button>
+              </div>
+              <div id="authRegisterCol" class="col-12">
+                <button id="authRegisterBtn" class="btn btn-outline-primary w-100" type="button">Sign Up</button>
+              </div>
+              <div id="authResetCol" class="col-12">
+                <button id="authResetBtn" class="btn btn-outline-warning w-100" type="button">Reset Password</button>
+              </div>
+              <div id="authLogoutCol" class="col-12">
+                <button id="authLogoutBtn" class="btn btn-outline-danger w-100" type="button" disabled>Logout</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -60,66 +106,112 @@
     <section class="panel">
       <div class="crumbs">
         <a href="/index.html">Console</a> <span class="crumbSep">›</span>
-        <span>MDRM Elements</span> <span class="crumbSep">›</span>
+        <span>MDRM Profile</span> <span class="crumbSep">›</span>
         <span class="mono" id="crumbMdrmCode">-</span>
+        <a id="backToJourneyLink" class="ms-auto" href="/index.html?view=view-discovery" style="display:none;">Back to Search Results</a>
       </div>
 
       <div class="element-head mt-3">
         <div class="element-main">
-          <h2><span class="mono" id="elementCodeLabel">MDRM</span> - <span id="elementNameLabel">Element Discovery View</span></h2>
-          <p id="elementDefinition" class="muted mb-0">Choose an MDRM code to load element details and where-used mapping from your latest run.</p>
+          <h2><span class="mono" id="elementCodeLabel">MDRM</span></h2>
+          <p id="elementDefinition" class="muted mb-0">Detailed timeline, associations, and related relationships for a single MDRM.</p>
           <div id="elementTagRow" class="tag-row mt-3"></div>
         </div>
 
         <aside class="detail-card">
-          <h3>Element snapshot</h3>
+          <h3>Latest snapshot</h3>
           <div id="snapshotList" class="snapshot-list"></div>
         </aside>
       </div>
     </section>
 
-    <section class="two-col">
-      <section class="panel">
-        <div class="section-head">
-          <div>
-            <h3>Where used</h3>
-            <p class="muted">Report and line-level mappings for the selected MDRM in the latest dataset.</p>
-          </div>
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h3>MDRM Relationship Explorer</h3>
+          <p class="muted">Track change history and cross-report relationships for this MDRM family.</p>
         </div>
-        <div id="whereUsedContainer" class="table-shell card-shell mt-2"></div>
-      </section>
+      </div>
+      <div class="status neutral mt-2" id="detailStatus">Ready.</div>
 
-      <section class="panel">
-        <div class="section-head">
-          <div>
-            <h3>Element context</h3>
-            <p class="muted">Discovery search moved to the landing page. Use this view for element details and where-used mapping.</p>
-          </div>
+      <div class="tab-row mt-3" id="profileTabs" role="tablist" aria-label="MDRM profile tabs">
+        <button class="tab-chip active" type="button" data-tab="tab-overview" role="tab" aria-selected="true">Overview</button>
+        <button class="tab-chip" type="button" data-tab="tab-timeline" role="tab" aria-selected="false">Timeline</button>
+        <button class="tab-chip" type="button" data-tab="tab-associations" role="tab" aria-selected="false">Report Association</button>
+        <button class="tab-chip" type="button" data-tab="tab-related-mdrm" role="tab" aria-selected="false">Related MDRM Graph</button>
+      </div>
+
+      <div id="tab-overview" class="tab-panel active mt-3" role="tabpanel">
+        <div class="card-shell p-3">
+          <div id="overviewSummary" class="overview-grid"></div>
+          <div id="fieldChangesContainer" class="mt-3"></div>
         </div>
-        <div class="status neutral mt-2" id="detailStatus">Ready.</div>
-        <div class="mt-2">
-          <a class="btn btn-outline-primary" id="openDiscoveryLink" href="/index.html">Open discovery page</a>
-        </div>
-      </section>
+      </div>
+
+      <div id="tab-timeline" class="tab-panel mt-3" role="tabpanel">
+        <div id="timelineContainer" class="table-shell card-shell"></div>
+      </div>
+
+      <div id="tab-associations" class="tab-panel mt-3" role="tabpanel">
+        <div id="associationsContainer" class="table-shell card-shell"></div>
+      </div>
+
+      <div id="tab-related-mdrm" class="tab-panel mt-3" role="tabpanel">
+        <div id="relatedMdrmContainer" class="table-shell card-shell"></div>
+      </div>
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
     const detailStatus = document.getElementById('detailStatus');
-    const openDiscoveryLink = document.getElementById('openDiscoveryLink');
-    const whereUsedContainer = document.getElementById('whereUsedContainer');
     const elementCodeLabel = document.getElementById('elementCodeLabel');
-    const elementNameLabel = document.getElementById('elementNameLabel');
     const elementDefinition = document.getElementById('elementDefinition');
     const snapshotList = document.getElementById('snapshotList');
     const elementTagRow = document.getElementById('elementTagRow');
     const crumbMdrmCode = document.getElementById('crumbMdrmCode');
+    const overviewSummary = document.getElementById('overviewSummary');
+    const timelineContainer = document.getElementById('timelineContainer');
+    const associationsContainer = document.getElementById('associationsContainer');
+    const relatedMdrmContainer = document.getElementById('relatedMdrmContainer');
+    const fieldChangesContainer = document.getElementById('fieldChangesContainer');
+    const backToJourneyLink = document.getElementById('backToJourneyLink');
 
     const profileMenuBtn = document.getElementById('profileMenuBtn');
     const profileMenu = document.getElementById('profileMenu');
     const profileNameLabel = document.getElementById('profileNameLabel');
     const themeIconBtn = document.getElementById('themeIconBtn');
     const THEME_KEY = 'mdrm-ui-theme';
+    const authStatusLabel = document.getElementById('authStatusLabel');
+    const authModeRow = document.getElementById('authModeRow');
+    const authModeLoginBtn = document.getElementById('authModeLoginBtn');
+    const authModeRegisterBtn = document.getElementById('authModeRegisterBtn');
+    const authModeResetBtn = document.getElementById('authModeResetBtn');
+    const authEmailInput = document.getElementById('authEmailInput');
+    const authFirstNameInput = document.getElementById('authFirstNameInput');
+    const authLastNameInput = document.getElementById('authLastNameInput');
+    const authPasswordInput = document.getElementById('authPasswordInput');
+    const authConfirmPasswordInput = document.getElementById('authConfirmPasswordInput');
+    const authShowPasswordInput = document.getElementById('authShowPasswordInput');
+    const authEmailCol = document.getElementById('authEmailCol');
+    const authFirstNameCol = document.getElementById('authFirstNameCol');
+    const authLastNameCol = document.getElementById('authLastNameCol');
+    const authPasswordCol = document.getElementById('authPasswordCol');
+    const authConfirmPasswordCol = document.getElementById('authConfirmPasswordCol');
+    const authShowPasswordCol = document.getElementById('authShowPasswordCol');
+    const authLoginCol = document.getElementById('authLoginCol');
+    const authRegisterCol = document.getElementById('authRegisterCol');
+    const authResetCol = document.getElementById('authResetCol');
+    const authLogoutCol = document.getElementById('authLogoutCol');
+    const authLoginBtn = document.getElementById('authLoginBtn');
+    const authRegisterBtn = document.getElementById('authRegisterBtn');
+    const authResetBtn = document.getElementById('authResetBtn');
+    const authLogoutBtn = document.getElementById('authLogoutBtn');
+    let csrfToken = null;
+    let csrfHeaderName = 'X-CSRF-TOKEN';
+    let currentUser = null;
+    let authMode = '';
+    let includeInactiveGraphNodes = false;
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -130,21 +222,16 @@
         .replaceAll("'", '&#39;');
     }
 
-    function getValue(row, keys) {
-      if (!row || !keys || !keys.length) {
-        return null;
+    function statusCapsule(value) {
+      const raw = String(value ?? '').trim();
+      const normalized = raw.toLowerCase();
+      if (normalized === 'y' || normalized === 'active') {
+        return '<span class="status-capsule active">Active</span>';
       }
-      const byLower = {};
-      Object.keys(row).forEach(key => {
-        byLower[key.toLowerCase()] = row[key];
-      });
-      for (const key of keys) {
-        const value = byLower[key.toLowerCase()];
-        if (value !== null && value !== undefined && String(value).trim() !== '') {
-          return value;
-        }
+      if (normalized === 'n' || normalized === 'inactive') {
+        return '<span class="status-capsule inactive">Inactive</span>';
       }
-      return null;
+      return escapeHtml(raw || '-');
     }
 
     function closeProfileMenu() {
@@ -181,41 +268,380 @@
       detailStatus.className = `status ${css} mt-2`;
     }
 
-    function renderWhereUsed(rows, mdrmCode) {
-      if (!rows.length) {
-        whereUsedContainer.innerHTML = '<div class="text-muted small p-2">No mappings found for this MDRM in the current run.</div>';
-        return;
+    function resolveReturnUrl(raw) {
+      const candidate = String(raw || '').trim();
+      if (!candidate) {
+        return null;
       }
-
-      const normalizedCode = String(mdrmCode || '').trim().toLowerCase();
-      const mappings = rows
-        .filter(row => {
-          const code = getValue(row, ['mdrm_code', 'mdrm']);
-          return normalizedCode ? String(code || '').trim().toLowerCase() === normalizedCode : true;
-        })
-        .map(row => ({
-          reportingForm: getValue(row, ['reporting_form', 'report', 'reportingform']) || '-',
-          schedule: getValue(row, ['schedule', 'schedule_code', 'schedule_name']) || '-',
-          line: getValue(row, ['line', 'line_number', 'line_num', 'line_item']) || '-',
-          label: getValue(row, ['line_description', 'item_name', 'description', 'label']) || '-'
-        }));
-
-      const seen = new Set();
-      const unique = mappings.filter(item => {
-        const key = `${item.reportingForm}||${item.schedule}||${item.line}||${item.label}`;
-        if (seen.has(key)) {
-          return false;
+      try {
+        const parsed = new URL(candidate, window.location.origin);
+        if (parsed.origin !== window.location.origin) {
+          return null;
         }
-        seen.add(key);
-        return true;
-      });
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch (_) {
+        return null;
+      }
+    }
 
-      if (!unique.length) {
-        whereUsedContainer.innerHTML = '<div class="text-muted small p-2">No mappings found for this MDRM in the current run.</div>';
+    function setAuthStatus(text, css = 'neutral') {
+      if (!authStatusLabel) {
+        return;
+      }
+      authStatusLabel.textContent = text;
+      authStatusLabel.className = `status ${css} mt-2`;
+    }
+
+    async function ensureCsrfToken() {
+      if (csrfToken) {
+        return { headerName: csrfHeaderName, token: csrfToken };
+      }
+      const response = await fetch('/api/auth/csrf');
+      if (!response.ok) {
+        throw new Error('Unable to initialize session');
+      }
+      const payload = await response.json();
+      csrfToken = payload.token;
+      csrfHeaderName = payload.headerName || 'X-CSRF-TOKEN';
+      return { headerName: csrfHeaderName, token: csrfToken };
+    }
+
+    async function apiFetch(url, options = {}) {
+      const method = (options.method || 'GET').toUpperCase();
+      const headers = new Headers(options.headers || {});
+      if (method !== 'GET' && method !== 'HEAD') {
+        const csrf = await ensureCsrfToken();
+        if (csrf && csrf.token) {
+          headers.set(csrf.headerName || 'X-CSRF-TOKEN', csrf.token);
+        }
+      }
+      return fetch(url, { ...options, method, headers });
+    }
+
+    function setPasswordVisibility(show) {
+      const type = show ? 'text' : 'password';
+      if (authPasswordInput) authPasswordInput.type = type;
+      if (authConfirmPasswordInput) authConfirmPasswordInput.type = type;
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode === 'login' || mode === 'register' || mode === 'reset' ? mode : '';
+      if (authModeLoginBtn) {
+        authModeLoginBtn.classList.toggle('btn-primary', authMode === 'login');
+        authModeLoginBtn.classList.toggle('btn-outline-primary', authMode !== 'login');
+      }
+      if (authModeRegisterBtn) {
+        authModeRegisterBtn.classList.toggle('btn-primary', authMode === 'register');
+        authModeRegisterBtn.classList.toggle('btn-outline-primary', authMode !== 'register');
+      }
+      if (authModeResetBtn) {
+        authModeResetBtn.classList.toggle('btn-warning', authMode === 'reset');
+        authModeResetBtn.classList.toggle('btn-outline-primary', authMode !== 'reset');
+      }
+
+      const showBase = !!authMode;
+      const isRegister = authMode === 'register';
+      const isReset = authMode === 'reset';
+      if (authEmailCol) authEmailCol.style.display = showBase ? '' : 'none';
+      if (authPasswordCol) authPasswordCol.style.display = showBase ? '' : 'none';
+      if (authFirstNameCol) authFirstNameCol.style.display = isRegister ? '' : 'none';
+      if (authLastNameCol) authLastNameCol.style.display = isRegister ? '' : 'none';
+      if (authConfirmPasswordCol) authConfirmPasswordCol.style.display = (isRegister || isReset) ? '' : 'none';
+      if (authShowPasswordCol) authShowPasswordCol.style.display = showBase ? '' : 'none';
+      if (authLoginCol) authLoginCol.style.display = authMode === 'login' ? '' : 'none';
+      if (authRegisterCol) authRegisterCol.style.display = isRegister ? '' : 'none';
+      if (authResetCol) authResetCol.style.display = isReset ? '' : 'none';
+      if (authPasswordInput) authPasswordInput.placeholder = isReset ? 'New password' : 'Password';
+      if (authConfirmPasswordInput) authConfirmPasswordInput.placeholder = isReset ? 'Confirm new password' : 'Re-enter password';
+    }
+
+    function clearAuthInputs() {
+      if (authFirstNameInput) authFirstNameInput.value = '';
+      if (authLastNameInput) authLastNameInput.value = '';
+      if (authEmailInput) authEmailInput.value = '';
+      if (authPasswordInput) authPasswordInput.value = '';
+      if (authConfirmPasswordInput) authConfirmPasswordInput.value = '';
+      if (authShowPasswordInput) authShowPasswordInput.checked = false;
+      setPasswordVisibility(false);
+      authMode = '';
+      setAuthMode('');
+    }
+
+    function renderAuthByState() {
+      const isLoggedIn = !!currentUser;
+      const displayName = isLoggedIn
+        ? (currentUser.displayName || [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ') || currentUser.email || 'User')
+        : 'Guest';
+      profileNameLabel.textContent = displayName;
+      if (authModeRow) authModeRow.style.display = isLoggedIn ? 'none' : '';
+      if (authLogoutCol) authLogoutCol.style.display = '';
+      if (authLogoutBtn) authLogoutBtn.disabled = !isLoggedIn;
+
+      if (isLoggedIn) {
+        if (authEmailCol) authEmailCol.style.display = 'none';
+        if (authFirstNameCol) authFirstNameCol.style.display = 'none';
+        if (authLastNameCol) authLastNameCol.style.display = 'none';
+        if (authPasswordCol) authPasswordCol.style.display = 'none';
+        if (authConfirmPasswordCol) authConfirmPasswordCol.style.display = 'none';
+        if (authShowPasswordCol) authShowPasswordCol.style.display = 'none';
+        if (authLoginCol) authLoginCol.style.display = 'none';
+        if (authRegisterCol) authRegisterCol.style.display = 'none';
+        if (authResetCol) authResetCol.style.display = 'none';
+        setAuthStatus(`Logged in as ${displayName}`, 'ok');
+      } else {
+        setAuthMode(authMode);
+        setAuthStatus('Not logged in', 'neutral');
+      }
+    }
+
+    async function refreshAuthState() {
+      try {
+        const response = await fetch('/api/auth/me');
+        const payload = response.ok ? await response.json() : null;
+        currentUser = payload && payload.authenticated ? payload.user : null;
+      } catch (_) {
+        currentUser = null;
+      }
+      renderAuthByState();
+    }
+
+    async function login() {
+      const email = (authEmailInput?.value || '').trim();
+      const password = (authPasswordInput?.value || '').trim();
+      if (!email || !password) {
+        setAuthStatus('Email and password are required.', 'err');
+        return;
+      }
+      const response = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || 'Login failed');
+      }
+      if (authPasswordInput) authPasswordInput.value = '';
+      setAuthStatus('Login successful.', 'ok');
+      await refreshAuthState();
+      closeProfileMenu();
+    }
+
+    async function register() {
+      const firstName = (authFirstNameInput?.value || '').trim();
+      const lastName = (authLastNameInput?.value || '').trim();
+      const email = (authEmailInput?.value || '').trim();
+      const password = (authPasswordInput?.value || '').trim();
+      const confirmPassword = (authConfirmPasswordInput?.value || '').trim();
+      if (!firstName || !lastName || !email || !password) {
+        setAuthStatus('First name, last name, email and password are required.', 'err');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthStatus('Passwords do not match.', 'err');
+        return;
+      }
+      const response = await apiFetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, email, password })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || 'Sign up failed');
+      }
+      setAuthStatus('Sign up successful. Please login.', 'ok');
+      if (authPasswordInput) authPasswordInput.value = '';
+      if (authConfirmPasswordInput) authConfirmPasswordInput.value = '';
+      setAuthMode('login');
+    }
+
+    async function resetPassword() {
+      const email = (authEmailInput?.value || '').trim();
+      const password = (authPasswordInput?.value || '').trim();
+      const confirmPassword = (authConfirmPasswordInput?.value || '').trim();
+      if (!email || !password || !confirmPassword) {
+        setAuthStatus('Email and both password fields are required.', 'err');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setAuthStatus('Passwords do not match.', 'err');
+        return;
+      }
+      const response = await apiFetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, newPassword: password })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || 'Reset failed');
+      }
+      setAuthStatus('Password reset successful. Please login.', 'ok');
+      if (authPasswordInput) authPasswordInput.value = '';
+      if (authConfirmPasswordInput) authConfirmPasswordInput.value = '';
+      setAuthMode('login');
+    }
+
+    async function logout() {
+      const response = await apiFetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || 'Logout failed');
+      }
+      clearAuthInputs();
+      await refreshAuthState();
+      setAuthStatus('Logged out.', 'neutral');
+      closeProfileMenu();
+    }
+
+    function activateTab(tabId) {
+      document.querySelectorAll('.tab-chip').forEach(button => {
+        const isActive = button.dataset.tab === tabId;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-selected', String(isActive));
+      });
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === tabId);
+      });
+    }
+
+    function renderSnapshot(profile) {
+      const items = [
+        ['MDRM', profile.mdrmCode || '-'],
+        ['Item Code', profile.itemCode || '-'],
+        ['Mnemonic', profile.mnemonic || '-'],
+        ['Item Type', profile.itemType || '-'],
+        ['Status', profile.latestStatus || '-'],
+        ['Latest File', profile.latestFileName || '-']
+      ];
+
+      snapshotList.innerHTML = items.map(([key, value]) => `
+        <div class="kv">
+          <div class="k">${escapeHtml(key)}</div>
+          <div class="v">${key === 'Status' ? statusCapsule(value) : escapeHtml(value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderOverview(profile) {
+      const details = [
+        ['Description', profile.description || '-'],
+        ['Definition', profile.definition || '-'],
+        ['Timeline events', String(profile.timelineCount ?? 0)],
+        ['Report associations', String(profile.associationCount ?? 0)],
+        ['Related MDRMs', String(profile.relatedMdrmCount ?? 0)],
+        ['Related reports', String(profile.relatedReportCount ?? 0)]
+      ];
+
+      overviewSummary.innerHTML = details.map(([key, value]) => `
+        <div class="overview-item">
+          <div class="overview-key">${escapeHtml(key)}</div>
+          <div class="overview-value">${escapeHtml(value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderFieldChanges(changes) {
+      const rows = Array.isArray(changes) ? changes : [];
+      if (!rows.length) {
+        fieldChangesContainer.innerHTML = '<div class="text-muted small">No field-level change found between first and latest appearance.</div>';
+        return;
+      }
+      fieldChangesContainer.innerHTML = `
+        <div class="overview-key mb-2">First vs Latest Field Changes (${rows.length})</div>
+        <div class="field-change-list">
+          ${rows.map(change => `
+            <div class="field-change-item">
+              <div class="field-change-name">${escapeHtml(change.fieldName || '-')}</div>
+              <div class="field-change-values">
+                <span class="field-old">${escapeHtml(change.firstValue || '-')}</span>
+                <span class="field-arrow">→</span>
+                <span class="field-new">${escapeHtml(change.latestValue || '-')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function formatRunDatetime(epochMillis) {
+      const value = Number(epochMillis || 0);
+      if (!value) {
+        return '-';
+      }
+      return new Date(value).toLocaleString();
+    }
+
+    function renderTimeline(rows) {
+      if (!Array.isArray(rows) || !rows.length) {
+        timelineContainer.innerHTML = '<div class="text-muted small p-3">No run timeline found for this MDRM.</div>';
         return;
       }
 
-      whereUsedContainer.innerHTML = `
+      timelineContainer.innerHTML = `
+        <div class="timeline-graph">
+          ${rows.map(row => {
+            const changedCount = Number(row.changedFieldCount || 0);
+            const hasChanges = changedCount > 0;
+            const changeRows = Array.isArray(row.fieldChanges) ? row.fieldChanges : [];
+            return `
+              <article class="timeline-item ${hasChanges ? 'changed' : 'no-change'}">
+                <div class="timeline-dot" aria-hidden="true"></div>
+                <div class="timeline-card ${hasChanges ? 'changed' : 'no-change'}">
+                  <div class="timeline-top">
+                    <div class="timeline-run">Run ${escapeHtml(row.runId)}</div>
+                    <div class="timeline-date">${escapeHtml(formatRunDatetime(row.runDatetime))}</div>
+                  </div>
+                  <div class="timeline-meta">
+                    <span class="tag">${statusCapsule(row.status || '-')}</span>
+                    <span class="tag">Rows: ${escapeHtml(row.rowCount || 0)}</span>
+                    <span class="tag">Reports: ${escapeHtml(row.reportCount || 0)}</span>
+                    <span class="tag ${hasChanges ? 'good' : ''}">${hasChanges ? `${escapeHtml(changedCount)} Fields Changed` : 'No Change'}</span>
+                  </div>
+                  <div class="small text-muted mt-2">File: ${escapeHtml(row.fileName || '-')}</div>
+                  <div class="small text-muted">Forms: ${escapeHtml(row.reportingForms || '-')}</div>
+                  <div class="small text-muted">Date range: ${escapeHtml(row.minStartDateUtc || '-')} to ${escapeHtml(row.maxEndDateUtc || '-')}</div>
+                  ${hasChanges ? `
+                    <details class="timeline-details mt-2">
+                      <summary>Show Field Changes</summary>
+                      <div class="timeline-change-table-wrap mt-2">
+                        <table class="table table-sm mb-0">
+                          <thead>
+                            <tr>
+                              <th>Field</th>
+                              <th>Previous</th>
+                              <th>Current</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${changeRows.map(change => `
+                              <tr>
+                                <td>${escapeHtml(change.fieldName || '-')}</td>
+                                <td>${escapeHtml(change.previousValue || '-')}</td>
+                                <td>${escapeHtml(change.currentValue || '-')}</td>
+                              </tr>
+                            `).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  ` : ''}
+                </div>
+              </article>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderAssociations(rows) {
+      if (!Array.isArray(rows) || !rows.length) {
+        associationsContainer.innerHTML = '<div class="text-muted small p-3">No latest-run report associations found.</div>';
+        return;
+      }
+
+      associationsContainer.innerHTML = `
         <table class="table table-sm table-striped table-hover mb-0">
           <thead>
             <tr>
@@ -226,12 +652,12 @@
             </tr>
           </thead>
           <tbody>
-            ${unique.map(item => `
+            ${rows.map(row => `
               <tr>
-                <td>${escapeHtml(item.reportingForm)}</td>
-                <td>${escapeHtml(item.schedule)}</td>
-                <td>${escapeHtml(item.line)}</td>
-                <td>${escapeHtml(item.label)}</td>
+                <td>${escapeHtml(row.reportingForm || '-')}</td>
+                <td>${escapeHtml(row.schedule || '-')}</td>
+                <td>${escapeHtml(row.line || '-')}</td>
+                <td>${escapeHtml(row.label || '-')}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -239,98 +665,281 @@
       `;
     }
 
-    function renderSnapshot(row, fallbackCode) {
-      if (!row) {
-        snapshotList.innerHTML = '<div class="text-muted small">No detail attributes available.</div>';
-        return;
-      }
-
-      const baseItems = [
-        ['MDRM Code', getValue(row, ['mdrm_code', 'mdrm']) || fallbackCode || '-'],
-        ['Reporting Form', getValue(row, ['reporting_form', 'report']) || '-'],
-        ['Status', getValue(row, ['is_active', 'status']) || '-'],
-        ['Start Date', getValue(row, ['start_date_utc', 'start_date']) || '-'],
-        ['End Date', getValue(row, ['end_date_utc', 'end_date']) || '-']
-      ];
-
-      const ignored = new Set(['master_id', 'run_id']);
-      const extras = Object.entries(row)
-        .filter(([key, value]) => !ignored.has(key.toLowerCase()) && value !== null && value !== undefined && String(value).trim() !== '')
-        .slice(0, 6)
-        .map(([key, value]) => [key.replaceAll('_', ' '), value]);
-
-      const allItems = [...baseItems, ...extras].slice(0, 9);
-
-      snapshotList.innerHTML = allItems.map(([key, value]) => `
-        <div class="kv">
-          <div class="k">${escapeHtml(key)}</div>
-          <div class="v">${escapeHtml(value)}</div>
-        </div>
-      `).join('');
+    function normalizeReportLabel(value) {
+      const text = String(value || '').trim();
+      return text && text !== '-' ? text : 'Unassigned';
     }
 
-    function renderElementHeader(payload, rows, mdrmCode) {
-      const first = rows[0] || null;
-      const discoveredName = getValue(first, ['item_name', 'description', 'line_description', 'label']) || 'Element Discovery View';
-      const report = payload.interpretedReportingForm || 'Across all reports';
-      const keywords = Array.isArray(payload.interpretedKeywords) && payload.interpretedKeywords.length
-        ? payload.interpretedKeywords.join(', ')
-        : 'none';
+    function renderRelationshipDetail(node, profile, groupedReports) {
+      const panel = document.getElementById('relationshipDetailPanel');
+      if (!panel) {
+        return;
+      }
+      if (!node) {
+        panel.innerHTML = '<div class="text-muted small">Select a node to view details.</div>';
+        return;
+      }
+      if (node.type === 'center') {
+        panel.innerHTML = `
+          <div class="related-detail-card">
+            <div class="related-detail-title">Selected MDRM</div>
+            <div class="related-detail-row"><span class="k">MDRM</span><span>${escapeHtml(profile.mdrmCode || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(profile.latestStatus || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(profile.itemType || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Reports</span><span>${escapeHtml(profile.relatedReportCount || 0)}</span></div>
+            <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(profile.relatedMdrmCount || 0)}</span></div>
+          </div>
+        `;
+        return;
+      }
+      if (node.type === 'report') {
+        const members = (groupedReports.get(node.report) || [])
+          .slice()
+          .sort((a, b) => String(a.mdrmCode || '').localeCompare(String(b.mdrmCode || ''), undefined, { sensitivity: 'base' }));
+        panel.innerHTML = `
+          <div class="related-detail-card">
+            <div class="related-detail-title">Report Node</div>
+            <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(members.length)}</span></div>
+            <div class="report-member-list">
+              ${members.map(member => `
+                <div class="report-member-item">
+                  <div class="report-member-main">
+                    <a href="/mdrm.html?mdrm=${encodeURIComponent(member.mdrmCode || '')}">${escapeHtml(member.mdrmCode || '-')}</a>
+                  </div>
+                  <div class="report-member-meta">
+                    <span>${statusCapsule(member.status || '-')}</span>
+                    <span>${escapeHtml(member.itemType || '-')}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        return;
+      }
+      panel.innerHTML = `
+        <div class="related-detail-card">
+          <div class="related-detail-title">Related MDRM</div>
+          <div class="related-detail-row"><span class="k">MDRM</span><span><a href="/mdrm.html?mdrm=${encodeURIComponent(node.mdrmCode || '')}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
+          <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
+          <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
+          <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(node.itemType || '-')}</span></div>
+        </div>
+      `;
+    }
 
-      elementCodeLabel.textContent = mdrmCode || getValue(first, ['mdrm_code', 'mdrm']) || 'MDRM';
-      elementNameLabel.textContent = discoveredName;
-      crumbMdrmCode.textContent = elementCodeLabel.textContent;
-      elementDefinition.textContent = `Source report scope: ${report}. Interpreted keywords: ${keywords}.`;
+    function renderRelatedMdrms(profile) {
+      const centerCode = profile && profile.mdrmCode ? profile.mdrmCode : '';
+      const allRows = profile && Array.isArray(profile.relatedMdrms) ? profile.relatedMdrms : [];
+      const rows = includeInactiveGraphNodes
+        ? allRows
+        : allRows.filter(row => String(row && row.status ? row.status : '').trim().toLowerCase() === 'active');
+      if (!Array.isArray(rows) || !rows.length) {
+        relatedMdrmContainer.innerHTML = `
+          <div class="relationship-shell">
+            <div class="relationship-controls">
+              <label class="form-check">
+                <input id="graphIncludeInactiveToggle" class="form-check-input" type="checkbox" ${includeInactiveGraphNodes ? 'checked' : ''}>
+                <span class="form-check-label small">Include inactive</span>
+              </label>
+            </div>
+            <div class="text-muted small p-3">No related MDRMs found for this filter. Try enabling inactive.</div>
+          </div>
+        `;
+        const toggle = document.getElementById('graphIncludeInactiveToggle');
+        if (toggle) {
+          toggle.addEventListener('change', () => {
+            includeInactiveGraphNodes = !!toggle.checked;
+            renderRelatedMdrms(profile);
+          });
+        }
+        return;
+      }
+      const grouped = new Map();
+      rows.forEach(row => {
+        const report = normalizeReportLabel(row.reportingForm);
+        if (!grouped.has(report)) {
+          grouped.set(report, []);
+        }
+        grouped.get(report).push(row);
+      });
+      const reports = Array.from(grouped.entries());
+      const width = 980;
+      const height = 640;
+      const cx = width / 2;
+      const cy = height / 2;
+      const reportRadius = 150;
+      const mdrmRadius = 255;
+      const reportNodes = [];
+      const mdrmNodes = [];
 
-      const totalMappings = rows.length;
-      elementTagRow.innerHTML = `
-        <span class="tag good">Mappings: ${totalMappings}</span>
-        <span class="tag">Report: ${escapeHtml(report)}</span>
-        <span class="tag">Keywords: ${escapeHtml(keywords)}</span>
+      reports.forEach(([report, members], reportIdx) => {
+        const reportAngle = ((Math.PI * 2) / reports.length) * reportIdx - (Math.PI / 2);
+        const reportX = cx + reportRadius * Math.cos(reportAngle);
+        const reportY = cy + reportRadius * Math.sin(reportAngle);
+        reportNodes.push({ report, x: reportX, y: reportY, count: members.length });
+
+        const spread = Math.min(Math.PI / 2.2, Math.max(0.2, members.length * 0.11));
+        members.forEach((row, idx) => {
+          const theta = members.length === 1
+            ? reportAngle
+            : (reportAngle - spread / 2) + (spread * (idx / (members.length - 1)));
+          const x = cx + mdrmRadius * Math.cos(theta);
+          const y = cy + mdrmRadius * Math.sin(theta);
+          mdrmNodes.push({
+            ...row,
+            report,
+            x,
+            y,
+            reportX,
+            reportY,
+            statusClass: String(row.status || '').trim().toLowerCase() === 'active' ? 'active' : 'inactive'
+          });
+        });
+      });
+
+      relatedMdrmContainer.innerHTML = `
+        <div class="relationship-shell">
+          <div class="relationship-controls">
+            <label class="form-check">
+              <input id="graphIncludeInactiveToggle" class="form-check-input" type="checkbox" ${includeInactiveGraphNodes ? 'checked' : ''}>
+              <span class="form-check-label small">Include inactive</span>
+            </label>
+          </div>
+          <div class="relationship-legend">
+            <span><i class="dot center"></i> Selected MDRM</span>
+            <span><i class="dot report"></i> Reports (${reports.length})</span>
+            <span><i class="dot active"></i> Active MDRMs (${rows.filter(row => String(row.status || '').toLowerCase() === 'active').length})</span>
+            ${includeInactiveGraphNodes ? `<span><i class="dot inactive"></i> Inactive MDRMs (${rows.filter(row => String(row.status || '').toLowerCase() === 'inactive').length})</span>` : ''}
+          </div>
+          <div class="relationship-layout">
+            <div id="relationshipGraphHost" class="relationship-graph-host"></div>
+            <aside id="relationshipDetailPanel" class="relationship-detail-panel"></aside>
+          </div>
+        </div>
       `;
 
-      renderSnapshot(first, mdrmCode);
+      const host = document.getElementById('relationshipGraphHost');
+      const toggle = document.getElementById('graphIncludeInactiveToggle');
+      if (toggle) {
+        toggle.addEventListener('change', () => {
+          includeInactiveGraphNodes = !!toggle.checked;
+          renderRelatedMdrms(profile);
+        });
+      }
+      if (!host || !window.d3) {
+        return;
+      }
+      const svg = d3.select(host)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('class', 'relationship-graph')
+        .attr('role', 'img')
+        .attr('aria-label', 'Related MDRM graph');
+
+      const links = [];
+      reportNodes.forEach(node => {
+        links.push({ x1: cx, y1: cy, x2: node.x, y2: node.y });
+      });
+      mdrmNodes.forEach(node => {
+        links.push({ x1: node.reportX, y1: node.reportY, x2: node.x, y2: node.y });
+      });
+      svg.append('g')
+        .attr('class', 'graph-links')
+        .selectAll('line')
+        .data(links)
+        .enter()
+        .append('line')
+        .attr('x1', d => d.x1)
+        .attr('y1', d => d.y1)
+        .attr('x2', d => d.x2)
+        .attr('y2', d => d.y2);
+
+      const centerNode = { type: 'center', mdrmCode: centerCode, x: cx, y: cy };
+      const centerGroup = svg.append('g')
+        .attr('class', 'graph-center node-clickable')
+        .attr('transform', `translate(${cx}, ${cy})`)
+        .on('click', () => renderRelationshipDetail(centerNode, profile, grouped));
+      centerGroup.append('circle').attr('r', 48);
+      centerGroup.append('text').attr('text-anchor', 'middle').attr('y', -6).text('Selected MDRM');
+      centerGroup.append('text').attr('text-anchor', 'middle').attr('y', 14).attr('class', 'code').text(centerCode || 'MDRM');
+
+      const reportGroup = svg.append('g').attr('class', 'graph-reports');
+      const reportNodesSel = reportGroup.selectAll('g')
+        .data(reportNodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node-clickable')
+        .attr('transform', d => `translate(${d.x}, ${d.y})`)
+        .on('click', (_, d) => renderRelationshipDetail({ type: 'report', report: d.report }, profile, grouped));
+      reportNodesSel.append('circle').attr('r', 22);
+      reportNodesSel.append('text').attr('text-anchor', 'middle').attr('dy', 4).text(d => d.report);
+
+      const mdrmGroup = svg.append('g').attr('class', 'graph-mdrms');
+      const mdrmNodesSel = mdrmGroup.selectAll('g')
+        .data(mdrmNodes)
+        .enter()
+        .append('g')
+        .attr('class', d => `graph-mdrm node-clickable ${d.statusClass}`)
+        .attr('transform', d => `translate(${d.x}, ${d.y})`)
+        .on('click', (_, d) => renderRelationshipDetail({ type: 'mdrm', ...d }, profile, grouped));
+      mdrmNodesSel.append('circle').attr('r', 13);
+      mdrmNodesSel.append('text').attr('text-anchor', 'middle').attr('dy', -18).text(d => d.mdrmCode || '-');
+      mdrmNodesSel.append('title').text(d => `${d.mdrmCode || '-'} | Report: ${d.report} | Status: ${d.status || '-'} | Type: ${d.itemType || '-'}`);
+
+      renderRelationshipDetail(centerNode, profile, grouped);
     }
 
-    async function loadMdrmProfile(query) {
-      const searchText = String(query || '').trim();
+    function renderHeader(profile) {
+      const code = profile.mdrmCode || '-';
+      elementCodeLabel.textContent = code;
+      crumbMdrmCode.textContent = code;
+      elementDefinition.textContent = `Item code family ${profile.itemCode || '-'} with ${profile.timelineCount || 0} timeline events and ${profile.associationCount || 0} report mappings.`;
+
+      elementTagRow.innerHTML = `
+        <span class="tag">Status: ${statusCapsule(profile.latestStatus || 'Unknown')}</span>
+        <span class="tag">Item Type: ${escapeHtml(profile.itemType || '-')}</span>
+        <span class="tag">Related MDRMs: ${escapeHtml(profile.relatedMdrmCount || 0)}</span>
+        <span class="tag">Reports In Graph: ${escapeHtml(profile.relatedReportCount || 0)}</span>
+      `;
+    }
+
+    async function loadMdrmProfile(mdrmCode) {
+      const searchText = String(mdrmCode || '').trim();
       if (!searchText) {
-        setDetailStatus('Open this page with an MDRM query parameter, e.g. /mdrm.html?mdrm=MDRM_1001', 'err');
+        setDetailStatus('Open this page with an MDRM query parameter, e.g. /mdrm.html?mdrm=RCFN1415', 'err');
         return;
       }
 
-      setDetailStatus('Loading latest MDRM mapping...', 'neutral');
-      whereUsedContainer.innerHTML = '';
+      setDetailStatus('Loading MDRM profile...', 'neutral');
 
       try {
-        const response = await fetch(`/api/mdrm/semantic-search?q=${encodeURIComponent(searchText)}`);
+        const response = await fetch(`/api/mdrm/profile?mdrm=${encodeURIComponent(searchText)}`);
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
-        const rows = payload && payload.results && Array.isArray(payload.results.rows) ? payload.results.rows : [];
-        const exactRows = rows.filter(row => {
-          const code = getValue(row, ['mdrm_code', 'mdrm']);
-          return String(code || '').trim().toLowerCase() === searchText.toLowerCase();
-        });
-        const mdrmRows = exactRows.length ? exactRows : rows;
+        if (!payload || !payload.mdrmCode) {
+          setDetailStatus(`No profile found for ${searchText.toUpperCase()}.`, 'err');
+          return;
+        }
 
-        renderElementHeader(payload, mdrmRows, searchText.toUpperCase());
-        renderWhereUsed(mdrmRows, searchText);
-
-        const interpretedForm = payload.interpretedReportingForm || 'Not inferred';
-        const keywords = Array.isArray(payload.interpretedKeywords) && payload.interpretedKeywords.length
-          ? payload.interpretedKeywords.join(', ')
-          : 'None';
+        renderHeader(payload);
+        renderSnapshot(payload);
+        renderOverview(payload);
+        renderFieldChanges(payload.fieldChanges || []);
+        renderTimeline(payload.timeline || []);
+        renderAssociations(payload.associations || []);
+        renderRelatedMdrms(payload);
 
         setDetailStatus(
-          `Report: ${interpretedForm} | Keywords: ${keywords} | Results: ${payload.totalResults ?? 0}`,
+          `Loaded ${payload.mdrmCode} | timeline=${payload.timelineCount || 0} | associations=${payload.associationCount || 0} | related MDRMs=${payload.relatedMdrmCount || 0}`,
           'ok'
         );
       } catch (error) {
         setDetailStatus(`Load failed: ${error.message}`, 'err');
-        whereUsedContainer.innerHTML = '<div class="text-danger small p-2">Failed to load where-used mappings.</div>';
       }
     }
 
@@ -353,25 +962,60 @@
       });
     }
 
-    initTheme();
-    fetch('/api/auth/me')
-      .then(response => response.ok ? response.json() : null)
-      .then(payload => {
-        if (payload && payload.authenticated && payload.user && payload.user.displayName) {
-          profileNameLabel.textContent = payload.user.displayName;
+    const tabsRoot = document.getElementById('profileTabs');
+    if (tabsRoot) {
+      tabsRoot.addEventListener('click', event => {
+        const button = event.target.closest('.tab-chip');
+        if (!button) {
+          return;
         }
-      })
-      .catch(() => {});
+        activateTab(button.dataset.tab);
+      });
+    }
+
+    if (authLoginBtn) {
+      authLoginBtn.addEventListener('click', () => login().catch(error => setAuthStatus(error.message, 'err')));
+    }
+    if (authRegisterBtn) {
+      authRegisterBtn.addEventListener('click', () => register().catch(error => setAuthStatus(error.message, 'err')));
+    }
+    if (authResetBtn) {
+      authResetBtn.addEventListener('click', () => resetPassword().catch(error => setAuthStatus(error.message, 'err')));
+    }
+    if (authLogoutBtn) {
+      authLogoutBtn.addEventListener('click', () => logout().catch(error => setAuthStatus(error.message, 'err')));
+    }
+    if (authModeLoginBtn) {
+      authModeLoginBtn.addEventListener('click', () => setAuthMode('login'));
+    }
+    if (authModeRegisterBtn) {
+      authModeRegisterBtn.addEventListener('click', () => setAuthMode('register'));
+    }
+    if (authModeResetBtn) {
+      authModeResetBtn.addEventListener('click', () => setAuthMode('reset'));
+    }
+    if (authShowPasswordInput) {
+      authShowPasswordInput.addEventListener('change', () => setPasswordVisibility(authShowPasswordInput.checked));
+    }
+
+    initTheme();
+    setAuthMode('');
+    refreshAuthState();
 
     const params = new URLSearchParams(window.location.search);
     const selectedMdrm = params.get('mdrm');
-    if (selectedMdrm) {
-      openDiscoveryLink.href = `/index.html`;
+    const returnTo = resolveReturnUrl(params.get('returnTo'));
+    if (backToJourneyLink && returnTo) {
+      backToJourneyLink.href = returnTo;
+      backToJourneyLink.style.display = '';
+    } else if (backToJourneyLink && document.referrer && document.referrer.includes('/index.html')) {
+      backToJourneyLink.href = '/index.html?view=view-discovery';
+      backToJourneyLink.style.display = '';
     }
     if (selectedMdrm) {
       loadMdrmProfile(selectedMdrm);
     } else {
-      setDetailStatus('Select an MDRM from Discovery to view this page.', 'neutral');
+      setDetailStatus('Select an MDRM from Discovery to open a focused profile view.', 'neutral');
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

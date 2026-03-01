@@ -44,6 +44,35 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - Phase 1: local recent history cards (up to 10), quick reopen.
   - Phase 2: server-backed recent history per logged-in user (`/api/recent/items`), with local fallback.
   - Recent cards include type icons and bookmark star toggle.
+- MDRM Profile experience:
+  - New dedicated profile API: `GET /api/mdrm/profile?mdrm=<code>`
+  - Tabbed MDRM view with:
+    - overview snapshot
+    - timeline across runs/files
+    - report association mapping
+    - related MDRM graph
+  - Timeline upgrades:
+    - visual timeline cards
+    - per-run change detection
+    - first-vs-latest field delta section
+    - expandable field-level previous/current values
+    - change/no-change color cues
+  - Relationship visualization:
+    - D3-based concentric graph:
+      - center: selected MDRM
+      - ring 1: related reports
+      - ring 2: related MDRMs under each report
+    - right-side details panel updates on node click
+    - report node click lists related MDRMs in-panel
+    - default graph filter shows active-only with `Include inactive` toggle
+- Navigation/auth consistency:
+  - MDRM page now uses the same profile auth controls (login/sign-up/reset/logout) as main console.
+  - Discovery -> MDRM profile links preserve journey context and support return to prior search state.
+- Status readability:
+  - Global active/inactive capsule style:
+    - `Active` green capsule
+    - `Inactive` red capsule
+  - Applied across MDRM profile and reporting table status fields.
 
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
@@ -167,26 +196,29 @@ Base path: `/api/mdrm`
   - Returns report-level incremental counts (`added/modified/deleted`) for one run
 - `GET /run-incremental-mdrms?reportingForm=<value>&runId=<runId>&changeType=<ADDED|MODIFIED|DELETED>`
   - Returns MDRM codes for one incremental bucket
+- `GET /semantic-search?q=<text>`
+  - Discovery search endpoint used by landing-page AG Grid results
+- `GET /profile?mdrm=<MDRM_CODE>`
+  - Returns MDRM-centric profile payload (snapshot, timeline, associations, related graph data)
 
 ## UI
-Single-page menu console:
+Main console:
 - `http://localhost:8080/`
+- Primary views:
+  - **Discovery** (AG Grid search, quick filter, favorites)
+  - **Bookmarks** (groups + saved MDRMs)
+  - **Reporting Viewer** (run summary + details + drill-down)
+  - **Load MDRM** (upload/load + file/run metrics)
 
-Main menu:
-- **Load MDRM**
-- **Reporting Viewer**
+MDRM profile page:
+- `http://localhost:8080/mdrm.html?mdrm=<code>`
+- Includes:
+  - overview + latest snapshot
+  - timeline with change details
+  - report association table
+  - D3 relationship graph with detail panel
 
-Reporting Viewer:
-- full-width split layout
-- left pane:
-  - mode selector with `Reports (N)` and placeholder `MDRMs`
-  - search filter + scrollable report list
-- right pane:
-  - selected report heading
-  - tabbed sections: `Run Summary` and `Regular Details`
-  - run-summary count hyperlinks for MDRM drill-down
-
-Legacy pages redirect to `/`:
+Legacy pages:
 - `/mdrm-ui.html`
 - `/mdrm-reporting.html`
 

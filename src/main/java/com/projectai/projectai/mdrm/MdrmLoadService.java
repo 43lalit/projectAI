@@ -500,6 +500,511 @@ public class MdrmLoadService {
     }
 
     /**
+     * Returns one MDRM-centric profile with timeline, associations, and related entities.
+     */
+    public MdrmProfileResponse getMdrmProfile(String mdrmCode) {
+        String normalizedCode = normalizeMdrmCode(mdrmCode);
+        if (normalizedCode.isBlank()) {
+            throw new IllegalArgumentException("mdrm is required");
+        }
+
+        List<String> availableColumns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
+        if (!availableColumns.contains("mdrm_code")) {
+            throw new IllegalStateException("mdrm_code column is missing in mdrm_master");
+        }
+
+        Map<String, String> latest = fetchLatestMdrmRow(normalizedCode);
+        if (latest == null) {
+            return new MdrmProfileResponse(
+                    normalizedCode,
+                    deriveItemCode(normalizedCode),
+                    deriveMnemonic(normalizedCode, deriveItemCode(normalizedCode)),
+                    null,
+                    null,
+                    null,
+                    "Unknown",
+                    null,
+                    null,
+                    null,
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of()
+            );
+        }
+
+        String resolvedItemCode = firstNonBlank(latest.get("item_code"), deriveItemCode(normalizedCode));
+        String resolvedMnemonic = firstNonBlank(latest.get("mnemonic"), deriveMnemonic(normalizedCode, resolvedItemCode));
+        String resolvedItemType = firstNonBlank(
+                fetchLatestResolvedItemTypeForMdrm(normalizedCode, availableColumns),
+                latest.get("item_type"),
+                fetchLatestNonBlankItemType(normalizedCode, availableColumns),
+                fetchLatestFamilyItemType(resolvedItemCode, availableColumns)
+        );
+        List<MdrmProfileTimelineEntry> timeline = loadMdrmTimeline(normalizedCode);
+        List<Map<String, String>> timelineSnapshots = loadRunSnapshotsForMdrm(normalizedCode, availableColumns);
+        Map<Long, RunChangeMeta> runChangeByRunId = detectRunChanges(timelineSnapshots, availableColumns);
+        List<MdrmProfileTimelineEntry> timelineWithChanges = timeline.stream()
+                .map(entry -> {
+                    RunChangeMeta meta = runChangeByRunId.get(entry.runId());
+                    if (meta == null) {
+                        return entry;
+                    }
+                    return new MdrmProfileTimelineEntry(
+                            entry.runId(),
+                            entry.runDatetime(),
+                            entry.fileName(),
+                            entry.reportingForms(),
+                            entry.rowCount(),
+                            entry.reportCount(),
+                            meta.changedFieldCount(),
+                            meta.changedFields(),
+                            meta.fieldChanges(),
+                            entry.status(),
+                            entry.minStartDateUtc(),
+                            entry.maxEndDateUtc()
+                    );
+                })
+                .toList();
+        List<MdrmProfileFieldChange> fieldChanges = buildFirstToLatestFieldChanges(timelineSnapshots, availableColumns);
+        List<MdrmProfileAssociation> associations = loadMdrmAssociations(normalizedCode, availableColumns);
+        List<MdrmProfileRelatedMdrm> relatedMdrms = loadRelatedMdrms(normalizedCode, resolvedItemCode, availableColumns);
+        List<MdrmProfileRelatedReport> relatedReports = loadRelatedReportsFromRelatedMdrms(relatedMdrms);
+
+        return new MdrmProfileResponse(
+                normalizedCode,
+                resolvedItemCode,
+                resolvedMnemonic,
+                resolvedItemType,
+                firstNonBlank(latest.get("description"), latest.get("item_name"), latest.get("line_description")),
+                latest.get("definition"),
+                statusFromFlag(latest.get("is_active")),
+                parseLongOrNull(latest.get("run_id")),
+                parseLongOrNull(latest.get("run_datetime")),
+                latest.get("run_file_name"),
+                timeline.size(),
+                associations.size(),
+                relatedMdrms.size(),
+                relatedReports.size(),
+                fieldChanges,
+                timelineWithChanges,
+                associations,
+                relatedMdrms,
+                relatedReports
+        );
+    }
+
+    private String fetchLatestNonBlankItemType(String mdrmCode, List<String> availableColumns) {
+        String rawTypeExpr = itemTypeRawExpression("m", availableColumns);
+        if (rawTypeExpr == null) {
+            return null;
+        }
+        String sql = "SELECT " + itemTypeValueExpression(rawTypeExpr) + " AS item_type"
+                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                + " WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))"
+                + "   AND NULLIF(BTRIM(" + rawTypeExpr + "), '') IS NOT NULL"
+                + " ORDER BY m.run_id DESC, m.master_id DESC"
+                + " LIMIT 1";
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, mdrmCode);
+                    return ps;
+                },
+                rs -> rs.next() ? rs.getString("item_type") : null
+        );
+    }
+
+    private String fetchLatestFamilyItemType(String itemCode, List<String> availableColumns) {
+        String normalizedItemCode = normalizeItemCodeValue(itemCode);
+        String rawTypeExpr = itemTypeRawExpression("m", availableColumns);
+        if (normalizedItemCode == null || normalizedItemCode.isBlank() || rawTypeExpr == null) {
+            return null;
+        }
+        String itemCodeExpr = itemCodeExpression("m", availableColumns);
+        String sql = "SELECT " + itemTypeValueExpression(rawTypeExpr) + " AS item_type"
+                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                + " WHERE " + itemCodeExpr + " = ?"
+                + "   AND NULLIF(BTRIM(" + rawTypeExpr + "), '') IS NOT NULL"
+                + " ORDER BY m.run_id DESC, m.master_id DESC"
+                + " LIMIT 1";
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, normalizedItemCode);
+                    return ps;
+                },
+                rs -> rs.next() ? rs.getString("item_type") : null
+        );
+    }
+
+    private String fetchLatestResolvedItemTypeForMdrm(String mdrmCode, List<String> availableColumns) {
+        String rawTypeExpr = itemTypeRawExpression("m", availableColumns);
+        if (rawTypeExpr == null) {
+            return null;
+        }
+        String sql = "SELECT " + itemTypeValueExpression(rawTypeExpr) + " AS item_type"
+                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                + " WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))"
+                + "   AND NULLIF(BTRIM(" + rawTypeExpr + "), '') IS NOT NULL"
+                + " ORDER BY m.run_id DESC, m.master_id DESC"
+                + " LIMIT 1";
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, mdrmCode);
+                    return ps;
+                },
+                rs -> rs.next() ? rs.getString("item_type") : null
+        );
+    }
+
+    private Map<String, String> fetchLatestMdrmRow(String mdrmCode) {
+        String selectList = buildMasterSelectList("m");
+        String sql = "SELECT " + selectList + ", rm.run_datetime AS run_datetime, rm.file_name AS run_file_name"
+                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                + " LEFT JOIN " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE + " rm ON rm.run_id = m.run_id"
+                + " WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))"
+                + " ORDER BY m.run_id DESC, m.master_id DESC"
+                + " LIMIT 1";
+
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, mdrmCode);
+                    return ps;
+                },
+                rs -> rs.next() ? mapCurrentRow(rs) : null
+        );
+    }
+
+    private List<MdrmProfileTimelineEntry> loadMdrmTimeline(String mdrmCode) {
+        String sql = """
+                SELECT
+                    m.run_id,
+                    COALESCE(rm.run_datetime, m.run_id) AS run_datetime,
+                    COALESCE(rm.file_name, '') AS file_name,
+                    COALESCE(
+                        STRING_AGG(DISTINCT NULLIF(BTRIM(m.reporting_form), ''), ', ' ORDER BY NULLIF(BTRIM(m.reporting_form), '')),
+                        ''
+                    ) AS reporting_forms,
+                    COUNT(*) AS row_count,
+                    COUNT(DISTINCT NULLIF(BTRIM(m.reporting_form), '')) AS report_count,
+                    MAX(CASE WHEN m.is_active = 'Y' THEN 1 ELSE 0 END) AS has_active,
+                    MAX(CASE WHEN m.is_active = 'N' THEN 1 ELSE 0 END) AS has_inactive,
+                    MIN(m.start_date_utc) AS min_start_date_utc,
+                    MAX(m.end_date_utc) AS max_end_date_utc
+                FROM __MASTER_TABLE__ m
+                LEFT JOIN __RUN_MASTER_TABLE__ rm ON rm.run_id = m.run_id
+                WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))
+                GROUP BY m.run_id, rm.run_datetime, rm.file_name
+                ORDER BY m.run_id DESC
+                LIMIT 120
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE);
+
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, mdrmCode);
+                    return ps;
+                },
+                (rs, rowNum) -> new MdrmProfileTimelineEntry(
+                        rs.getLong("run_id"),
+                        rs.getLong("run_datetime"),
+                        rs.getString("file_name"),
+                        rs.getString("reporting_forms"),
+                        rs.getInt("row_count"),
+                        rs.getInt("report_count"),
+                        0,
+                        "",
+                        List.of(),
+                        timelineStatus(rs.getInt("has_active"), rs.getInt("has_inactive")),
+                        valueAsString(rs.getObject("min_start_date_utc")),
+                        valueAsString(rs.getObject("max_end_date_utc"))
+                )
+        );
+    }
+
+    private List<Map<String, String>> loadRunSnapshotsForMdrm(String mdrmCode, List<String> availableColumns) {
+        if (availableColumns == null || availableColumns.isEmpty()) {
+            return List.of();
+        }
+        String selectList = availableColumns.stream()
+                .map(column -> "m." + column + " AS " + column)
+                .collect(Collectors.joining(", "));
+        String sql = """
+                SELECT
+                    __SELECT_LIST__,
+                    rm.run_datetime AS run_datetime,
+                    rm.file_name AS run_file_name
+                FROM (
+                    SELECT
+                        base.*,
+                        ROW_NUMBER() OVER (PARTITION BY base.run_id ORDER BY base.master_id DESC) AS rn
+                    FROM __MASTER_TABLE__ base
+                    WHERE UPPER(BTRIM(base.mdrm_code)) = UPPER(BTRIM(?))
+                ) m
+                LEFT JOIN __RUN_MASTER_TABLE__ rm ON rm.run_id = m.run_id
+                WHERE m.rn = 1
+                ORDER BY m.run_id DESC
+                """
+                .replace("__SELECT_LIST__", selectList)
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE);
+
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, mdrmCode);
+                    return ps;
+                },
+                (rs, rowNum) -> mapCurrentRow(rs)
+        );
+    }
+
+    private Map<Long, RunChangeMeta> detectRunChanges(List<Map<String, String>> snapshots, List<String> availableColumns) {
+        if (snapshots == null || snapshots.isEmpty()) {
+            return Map.of();
+        }
+        List<String> trackedColumns = trackedChangeColumns(availableColumns);
+        Map<Long, RunChangeMeta> result = new LinkedHashMap<>();
+
+        for (int i = 0; i < snapshots.size(); i++) {
+            Map<String, String> current = snapshots.get(i);
+            Map<String, String> previous = (i + 1) < snapshots.size() ? snapshots.get(i + 1) : null;
+            long runId = parseLongOrNull(current.get("run_id")) == null ? 0L : parseLongOrNull(current.get("run_id"));
+            if (runId == 0L) {
+                continue;
+            }
+            if (previous == null) {
+                result.put(runId, new RunChangeMeta(0, "", List.of()));
+                continue;
+            }
+            List<String> changedColumns = diffColumns(current, previous, trackedColumns);
+            String changedPreview = changedColumns.stream()
+                    .limit(5)
+                    .map(this::toDisplayFieldName)
+                    .collect(Collectors.joining(", "));
+            result.put(runId, new RunChangeMeta(
+                    changedColumns.size(),
+                    changedPreview,
+                    buildTimelineFieldChanges(current, previous, changedColumns)
+            ));
+        }
+
+        return result;
+    }
+
+    private List<MdrmProfileFieldChange> buildFirstToLatestFieldChanges(
+            List<Map<String, String>> snapshots,
+            List<String> availableColumns) {
+        if (snapshots == null || snapshots.size() < 2) {
+            return List.of();
+        }
+        Map<String, String> latest = snapshots.get(0);
+        Map<String, String> first = snapshots.get(snapshots.size() - 1);
+        List<String> trackedColumns = trackedChangeColumns(availableColumns);
+        List<String> changedColumns = diffColumns(latest, first, trackedColumns);
+        List<MdrmProfileFieldChange> changes = new ArrayList<>();
+
+        for (String column : changedColumns) {
+            String firstValue = formatFieldValue(column, first.get(column));
+            String latestValue = formatFieldValue(column, latest.get(column));
+            changes.add(new MdrmProfileFieldChange(
+                    toDisplayFieldName(column),
+                    firstValue == null || firstValue.isBlank() ? "-" : firstValue,
+                    latestValue == null || latestValue.isBlank() ? "-" : latestValue
+            ));
+        }
+        return changes;
+    }
+
+    private List<MdrmProfileTimelineFieldChange> buildTimelineFieldChanges(
+            Map<String, String> current,
+            Map<String, String> previous,
+            List<String> changedColumns) {
+        if (changedColumns == null || changedColumns.isEmpty()) {
+            return List.of();
+        }
+        List<MdrmProfileTimelineFieldChange> changes = new ArrayList<>();
+        for (String column : changedColumns) {
+            String previousValue = formatFieldValue(column, previous == null ? null : previous.get(column));
+            String currentValue = formatFieldValue(column, current == null ? null : current.get(column));
+            changes.add(new MdrmProfileTimelineFieldChange(
+                    toDisplayFieldName(column),
+                    previousValue == null || previousValue.isBlank() ? "-" : previousValue,
+                    currentValue == null || currentValue.isBlank() ? "-" : currentValue
+            ));
+        }
+        return changes;
+    }
+
+    private List<MdrmProfileAssociation> loadMdrmAssociations(String mdrmCode, List<String> availableColumns) {
+        String scheduleExpr = coalescedTrimmedTextExpression(
+                "m",
+                availableColumns,
+                List.of("schedule", "schedule_code", "schedule_name"),
+                "'-'"
+        );
+        String lineExpr = coalescedTrimmedTextExpression(
+                "m",
+                availableColumns,
+                List.of("line", "line_number", "line_num", "line_item"),
+                "'-'"
+        );
+        String labelExpr = coalescedTrimmedTextExpression(
+                "m",
+                availableColumns,
+                List.of("line_description", "description", "item_name", "definition"),
+                "'-'"
+        );
+        String sql = """
+                SELECT DISTINCT
+                    COALESCE(NULLIF(BTRIM(m.reporting_form), ''), '-') AS reporting_form,
+                    __SCHEDULE_EXPR__ AS schedule,
+                    __LINE_EXPR__ AS line,
+                    __LABEL_EXPR__ AS label
+                FROM __MASTER_TABLE__ m
+                WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))
+                  AND m.run_id = (
+                      SELECT MAX(x.run_id)
+                      FROM __MASTER_TABLE__ x
+                      WHERE UPPER(BTRIM(x.mdrm_code)) = UPPER(BTRIM(?))
+                  )
+                ORDER BY reporting_form, schedule, line
+                LIMIT 600
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__SCHEDULE_EXPR__", scheduleExpr)
+                .replace("__LINE_EXPR__", lineExpr)
+                .replace("__LABEL_EXPR__", labelExpr);
+
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, mdrmCode);
+                    ps.setString(2, mdrmCode);
+                    return ps;
+                },
+                (rs, rowNum) -> new MdrmProfileAssociation(
+                        rs.getString("reporting_form"),
+                        rs.getString("schedule"),
+                        rs.getString("line"),
+                        rs.getString("label")
+                )
+        );
+    }
+
+    private List<MdrmProfileRelatedMdrm> loadRelatedMdrms(String mdrmCode, String itemCode, List<String> availableColumns) {
+        if (itemCode == null || itemCode.isBlank()) {
+            return List.of();
+        }
+        String itemCodeExpr = itemCodeExpression("m", availableColumns);
+        String labelExpr = coalescedTrimmedTextExpression(
+                "m",
+                availableColumns,
+                List.of("description", "item_name", "line_description", "definition"),
+                "''"
+        );
+        String itemTypeExpr = itemTypeRawExpression("m", availableColumns);
+        String resolvedTypeExpr = itemTypeExpr == null
+                ? "''"
+                : itemTypeValueExpression("COALESCE(NULLIF(BTRIM(" + itemTypeExpr + "), ''), '')");
+        String sql = """
+                WITH code_scope AS (
+                    SELECT
+                        m.mdrm_code,
+                        m.reporting_form,
+                        m.run_id,
+                        m.is_active,
+                        __TYPE_EXPR__ AS item_type,
+                        __LABEL_EXPR__ AS label
+                    FROM __MASTER_TABLE__ m
+                    WHERE __ITEM_CODE_EXPR__ = ?
+                      AND m.mdrm_code IS NOT NULL
+                      AND BTRIM(m.mdrm_code) <> ''
+                ),
+                latest_code AS (
+                    SELECT
+                        c.*,
+                        ROW_NUMBER() OVER (PARTITION BY c.mdrm_code ORDER BY c.run_id DESC) AS rn
+                    FROM code_scope c
+                )
+                SELECT
+                    lc.mdrm_code,
+                    COALESCE(NULLIF(BTRIM(lc.reporting_form), ''), '-') AS reporting_form,
+                    COALESCE(NULLIF(BTRIM(lc.item_type), ''), '-') AS item_type,
+                    COALESCE(lc.label, '') AS label,
+                    lc.is_active,
+                    lc.run_id,
+                    (
+                        SELECT COUNT(DISTINCT cs.reporting_form)
+                        FROM code_scope cs
+                        WHERE cs.mdrm_code = lc.mdrm_code
+                    ) AS report_count
+                FROM latest_code lc
+                WHERE lc.rn = 1
+                  AND UPPER(BTRIM(lc.mdrm_code)) <> UPPER(BTRIM(?))
+                ORDER BY lc.mdrm_code
+                LIMIT 220
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__ITEM_CODE_EXPR__", itemCodeExpr)
+                .replace("__TYPE_EXPR__", resolvedTypeExpr)
+                .replace("__LABEL_EXPR__", labelExpr);
+
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, itemCode);
+                    ps.setString(2, mdrmCode);
+                    return ps;
+                },
+                (rs, rowNum) -> new MdrmProfileRelatedMdrm(
+                        rs.getString("mdrm_code"),
+                        rs.getString("reporting_form"),
+                        statusFromFlag(rs.getString("is_active")),
+                        rs.getString("item_type"),
+                        rs.getString("label"),
+                        rs.getLong("run_id"),
+                        rs.getInt("report_count")
+                )
+        );
+    }
+
+    private List<MdrmProfileRelatedReport> loadRelatedReportsFromRelatedMdrms(List<MdrmProfileRelatedMdrm> relatedMdrms) {
+        if (relatedMdrms == null || relatedMdrms.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Integer> reportCounts = new LinkedHashMap<>();
+        for (MdrmProfileRelatedMdrm mdrm : relatedMdrms) {
+            String report = mdrm == null ? null : mdrm.reportingForm();
+            if (report == null || report.isBlank() || "-".equals(report)) {
+                continue;
+            }
+            reportCounts.put(report, reportCounts.getOrDefault(report, 0) + 1);
+        }
+        return reportCounts.entrySet().stream()
+                .map(entry -> new MdrmProfileRelatedReport(entry.getKey(), entry.getValue(), false))
+                .sorted((left, right) -> {
+                    int byCount = Integer.compare(right.mdrmCount(), left.mdrmCount());
+                    if (byCount != 0) {
+                        return byCount;
+                    }
+                    return left.reportingForm().compareToIgnoreCase(right.reportingForm());
+                })
+                .limit(150)
+                .toList();
+    }
+
+    /**
      * Creates one run metadata row before ingestion starts.
      */
     private void createRunMasterRow(long runId, String fileName) {
@@ -1446,6 +1951,220 @@ public class MdrmLoadService {
         throw new IllegalStateException(MdrmConstants.MSG_RUN_ID_NOT_GENERATED);
     }
 
+    private Map<String, String> mapCurrentRow(ResultSet rs) throws SQLException {
+        ResultSetMetaData meta = rs.getMetaData();
+        Map<String, String> row = new LinkedHashMap<>();
+        for (int i = 1; i <= meta.getColumnCount(); i++) {
+            String name = meta.getColumnLabel(i);
+            row.put(name, valueAsString(rs.getObject(i)));
+        }
+        return row;
+    }
+
+    private String normalizeMdrmCode(String mdrmCode) {
+        return mdrmCode == null ? "" : mdrmCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String deriveItemCode(String mdrmCode) {
+        if (mdrmCode == null || mdrmCode.isBlank()) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = Pattern.compile("(\\d+)$").matcher(mdrmCode.trim());
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private String deriveMnemonic(String mdrmCode, String itemCode) {
+        if (mdrmCode == null || mdrmCode.isBlank()) {
+            return null;
+        }
+        String candidate = mdrmCode.trim();
+        if (itemCode != null && !itemCode.isBlank() && candidate.endsWith(itemCode)) {
+            candidate = candidate.substring(0, candidate.length() - itemCode.length());
+        }
+        candidate = candidate.replaceAll("[^A-Za-z]", "");
+        return candidate.isBlank() ? null : candidate;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Long parseLongOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String coalescedTrimmedTextExpression(
+            String alias,
+            List<String> availableColumns,
+            List<String> candidates,
+            String fallbackLiteral) {
+        List<String> expressions = new ArrayList<>();
+        for (String candidate : candidates) {
+            if (availableColumns.contains(candidate)) {
+                expressions.add("NULLIF(BTRIM(" + alias + "." + candidate + "), '')");
+            }
+        }
+        if (expressions.isEmpty()) {
+            return fallbackLiteral;
+        }
+        expressions.add(fallbackLiteral);
+        return "COALESCE(" + String.join(", ", expressions) + ")";
+    }
+
+    private List<String> trackedChangeColumns(List<String> availableColumns) {
+        if (availableColumns == null || availableColumns.isEmpty()) {
+            return List.of();
+        }
+        Set<String> excluded = Set.of("master_id", "run_id");
+        return availableColumns.stream()
+                .filter(column -> !excluded.contains(column))
+                .toList();
+    }
+
+    private List<String> diffColumns(Map<String, String> left, Map<String, String> right, List<String> columns) {
+        List<String> changed = new ArrayList<>();
+        if (columns == null || columns.isEmpty()) {
+            return changed;
+        }
+        for (String column : columns) {
+            String leftValue = normalizedComparisonValue(left == null ? null : left.get(column));
+            String rightValue = normalizedComparisonValue(right == null ? null : right.get(column));
+            if (!leftValue.equals(rightValue)) {
+                changed.add(column);
+            }
+        }
+        return changed;
+    }
+
+    private String normalizedComparisonValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        return trimmed.replaceAll("\\s+", " ");
+    }
+
+    private String toDisplayFieldName(String column) {
+        if (column == null || column.isBlank()) {
+            return "Field";
+        }
+        String[] parts = column.split("_");
+        List<String> words = new ArrayList<>(parts.length);
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            String lower = part.toLowerCase(Locale.ROOT);
+            words.add(Character.toUpperCase(lower.charAt(0)) + lower.substring(1));
+        }
+        return words.isEmpty() ? column : String.join(" ", words);
+    }
+
+    private String formatFieldValue(String column, String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isBlank()) {
+            return "";
+        }
+        if ("item_type".equalsIgnoreCase(column)
+                || "item_type_cd".equalsIgnoreCase(column)
+                || "itemtype".equalsIgnoreCase(column)
+                || "mdrm_type".equalsIgnoreCase(column)
+                || "type".equalsIgnoreCase(column)) {
+            return mapItemTypeValue(trimmed);
+        }
+        return trimmed;
+    }
+
+    private String itemCodeExpression(String alias, List<String> availableColumns) {
+        if (availableColumns.contains("item_code")) {
+            return """
+                    CASE
+                        WHEN NULLIF(BTRIM(%s.item_code), '') IS NULL THEN NULL
+                        WHEN BTRIM(%s.item_code) ~ '^[0-9]+$'
+                            THEN COALESCE(NULLIF(REGEXP_REPLACE(BTRIM(%s.item_code), '^0+', ''), ''), '0')
+                        ELSE BTRIM(%s.item_code)
+                    END
+                    """.formatted(alias, alias, alias, alias).trim();
+        }
+        return """
+                CASE
+                    WHEN NULLIF(SUBSTRING(%s.mdrm_code FROM '([0-9]+)$'), '') IS NULL THEN NULL
+                    WHEN SUBSTRING(%s.mdrm_code FROM '([0-9]+)$') ~ '^[0-9]+$'
+                        THEN COALESCE(NULLIF(REGEXP_REPLACE(SUBSTRING(%s.mdrm_code FROM '([0-9]+)$'), '^0+', ''), ''), '0')
+                    ELSE SUBSTRING(%s.mdrm_code FROM '([0-9]+)$')
+                END
+                """.formatted(alias, alias, alias, alias).trim();
+    }
+
+    private String itemTypeRawExpression(String alias, List<String> availableColumns) {
+        List<String> candidates = List.of("item_type", "item_type_cd", "itemtype", "mdrm_type", "type");
+        for (String candidate : candidates) {
+            if (availableColumns.contains(candidate)) {
+                return alias + "." + candidate;
+            }
+        }
+        return null;
+    }
+
+    private String normalizeItemCodeValue(String itemCode) {
+        if (itemCode == null) {
+            return null;
+        }
+        String trimmed = itemCode.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.matches("^[0-9]+$")) {
+            String stripped = trimmed.replaceFirst("^0+", "");
+            return stripped.isEmpty() ? "0" : stripped;
+        }
+        return trimmed;
+    }
+
+    private String timelineStatus(int hasActive, int hasInactive) {
+        if (hasActive == 1 && hasInactive == 1) {
+            return "Updated";
+        }
+        if (hasActive == 1) {
+            return "Active";
+        }
+        if (hasInactive == 1) {
+            return "Inactive";
+        }
+        return "Unknown";
+    }
+
+    private String statusFromFlag(String flag) {
+        String normalized = flag == null ? "" : flag.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "Y" -> "Active";
+            case "N" -> "Inactive";
+            default -> "Unknown";
+        };
+    }
+
+    private String valueAsString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
     private String normalizeBucket(String bucket) {
         String normalized = bucket == null ? "" : bucket.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
@@ -1609,6 +2328,23 @@ public class MdrmLoadService {
                 """.formatted(columnRef, columnRef).trim();
     }
 
+    private String mapItemTypeValue(String rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        String normalized = rawValue.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "J" -> "Projected";
+            case "D" -> "Derived";
+            case "F" -> "Financial/reported";
+            case "R" -> "Rate";
+            case "S" -> "Structure";
+            case "E" -> "Examination/supervision";
+            case "P" -> "Percentage";
+            default -> rawValue.trim();
+        };
+    }
+
 
     /**
      * Internal value object for file name + parsed content bytes.
@@ -1620,5 +2356,12 @@ public class MdrmLoadService {
      * Ingestion counters grouped for run finalization.
      */
     private record IngestionStats(int ingestedCount, int errorCount) {
+    }
+
+    private record RunChangeMeta(
+            int changedFieldCount,
+            String changedFields,
+            List<MdrmProfileTimelineFieldChange> fieldChanges
+    ) {
     }
 }
