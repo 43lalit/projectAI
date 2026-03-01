@@ -733,6 +733,109 @@ body {
   max-height: calc(100vh - 360px);
 }
 
+.recent-strip {
+  padding: 0;
+}
+
+.recent-items-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 2px 2px;
+}
+
+.recent-item-card {
+  position: relative;
+  min-width: 190px;
+  max-width: 220px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+  display: grid;
+  gap: 5px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.recent-item-card:hover {
+  border-color: color-mix(in oklab, var(--brand) 45%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 35%, var(--panel));
+  transform: translateY(-1px);
+}
+
+.recent-item-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--brand) 70%, white);
+  outline-offset: 2px;
+}
+
+.recent-bookmark-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklab, var(--muted) 82%, transparent);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.recent-bookmark-btn:hover {
+  color: color-mix(in oklab, var(--brand-2) 72%, var(--text));
+}
+
+.recent-bookmark-btn.active {
+  color: #d8a302;
+}
+
+:root[data-theme="dark"] .recent-bookmark-btn.active {
+  color: #f8c53a;
+}
+
+.recent-item-type {
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recent-item-type-icon {
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.recent-item-type.report .recent-item-type-icon {
+  color: #0ea27d;
+}
+
+.recent-item-type.mdrm .recent-item-type-icon {
+  color: #ff7a45;
+}
+
+.recent-item-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-item-subtitle {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .discovery-results-table thead th {
   font-size: 0.72rem;
   padding-top: 8px;
@@ -876,6 +979,14 @@ body {
 .table {
   margin: 0;
   color: var(--text);
+  --bs-table-color: var(--text);
+  --bs-table-bg: transparent;
+  --bs-table-striped-color: var(--text);
+  --bs-table-striped-bg: color-mix(in oklab, var(--panel-soft) 85%, transparent);
+  --bs-table-active-color: var(--text);
+  --bs-table-active-bg: color-mix(in oklab, var(--brand) 18%, transparent);
+  --bs-table-hover-color: var(--text);
+  --bs-table-hover-bg: color-mix(in oklab, var(--brand) 14%, transparent);
 }
 
 .table > :not(caption) > * > * {
@@ -903,6 +1014,37 @@ body {
 
 .table-hover > tbody > tr:hover > * {
   background: color-mix(in oklab, var(--brand) 14%, transparent);
+}
+
+:root[data-theme="dark"] .table thead th {
+  color: #d9e6ff;
+  background: color-mix(in oklab, var(--panel-soft) 85%, #0b1a30);
+}
+
+:root[data-theme="dark"] .table {
+  color: #eaf1ff;
+  --bs-table-color: #eaf1ff;
+  --bs-table-bg: transparent;
+  --bs-table-striped-color: #eaf1ff;
+  --bs-table-striped-bg: color-mix(in oklab, #112441 72%, transparent);
+  --bs-table-hover-color: #f4f8ff;
+  --bs-table-hover-bg: color-mix(in oklab, var(--brand) 28%, #112846);
+}
+
+:root[data-theme="dark"] .table > :not(caption) > * > * {
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background: color-mix(in oklab, #112441 72%, transparent);
+}
+
+:root[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(even) > * {
+  background: color-mix(in oklab, #0d1d35 86%, transparent);
+}
+
+:root[data-theme="dark"] .table-hover > tbody > tr:hover > * {
+  background: color-mix(in oklab, var(--brand) 28%, #112846);
 }
 
 a,

@@ -128,7 +128,7 @@
 
     <section class="panel hero !rounded-2xl !border-slate-200/80 !shadow-soft dark:!border-slate-700">
       <div class="hero-copy">
-        <h2 class="!font-semibold !text-slate-900 dark:!text-slate-100">Fed Micro Data Reference Management Discovery Tool</h2>
+        <h2 class="!font-semibold !text-slate-900 dark:!text-slate-100">Fed Micro Data Reference Manual Discovery Tool</h2>
         <p class="!text-slate-600 dark:!text-slate-300">Search reporting forms, inspect run history, and drill down into MDRM changes from one workspace.</p>
       </div>
       <div class="hero-kpis">
@@ -145,6 +145,16 @@
           <div class="kpi-value">Current View</div>
         </div>
       </div>
+    </section>
+
+    <section id="discoveryRecentPanel" class="panel !rounded-2xl !border-slate-200/80 !bg-white/90 !shadow-soft dark:!border-slate-700 dark:!bg-slate-900/90">
+      <section class="recent-strip">
+        <div class="sectionTitle compact">
+          <h3>Recent Items</h3>
+          <button id="clearRecentItemsBtn" class="btn btn-sm btn-outline-secondary" type="button">Clear</button>
+        </div>
+        <div id="recentItemsContainer" class="recent-items-row"></div>
+      </section>
     </section>
 
     <section id="view-discovery" class="panel view active !rounded-2xl !border-slate-200/80 !bg-white/90 !shadow-soft dark:!border-slate-700 dark:!bg-slate-900/90">
@@ -169,14 +179,13 @@
             <input id="filterReportingFormInput" class="form-control form-control-sm" type="text" placeholder="Filter reporting form">
           </div>
         </div>
-        <div id="discoverySearchResults" class="card-shell mt-2">
+        <div id="discoverySearchResults" class="card-shell mt-3" style="display:none;">
           <div class="discovery-grid-headline">
-            <div id="discoveryResultMeta" class="discovery-result-meta">Ready to search.</div>
+            <div id="discoveryResultMeta" class="discovery-result-meta"></div>
             <div class="discovery-toolbar-right">
               <input id="discoveryQuickFilterInput" class="form-control form-control-sm discovery-quick-filter" type="text" placeholder="Filter results...">
             </div>
           </div>
-          <div id="discoverySearchEmpty" class="text-muted small p-2">Run a search to view results.</div>
           <div id="discoveryGrid" class="mdrm-ag-grid ag-theme-quartz" style="display:none;"></div>
         </div>
       </section>
@@ -319,6 +328,9 @@
     function switchView(targetViewId) {
       views.forEach(view => view.classList.toggle('active', view.id === targetViewId));
       menuButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === targetViewId));
+      if (discoveryRecentPanel) {
+        discoveryRecentPanel.style.display = targetViewId === 'view-discovery' ? '' : 'none';
+      }
       if (kpiActiveView) {
         if (targetViewId === 'view-reporting') {
           kpiActiveView.textContent = 'Reporting Viewer';
@@ -369,6 +381,7 @@
     const kpiReportCount = document.getElementById('kpiReportCount');
     const kpiMdrmCount = document.getElementById('kpiMdrmCount');
     const kpiActiveView = document.getElementById('kpiActiveView');
+    const discoveryRecentPanel = document.getElementById('discoveryRecentPanel');
     const discoveryQueryInput = document.getElementById('discoveryQueryInput');
     const discoverySearchBtn = document.getElementById('discoverySearchBtn');
     const discoveryFiltersRow = document.getElementById('discoveryFiltersRow');
@@ -378,8 +391,9 @@
     const discoveryResultMeta = document.getElementById('discoveryResultMeta');
     const discoveryQuickFilterInput = document.getElementById('discoveryQuickFilterInput');
     const discoverySearchResults = document.getElementById('discoverySearchResults');
-    const discoverySearchEmpty = document.getElementById('discoverySearchEmpty');
     const discoveryGrid = document.getElementById('discoveryGrid');
+    const recentItemsContainer = document.getElementById('recentItemsContainer');
+    const clearRecentItemsBtn = document.getElementById('clearRecentItemsBtn');
     const authStatusLabel = document.getElementById('authStatusLabel');
     const authModeRow = document.getElementById('authModeRow');
     const authModeLoginBtn = document.getElementById('authModeLoginBtn');
@@ -426,6 +440,8 @@
     const profileMenuBtn = document.getElementById('profileMenuBtn');
     const profileMenu = document.getElementById('profileMenu');
     const THEME_KEY = 'mdrm-ui-theme';
+    const LOCAL_RECENT_ITEMS_KEY = 'mdrm-recent-items-v1';
+    const RECENT_ITEMS_MAX = 10;
     let currentUser = null;
     let bookmarkGroups = [];
     let bookmarkItems = [];
@@ -435,6 +451,7 @@
     let pendingBookmarkPayload = null;
     let saveBookmarkModal = null;
     let authMode = '';
+    let recentItems = [];
 
     function hasSelectedUploadFile() {
       return !!(uploadFileInput.files && uploadFileInput.files.length > 0);
@@ -620,12 +637,226 @@
       }
     }
 
+    function setDiscoveryResultsVisible(visible) {
+      if (discoverySearchResults) {
+        discoverySearchResults.style.display = visible ? '' : 'none';
+      }
+    }
+
     function formatCount(value) {
       const n = Number(value);
       if (Number.isNaN(n)) {
         return '0';
       }
       return n.toLocaleString('en-US');
+    }
+
+    function loadRecentItemsFromLocal() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(LOCAL_RECENT_ITEMS_KEY) || '[]');
+        recentItems = Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        recentItems = [];
+      }
+      recentItems = recentItems
+        .filter(item => item && item.type && item.key && item.label)
+        .slice(0, RECENT_ITEMS_MAX);
+    }
+
+    async function loadRecentItems() {
+      if (!currentUser) {
+        loadRecentItemsFromLocal();
+        renderRecentItems();
+        return;
+      }
+      try {
+        const response = await fetch(`/api/recent/items?limit=${RECENT_ITEMS_MAX}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        recentItems = (Array.isArray(payload) ? payload : []).map(item => ({
+          type: String(item.itemType || '').trim().toLowerCase(),
+          key: String(item.itemKey || '').trim(),
+          label: String(item.label || item.itemKey || '').trim(),
+          subtitle: String(item.subtitle || '').trim(),
+          url: String(item.url || '').trim(),
+          timestamp: Number(item.lastAccessed || Date.now())
+        }));
+      } catch (error) {
+        loadRecentItemsFromLocal();
+      }
+      renderRecentItems();
+    }
+
+    function saveRecentItems() {
+      localStorage.setItem(LOCAL_RECENT_ITEMS_KEY, JSON.stringify(recentItems.slice(0, RECENT_ITEMS_MAX)));
+    }
+
+    async function persistRecentItemToServer(item) {
+      const response = await apiFetch(`/api/recent/items?limit=${RECENT_ITEMS_MAX}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemType: item.type,
+          itemKey: item.key,
+          label: item.label,
+          subtitle: item.subtitle || '',
+          url: item.url || ''
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      recentItems = (Array.isArray(payload) ? payload : []).map(entry => ({
+        type: String(entry.itemType || '').trim().toLowerCase(),
+        key: String(entry.itemKey || '').trim(),
+        label: String(entry.label || entry.itemKey || '').trim(),
+        subtitle: String(entry.subtitle || '').trim(),
+        url: String(entry.url || '').trim(),
+        timestamp: Number(entry.lastAccessed || Date.now())
+      }));
+      renderRecentItems();
+    }
+
+    async function recordRecentItem(item) {
+      if (!item || !item.type || !item.key || !item.label) {
+        return;
+      }
+      const normalizedType = String(item.type).trim().toLowerCase();
+      const normalizedKey = String(item.key).trim();
+      if (!normalizedType || !normalizedKey) {
+        return;
+      }
+      recentItems = recentItems.filter(existing =>
+        !(String(existing.type).trim().toLowerCase() === normalizedType && String(existing.key).trim() === normalizedKey)
+      );
+      recentItems.unshift({
+        type: normalizedType,
+        key: normalizedKey,
+        label: String(item.label || normalizedKey).trim(),
+        subtitle: String(item.subtitle || '').trim(),
+        url: String(item.url || '').trim(),
+        timestamp: Date.now()
+      });
+      recentItems = recentItems.slice(0, RECENT_ITEMS_MAX);
+      saveRecentItems();
+      renderRecentItems();
+      if (currentUser) {
+        try {
+          await persistRecentItemToServer(item);
+        } catch (error) {
+          // keep local in-memory list if server call fails
+        }
+      } else {
+        saveRecentItems();
+      }
+    }
+
+    function renderRecentItems() {
+      if (!recentItemsContainer) {
+        return;
+      }
+      if (!recentItems.length) {
+        recentItemsContainer.innerHTML = '<div class="text-muted small p-2">No recent items yet.</div>';
+        return;
+      }
+      recentItemsContainer.innerHTML = recentItems.map((item, index) => `
+        <div class="recent-item-card" role="button" tabindex="0" data-recent-index="${index}">
+          <button class="recent-bookmark-btn ${isRecentItemBookmarked(item) ? 'active' : ''}" type="button" data-recent-bookmark-index="${index}" title="${isRecentItemBookmarked(item) ? 'Bookmarked' : 'Bookmark'}">
+            ${isRecentItemBookmarked(item) ? '★' : '☆'}
+          </button>
+          <div class="recent-item-type ${item.type === 'report' ? 'report' : 'mdrm'}">
+            <span class="recent-item-type-icon" aria-hidden="true">${item.type === 'report' ? '📊' : '🧾'}</span>
+            <span>${escapeHtml(item.type === 'report' ? 'Report' : 'MDRM')}</span>
+          </div>
+          <div class="recent-item-title">${escapeHtml(item.label)}</div>
+          ${item.subtitle ? `<div class="recent-item-subtitle">${escapeHtml(item.subtitle)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function isRecentItemBookmarked(item) {
+      if (!item) {
+        return false;
+      }
+      const targetType = String(item.type || '').trim().toLowerCase();
+      const targetKey = String(item.key || '').trim();
+      return (bookmarkItems || []).some(bookmark =>
+        String(bookmark.itemType || '').trim().toLowerCase() === targetType
+        && String(bookmark.itemKey || '').trim() === targetKey
+      );
+    }
+
+    function findBookmarkIdForRecentItem(item) {
+      if (!item) {
+        return null;
+      }
+      const targetType = String(item.type || '').trim().toLowerCase();
+      const targetKey = String(item.key || '').trim();
+      const bookmark = (bookmarkItems || []).find(entry =>
+        String(entry.itemType || '').trim().toLowerCase() === targetType
+        && String(entry.itemKey || '').trim() === targetKey
+      );
+      return bookmark ? Number(bookmark.bookmarkId) : null;
+    }
+
+    async function toggleRecentItemBookmark(index) {
+      const item = recentItems[index];
+      if (!item) {
+        return;
+      }
+      if (!currentUser) {
+        setAuthStatus('Login required to save bookmarks.', 'err');
+        if (profileMenu && profileMenuBtn) {
+          profileMenu.classList.add('open');
+          profileMenuBtn.setAttribute('aria-expanded', 'true');
+        }
+        return;
+      }
+      const existingBookmarkId = findBookmarkIdForRecentItem(item);
+      if (existingBookmarkId) {
+        await removeBookmark(existingBookmarkId);
+        renderRecentItems();
+        return;
+      }
+      const response = await apiFetch('/api/bookmarks/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId: null,
+          itemType: item.type,
+          itemKey: item.key,
+          title: item.label,
+          subtitle: item.subtitle || '',
+          url: item.url || ''
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      await refreshBookmarks();
+      renderRecentItems();
+    }
+
+    function openRecentItem(index) {
+      const item = recentItems[index];
+      if (!item) {
+        return;
+      }
+      if (item.type === 'report') {
+        switchView('view-reporting');
+        leftNavMode.value = 'reports';
+        reportSearchInput.disabled = false;
+        selectedReportingForm = item.key;
+        filterAndRenderReportList();
+        loadTable(selectedReportingForm);
+        return;
+      }
+      if (item.url) {
+        window.location.href = item.url;
+      }
     }
 
     function updateDiscoveryMetaCounts() {
@@ -656,7 +887,20 @@
         const code = String(pickRowValue(row, ['mdrm_code', 'mdrm']) || '').trim();
         const descriptionRaw = String(pickRowValue(row, ['line_description', 'item_name', 'description', 'label']) || '').trim();
         const reportingForm = String(pickRowValue(row, ['reporting_form', 'report']) || '').trim();
-        return { code, descriptionRaw, reportingForm, bookmarked: false };
+        const rawType = String(pickRowValue(row, ['item_type', 'item_type_cd', 'itemtype', 'mdrm_type', 'type']) || '').trim();
+        const typeCodeMap = {
+          J: 'Projected',
+          D: 'Derived',
+          F: 'Financial/reported',
+          R: 'Rate',
+          S: 'Structure',
+          E: 'Examination/supervision',
+          P: 'Percentage'
+        };
+        const mdrmType = rawType.length === 1 && typeCodeMap[rawType.toUpperCase()]
+          ? typeCodeMap[rawType.toUpperCase()]
+          : rawType;
+        return { code, descriptionRaw, reportingForm, mdrmType, bookmarked: false };
       });
     }
 
@@ -784,8 +1028,9 @@
             maxWidth: 220,
             cellRenderer: params => {
               const value = String(params.value || '').trim();
+              const reportingForm = String(params.data && params.data.reportingForm ? params.data.reportingForm : '').trim();
               return value
-                ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(value)}">${escapeHtml(value)}</a>`
+                ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(value)}" data-reporting-form="${escapeHtml(reportingForm)}">${escapeHtml(value)}</a>`
                 : '-';
             }
           },
@@ -808,6 +1053,13 @@
             field: 'reportingForm',
             minWidth: 170,
             maxWidth: 240,
+            valueFormatter: params => String(params.value || '-')
+          },
+          {
+            headerName: 'MDRM Type',
+            field: 'mdrmType',
+            minWidth: 190,
+            maxWidth: 260,
             valueFormatter: params => String(params.value || '-')
           },
           {
@@ -878,12 +1130,9 @@
         if (discoveryGridApi) {
           discoveryGridApi.setGridOption('rowData', []);
         }
+        setDiscoveryResultsVisible(true);
         if (discoveryGrid) {
           discoveryGrid.style.display = 'none';
-        }
-        if (discoverySearchEmpty) {
-          discoverySearchEmpty.style.display = '';
-          discoverySearchEmpty.textContent = 'No results found.';
         }
         setDiscoveryMeta('No records found');
         return;
@@ -893,19 +1142,14 @@
         if (discoveryGridApi) {
           discoveryGridApi.setGridOption('rowData', []);
         }
+        setDiscoveryResultsVisible(true);
         if (discoveryGrid) {
           discoveryGrid.style.display = 'none';
-        }
-        if (discoverySearchEmpty) {
-          discoverySearchEmpty.style.display = '';
-          discoverySearchEmpty.textContent = 'No records match current filters.';
         }
         setDiscoveryMeta('No records match current filters');
         return;
       }
-      if (discoverySearchEmpty) {
-        discoverySearchEmpty.style.display = 'none';
-      }
+      setDiscoveryResultsVisible(true);
       if (discoveryGrid) {
         discoveryGrid.style.display = 'block';
       }
@@ -1043,6 +1287,7 @@
       }
       renderBookmarkGroups();
       renderBookmarkItems();
+      renderRecentItems();
       renameGroupBtn.disabled = !isLoggedIn || !bookmarkFilterGroupSelect.value;
       deleteGroupBtn.disabled = !isLoggedIn || !bookmarkFilterGroupSelect.value;
     }
@@ -1058,11 +1303,14 @@
       if (currentUser) {
         setAuthStatus(`Logged in as ${currentUser.displayName} (${currentUser.email})`, 'ok');
         await refreshBookmarks();
+        await loadRecentItems();
       } else {
         setAuthStatus('Not logged in', 'neutral');
         bookmarkGroups = [];
         bookmarkItems = [];
         refreshDiscoveryBookmarkFlags();
+        loadRecentItemsFromLocal();
+        renderRecentItems();
       }
       syncAuthUi();
     }
@@ -1193,6 +1441,8 @@
       authMode = '';
       syncAuthUi();
       setAuthStatus('Logged out', 'neutral');
+      loadRecentItemsFromLocal();
+      renderRecentItems();
     }
 
     async function createGroup() {
@@ -1374,10 +1624,11 @@
     async function runDiscoverySearch() {
       const query = (discoveryQueryInput.value || '').trim();
       if (!query) {
-        setDiscoveryMeta('Enter a query.');
+        setDiscoveryResultsVisible(false);
         return;
       }
       discoverySearchBtn.disabled = true;
+      setDiscoveryResultsVisible(true);
       setDiscoveryMeta('Searching...');
       if (discoveryQuickFilterInput) {
         discoveryQuickFilterInput.value = '';
@@ -1388,10 +1639,6 @@
       }
       if (discoveryGrid) {
         discoveryGrid.style.display = 'none';
-      }
-      if (discoverySearchEmpty) {
-        discoverySearchEmpty.style.display = '';
-        discoverySearchEmpty.textContent = 'Searching...';
       }
       try {
         const response = await fetch(`/api/mdrm/semantic-search?q=${encodeURIComponent(query)}`);
@@ -1813,6 +2060,13 @@
       if (!reportingForm) {
         return;
       }
+      recordRecentItem({
+        type: 'report',
+        key: reportingForm,
+        label: reportingForm,
+        subtitle: 'Reporting form',
+        url: '/index.html'
+      });
       setReportingBusy(true);
       selectedReportLabel.textContent = `Selected Report: ${reportingForm}`;
       clearReportData();
@@ -2006,12 +2260,118 @@
       });
     }
 
+    if (clearRecentItemsBtn) {
+      clearRecentItemsBtn.addEventListener('click', async () => {
+        recentItems = [];
+        saveRecentItems();
+        renderRecentItems();
+        if (currentUser) {
+          try {
+            const response = await apiFetch('/api/recent/items', { method: 'DELETE' });
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+          } catch (error) {
+            // Keep UI cleared even if server sync fails.
+            setAuthStatus('Recent items cleared locally, but server sync failed.', 'err');
+          }
+        }
+      });
+    }
+    if (recentItemsContainer) {
+      recentItemsContainer.addEventListener('click', event => {
+        const card = event.target.closest('.recent-item-card');
+        if (!card) {
+          return;
+        }
+        if (event.target.closest('.recent-bookmark-btn')) {
+          return;
+        }
+        const index = Number(card.dataset.recentIndex);
+        if (!Number.isNaN(index)) {
+          openRecentItem(index);
+        }
+      });
+      recentItemsContainer.addEventListener('keydown', event => {
+        const card = event.target.closest('.recent-item-card');
+        if (!card) {
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          const index = Number(card.dataset.recentIndex);
+          if (!Number.isNaN(index)) {
+            openRecentItem(index);
+          }
+        }
+      });
+      recentItemsContainer.addEventListener('click', async event => {
+        const starBtn = event.target.closest('.recent-bookmark-btn');
+        if (!starBtn) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const index = Number(starBtn.dataset.recentBookmarkIndex);
+        if (Number.isNaN(index)) {
+          return;
+        }
+        try {
+          await toggleRecentItemBookmark(index);
+        } catch (error) {
+          setAuthStatus('Could not update bookmark.', 'err');
+        }
+      });
+    }
+
     discoverySearchResults.addEventListener('click', event => {
       const button = event.target.closest('.bookmark-item-btn');
       if (!button) {
+        const mdrmLink = event.target.closest('a[href*=\"/mdrm.html?mdrm=\"]');
+        if (mdrmLink) {
+          try {
+            const url = new URL(mdrmLink.getAttribute('href'), window.location.origin);
+            const mdrm = url.searchParams.get('mdrm');
+            const reportingForm = String(mdrmLink.dataset.reportingForm || selectedReportingForm || '').trim();
+            if (mdrm) {
+              recordRecentItem({
+                type: 'mdrm',
+                key: mdrm,
+                label: mdrm,
+                subtitle: reportingForm ? `Reporting form: ${reportingForm}` : '',
+                url: `/mdrm.html?mdrm=${encodeURIComponent(mdrm)}`
+              });
+            }
+          } catch (error) {
+            // noop
+          }
+        }
         return;
       }
       event.preventDefault();
+    });
+
+    document.addEventListener('click', event => {
+      const mdrmLink = event.target.closest('a[href*=\"/mdrm.html?mdrm=\"]');
+      if (!mdrmLink) {
+        return;
+      }
+      try {
+        const url = new URL(mdrmLink.getAttribute('href'), window.location.origin);
+        const mdrm = url.searchParams.get('mdrm');
+        const reportingForm = String(mdrmLink.dataset.reportingForm || selectedReportingForm || '').trim();
+        if (mdrm) {
+          recordRecentItem({
+            type: 'mdrm',
+            key: mdrm,
+            label: mdrm,
+            subtitle: reportingForm ? `Reporting form: ${reportingForm}` : '',
+            url: `/mdrm.html?mdrm=${encodeURIComponent(mdrm)}`
+          });
+        }
+      } catch (error) {
+        // noop
+      }
     });
 
     bookmarkItemsContainer.addEventListener('click', event => {
@@ -2060,6 +2420,7 @@
     ensureCsrfToken().catch(() => {});
     setPasswordVisibility(false);
     setAuthMode('');
+    loadRecentItems();
     refreshAuthState();
     refreshForms();
     refreshFileMetrics();

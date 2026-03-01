@@ -189,8 +189,9 @@ public class MdrmLoadService {
      */
     public MdrmTableResponse getRowsByReportingForm(String reportingForm) {
         ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
-        String sql = MdrmConstants.SQL_SELECT_ALL_BY_REPORTING_FORM_PREFIX + MdrmConstants.DEFAULT_MASTER_TABLE
-                + " WHERE reporting_form = ? AND run_id = (SELECT MAX(run_id) FROM "
+        String selectList = buildMasterSelectList("m");
+        String sql = "SELECT " + selectList + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                + " WHERE m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM "
                 + MdrmConstants.DEFAULT_MASTER_TABLE + " WHERE reporting_form = ?)";
 
         return jdbcTemplate.query(
@@ -448,20 +449,22 @@ public class MdrmLoadService {
         }
 
         String textExpr = columns.stream()
-                .map(column -> "COALESCE(" + column + ", '')")
+                .map(column -> semanticSearchColumnExpression(column, "m"))
                 .collect(Collectors.joining(" || ' ' || "));
 
-        StringBuilder sql = new StringBuilder("SELECT * FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(" WHERE ");
+        String selectList = buildMasterSelectList("m");
+        StringBuilder sql = new StringBuilder("SELECT ").append(selectList)
+                .append(" FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(" m WHERE ");
         List<Object> params = new ArrayList<>();
 
         if (interpretedReportingForm != null && !interpretedReportingForm.isBlank()) {
-            sql.append("reporting_form = ? AND run_id = (SELECT MAX(run_id) FROM ")
+            sql.append("m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM ")
                     .append(MdrmConstants.DEFAULT_MASTER_TABLE)
                     .append(" WHERE reporting_form = ?) AND ");
             params.add(interpretedReportingForm);
             params.add(interpretedReportingForm);
         } else {
-            sql.append("run_id = (SELECT MAX(run_id) FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(") AND ");
+            sql.append("m.run_id = (SELECT MAX(run_id) FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(") AND ");
         }
 
         if (!keywords.isEmpty()) {
@@ -473,7 +476,7 @@ public class MdrmLoadService {
             sql.append("(1 = 1) AND ");
         }
 
-        sql.append("mdrm_code IS NOT NULL AND btrim(mdrm_code) <> '' ORDER BY reporting_form, mdrm_code LIMIT 500");
+        sql.append("m.mdrm_code IS NOT NULL AND btrim(m.mdrm_code) <> '' ORDER BY m.reporting_form, m.mdrm_code LIMIT 500");
 
         MdrmTableResponse table = jdbcTemplate.query(
                 connection -> {
@@ -1552,6 +1555,7 @@ public class MdrmLoadService {
                 "description",
                 "definition",
                 "reporting_form",
+                "item_type",
                 "mdrm_code",
                 "mnemonic",
                 "item_code"
@@ -1563,6 +1567,46 @@ public class MdrmLoadService {
             }
         }
         return selected;
+    }
+
+    private String semanticSearchColumnExpression(String column, String alias) {
+        String qualified = alias + "." + column;
+        if ("item_type".equals(column)) {
+            return "COALESCE(" + itemTypeValueExpression(qualified) + ", '')";
+        }
+        return "COALESCE(" + qualified + ", '')";
+    }
+
+    private String buildMasterSelectList(String alias) {
+        List<String> columns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
+        if (columns.isEmpty()) {
+            return alias + ".*";
+        }
+        List<String> selected = new ArrayList<>(columns.size());
+        for (String column : columns) {
+            String qualified = alias + "." + column;
+            if ("item_type".equals(column)) {
+                selected.add(itemTypeValueExpression(qualified) + " AS item_type");
+            } else {
+                selected.add(qualified + " AS " + column);
+            }
+        }
+        return String.join(", ", selected);
+    }
+
+    private String itemTypeValueExpression(String columnRef) {
+        return """
+                CASE UPPER(TRIM(%s))
+                    WHEN 'J' THEN 'Projected'
+                    WHEN 'D' THEN 'Derived'
+                    WHEN 'F' THEN 'Financial/reported'
+                    WHEN 'R' THEN 'Rate'
+                    WHEN 'S' THEN 'Structure'
+                    WHEN 'E' THEN 'Examination/supervision'
+                    WHEN 'P' THEN 'Percentage'
+                    ELSE %s
+                END
+                """.formatted(columnRef, columnRef).trim();
     }
 
 

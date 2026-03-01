@@ -27,6 +27,24 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - `Current View`
   - locale-formatted counts (e.g., `12,345`)
 
+## Latest Updates (2026-03-01)
+- Item type display normalization:
+  - `item_type` code values are translated to business-friendly labels in MDRM query/search output.
+  - Discovery grid includes `MDRM Type` and supports fallback mapping in UI.
+- Discovery UX refinements:
+  - Favorites-first result ordering on first render.
+  - `Favorite` column naming and sorting support.
+  - Cleaner pre-search behavior with results hidden until first search.
+- Dark mode readability fixes:
+  - Improved table/grid text and stripe contrast, especially for Load MDRM run-metrics tables.
+- Navigation/UI consistency:
+  - Icon-based menu style propagated across pages.
+  - Removed dedicated MDRM top-nav entry.
+- Recent Items feature:
+  - Phase 1: local recent history cards (up to 10), quick reopen.
+  - Phase 2: server-backed recent history per logged-in user (`/api/recent/items`), with local fallback.
+  - Recent cards include type icons and bookmark star toggle.
+
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
 2. Discover files by pattern `mdrm.migration-file-pattern` and keep only `MDRM_mmyy.csv`
