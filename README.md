@@ -28,6 +28,21 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - locale-formatted counts (e.g., `12,345`)
 
 ## Latest Updates (2026-03-01)
+- Guided onboarding (`Guide Me`) added in header:
+  - First-visit auto-start tour with skip/back/next controls
+  - Manual relaunch via `Guide Me` button
+  - Smooth shade fade-in/fade-out transitions
+  - Spotlight + arrowed helper card with per-step context
+  - Includes intro step describing product purpose before navigation steps
+  - Now covers Discovery, Search input, Bookmarks, Reporting, Load MDRM, Theme toggle, and Profile menu
+- Guide assistant visuals:
+  - Professional full-body female guide avatar support
+  - Step-based static expression transitions
+  - Custom user-provided avatar asset support from `/static/guide`
+- Recent Items behavior refined:
+  - Recent Items section is hidden when empty
+  - Clearing recent items now immediately hides the section
+  - Section shows only when items exist (and discovery view is active)
 - Item type display normalization:
   - `item_type` code values are translated to business-friendly labels in MDRM query/search output.
   - Discovery grid includes `MDRM Type` and supports fallback mapping in UI.

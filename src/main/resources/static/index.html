@@ -73,6 +73,9 @@
         </a>
       </nav>
       <div class="header-actions">
+        <button id="guideMeBtn" class="guide-btn" type="button">
+          Guide Me
+        </button>
         <button id="themeIconBtn" class="theme-icon-btn" type="button" aria-label="Toggle theme">☀</button>
       <div class="profile-wrap">
         <button id="profileMenuBtn" class="profile-btn" type="button" aria-haspopup="true" aria-expanded="false">
@@ -131,18 +134,20 @@
         <h2 class="!font-semibold !text-slate-900 dark:!text-slate-100">Fed Micro Data Reference Manual Discovery Tool</h2>
         <p class="!text-slate-600 dark:!text-slate-300">Search reporting forms, inspect run history, and drill down into MDRM changes from one workspace.</p>
       </div>
-      <div class="hero-kpis">
-        <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
-          <div id="kpiReportCount" class="kpi-label">0</div>
-          <div class="kpi-value">Unique Reports</div>
-        </div>
-        <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
-          <div id="kpiMdrmCount" class="kpi-label">0</div>
-          <div class="kpi-value">MDRMs</div>
-        </div>
-        <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
-          <div id="kpiActiveView" class="kpi-label">Discovery</div>
-          <div class="kpi-value">Current View</div>
+      <div class="hero-summary">
+        <div class="hero-kpis">
+          <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
+            <div id="kpiReportCount" class="kpi-label">0</div>
+            <div class="kpi-value">Unique Reports</div>
+          </div>
+          <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
+            <div id="kpiMdrmCount" class="kpi-label">0</div>
+            <div class="kpi-value">MDRMs</div>
+          </div>
+          <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
+            <div id="kpiActiveView" class="kpi-label">Discovery</div>
+            <div class="kpi-value">Current View</div>
+          </div>
         </div>
       </div>
     </section>
@@ -289,6 +294,27 @@
     </section>
   </main>
 
+  <div id="guideOverlay" class="guide-overlay" hidden>
+    <div id="guideSpotlight" class="guide-spotlight" aria-hidden="true"></div>
+    <aside id="guideCard" class="guide-card" data-pointer="bottom" role="dialog" aria-live="polite" aria-label="Application guide">
+      <div class="guide-head">
+        <div class="guide-avatar-shell" aria-hidden="true">
+          <img id="guideAvatarImage" class="guide-avatar-image" src="/guide/mentor-custom.webp" alt="">
+        </div>
+        <div class="guide-copy">
+          <p id="guideStepLabel" class="guide-step-label">Step 1 of 6</p>
+          <h4 id="guideTitle">Welcome</h4>
+          <p id="guideBody">This guide highlights where to click first.</p>
+        </div>
+      </div>
+      <div class="guide-actions">
+        <button id="guideBackBtn" type="button" class="btn btn-outline-secondary btn-sm">Back</button>
+        <button id="guideSkipBtn" type="button" class="btn btn-outline-secondary btn-sm">Skip</button>
+        <button id="guideNextBtn" type="button" class="btn btn-primary btn-sm">Next</button>
+      </div>
+    </aside>
+  </div>
+
   <div class="modal fade" id="saveBookmarkModal" tabindex="-1" aria-labelledby="saveBookmarkModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -328,9 +354,7 @@
     function switchView(targetViewId) {
       views.forEach(view => view.classList.toggle('active', view.id === targetViewId));
       menuButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === targetViewId));
-      if (discoveryRecentPanel) {
-        discoveryRecentPanel.style.display = targetViewId === 'view-discovery' ? '' : 'none';
-      }
+      updateRecentPanelVisibility(targetViewId === 'view-discovery');
       if (kpiActiveView) {
         if (targetViewId === 'view-reporting') {
           kpiActiveView.textContent = 'Reporting Viewer';
@@ -474,12 +498,24 @@
     const saveBookmarkNewGroupInput = document.getElementById('saveBookmarkNewGroupInput');
     const saveBookmarkContext = document.getElementById('saveBookmarkContext');
     const saveBookmarkConfirmBtn = document.getElementById('saveBookmarkConfirmBtn');
+    const guideMeBtn = document.getElementById('guideMeBtn');
+    const guideOverlay = document.getElementById('guideOverlay');
+    const guideSpotlight = document.getElementById('guideSpotlight');
+    const guideCard = document.getElementById('guideCard');
+    const guideStepLabel = document.getElementById('guideStepLabel');
+    const guideTitle = document.getElementById('guideTitle');
+    const guideBody = document.getElementById('guideBody');
+    const guideAvatarImage = document.getElementById('guideAvatarImage');
+    const guideBackBtn = document.getElementById('guideBackBtn');
+    const guideSkipBtn = document.getElementById('guideSkipBtn');
+    const guideNextBtn = document.getElementById('guideNextBtn');
     const profileNameLabel = document.getElementById('profileNameLabel');
     const themeIconBtn = document.getElementById('themeIconBtn');
     const profileMenuBtn = document.getElementById('profileMenuBtn');
     const profileMenu = document.getElementById('profileMenu');
     const THEME_KEY = 'mdrm-ui-theme';
     const LOCAL_RECENT_ITEMS_KEY = 'mdrm-recent-items-v1';
+    const GUIDE_SEEN_KEY = 'mdrm-onboarding-guide-seen-v1';
     const RECENT_ITEMS_MAX = 10;
     let currentUser = null;
     let bookmarkGroups = [];
@@ -491,7 +527,232 @@
     let saveBookmarkModal = null;
     let authMode = '';
     let recentItems = [];
+    let guideStepIndex = 0;
+    let guideCurrentTarget = null;
+    let guideCloseTimer = null;
+    let guideAvatarTimer = null;
+    const guideAvatarMap = {
+      intro: '/guide/mentor-custom.webp',
+      explain: '/guide/mentor-custom.webp',
+      focus: '/guide/mentor-custom.webp',
+      smile: '/guide/mentor-custom.webp'
+    };
+    const guideSteps = [
+      {
+        view: 'view-discovery',
+        selector: null,
+        title: 'Welcome To FedMDRM',
+        body: 'FedMDRM is your single workspace for MDRM discovery, bookmark organization, report timeline review, and file load operations. This quick guide will show the key places to navigate first.',
+        intro: true,
+        avatar: 'intro'
+      },
+      {
+        view: 'view-discovery',
+        selector: '#menu-discovery',
+        title: 'Start In Discovery',
+        body: 'Use this tab to search MDRM data first.',
+        avatar: 'explain'
+      },
+      {
+        view: 'view-discovery',
+        selector: '#discoveryQueryInput',
+        title: 'Type Your Query',
+        body: 'Search by MDRM code, reporting form, or keyword.',
+        avatar: 'focus'
+      },
+      {
+        view: 'view-bookmarks',
+        selector: '#menu-bookmarks',
+        title: 'Save To Bookmarks',
+        body: 'Go here to organize saved items into groups.',
+        avatar: 'smile'
+      },
+      {
+        view: 'view-reporting',
+        selector: '#menu-reporting',
+        title: 'Open Reporting Viewer',
+        body: 'Review report history and drill into timeline changes.',
+        avatar: 'focus'
+      },
+      {
+        view: 'view-load',
+        selector: '#menu-load',
+        title: 'Load New MDRM Files',
+        body: 'Use this screen to upload and process fresh files.',
+        avatar: 'explain'
+      },
+      {
+        view: 'view-discovery',
+        selector: '#themeIconBtn',
+        title: 'Switch Theme',
+        body: 'Use this button to toggle between light and dark modes.',
+        avatar: 'smile'
+      },
+      {
+        view: 'view-discovery',
+        selector: '#profileMenuBtn',
+        title: 'Login And Profile',
+        body: 'Use your profile menu for login, signup, and account actions.',
+        avatar: 'smile'
+      }
+    ];
 
+    function setGuideAvatar(avatarKey) {
+      if (!guideAvatarImage) {
+        return;
+      }
+      const nextSrc = guideAvatarMap[avatarKey] || guideAvatarMap.explain;
+      if (guideAvatarImage.dataset.avatarSrc === nextSrc) {
+        return;
+      }
+      if (guideAvatarTimer) {
+        window.clearTimeout(guideAvatarTimer);
+      }
+      guideAvatarImage.classList.add('is-switching');
+      guideAvatarTimer = window.setTimeout(() => {
+        guideAvatarImage.src = nextSrc;
+        guideAvatarImage.dataset.avatarSrc = nextSrc;
+        guideAvatarImage.classList.remove('is-switching');
+      }, 120);
+    }
+
+    function clearGuideTargetHighlight() {
+      if (guideCurrentTarget) {
+        guideCurrentTarget.classList.remove('guide-focus-target');
+      }
+      guideCurrentTarget = null;
+    }
+
+    function positionGuide() {
+      if (!guideOverlay || guideOverlay.hidden || !guideCard || !guideSpotlight) {
+        return;
+      }
+      if (!guideCurrentTarget) {
+        const cardWidth = Math.min(640, window.innerWidth - 24);
+        const cardHeight = guideCard.offsetHeight || 240;
+        guideCard.style.width = `${cardWidth}px`;
+        guideCard.style.left = `${Math.max(12, (window.innerWidth - cardWidth) / 2)}px`;
+        guideCard.style.top = `${Math.max(12, (window.innerHeight - cardHeight) / 2)}px`;
+        guideCard.dataset.pointer = 'none';
+        guideSpotlight.style.opacity = '0';
+        return;
+      }
+      const rect = guideCurrentTarget.getBoundingClientRect();
+      const pad = 8;
+      const left = Math.max(8, rect.left - pad);
+      const top = Math.max(8, rect.top - pad);
+      const width = Math.max(32, rect.width + pad * 2);
+      const height = Math.max(32, rect.height + pad * 2);
+      guideSpotlight.style.left = `${left}px`;
+      guideSpotlight.style.top = `${top}px`;
+      guideSpotlight.style.width = `${width}px`;
+      guideSpotlight.style.height = `${height}px`;
+
+      const cardWidth = Math.min(480, window.innerWidth - 24);
+      guideCard.style.width = `${cardWidth}px`;
+      const cardHeight = guideCard.offsetHeight || 220;
+
+      let cardTop = rect.bottom + 16;
+      let pointer = 'top';
+      if (cardTop + cardHeight > window.innerHeight - 12) {
+        cardTop = rect.top - cardHeight - 16;
+        pointer = 'bottom';
+      }
+      if (cardTop < 12) {
+        cardTop = 12;
+      }
+
+      let cardLeft = rect.left;
+      if (cardLeft + cardWidth > window.innerWidth - 12) {
+        cardLeft = window.innerWidth - cardWidth - 12;
+      }
+      if (cardLeft < 12) {
+        cardLeft = 12;
+      }
+
+      guideCard.style.left = `${cardLeft}px`;
+      guideCard.style.top = `${cardTop}px`;
+      guideCard.dataset.pointer = pointer;
+      guideSpotlight.style.opacity = '1';
+
+      const pointerX = Math.min(cardWidth - 24, Math.max(24, rect.left + rect.width / 2 - cardLeft));
+      guideCard.style.setProperty('--guide-pointer-x', `${pointerX}px`);
+    }
+
+    function renderGuideStep() {
+      if (!guideOverlay || guideOverlay.hidden) {
+        return;
+      }
+      const step = guideSteps[guideStepIndex];
+      switchView(step.view);
+      closeProfileMenu();
+      window.setTimeout(() => {
+        let target = null;
+        if (step.selector) {
+          target = document.querySelector(step.selector);
+        }
+        clearGuideTargetHighlight();
+        guideCurrentTarget = target;
+        if (guideCurrentTarget) {
+          guideCurrentTarget.classList.add('guide-focus-target');
+        }
+        guideStepLabel.textContent = `Step ${guideStepIndex + 1} of ${guideSteps.length}`;
+        guideTitle.textContent = step.title;
+        guideBody.textContent = step.body;
+        setGuideAvatar(step.avatar);
+        guideBackBtn.disabled = guideStepIndex === 0;
+        guideNextBtn.textContent = guideStepIndex === guideSteps.length - 1 ? 'Finish' : 'Next';
+        positionGuide();
+      }, 80);
+    }
+
+    function closeGuide(markSeen = true) {
+      if (!guideOverlay) {
+        return;
+      }
+      guideOverlay.classList.remove('is-open');
+      clearGuideTargetHighlight();
+      if (guideCloseTimer) {
+        window.clearTimeout(guideCloseTimer);
+      }
+      guideCloseTimer = window.setTimeout(() => {
+        guideOverlay.hidden = true;
+      }, 240);
+      if (markSeen) {
+        localStorage.setItem(GUIDE_SEEN_KEY, '1');
+      }
+    }
+
+    function openGuide(startIndex = 0) {
+      if (!guideOverlay) {
+        return;
+      }
+      guideStepIndex = Math.max(0, Math.min(startIndex, guideSteps.length - 1));
+      if (guideCloseTimer) {
+        window.clearTimeout(guideCloseTimer);
+        guideCloseTimer = null;
+      }
+      guideOverlay.hidden = false;
+      window.requestAnimationFrame(() => guideOverlay.classList.add('is-open'));
+      renderGuideStep();
+    }
+
+    function nextGuideStep() {
+      if (guideStepIndex >= guideSteps.length - 1) {
+        closeGuide(true);
+        return;
+      }
+      guideStepIndex += 1;
+      renderGuideStep();
+    }
+
+    function prevGuideStep() {
+      if (guideStepIndex <= 0) {
+        return;
+      }
+      guideStepIndex -= 1;
+      renderGuideStep();
+    }
     function hasSelectedUploadFile() {
       return !!(uploadFileInput.files && uploadFileInput.files.length > 0);
     }
@@ -702,6 +963,17 @@
       return n.toLocaleString('en-US');
     }
 
+    function updateRecentPanelVisibility(inDiscoveryView = null) {
+      if (!discoveryRecentPanel) {
+        return;
+      }
+      const isDiscoveryActive = inDiscoveryView !== null
+        ? inDiscoveryView
+        : !!document.querySelector('#view-discovery.view.active');
+      const hasRecentItems = Array.isArray(recentItems) && recentItems.length > 0;
+      discoveryRecentPanel.style.display = isDiscoveryActive && hasRecentItems ? '' : 'none';
+    }
+
     function loadRecentItemsFromLocal() {
       try {
         const parsed = JSON.parse(localStorage.getItem(LOCAL_RECENT_ITEMS_KEY) || '[]');
@@ -810,7 +1082,8 @@
         return;
       }
       if (!recentItems.length) {
-        recentItemsContainer.innerHTML = '<div class="text-muted small p-2">No recent items yet.</div>';
+        recentItemsContainer.innerHTML = '';
+        updateRecentPanelVisibility();
         return;
       }
       recentItemsContainer.innerHTML = recentItems.map((item, index) => `
@@ -826,6 +1099,7 @@
           ${item.subtitle ? `<div class="recent-item-subtitle">${escapeHtml(item.subtitle)}</div>` : ''}
         </div>
       `).join('');
+      updateRecentPanelVisibility();
     }
 
     function isRecentItemBookmarked(item) {
@@ -2500,6 +2774,37 @@
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         setTheme(currentTheme === 'dark' ? 'light' : 'dark');
       });
+    }
+
+    if (guideMeBtn) {
+      guideMeBtn.addEventListener('click', () => openGuide(0));
+    }
+    if (guideNextBtn) {
+      guideNextBtn.addEventListener('click', nextGuideStep);
+    }
+    if (guideBackBtn) {
+      guideBackBtn.addEventListener('click', prevGuideStep);
+    }
+    if (guideSkipBtn) {
+      guideSkipBtn.addEventListener('click', () => closeGuide(true));
+    }
+    if (guideOverlay) {
+      guideOverlay.addEventListener('click', event => {
+        if (event.target === guideOverlay || event.target === guideSpotlight) {
+          closeGuide(true);
+        }
+      });
+    }
+    window.addEventListener('resize', positionGuide);
+    window.addEventListener('scroll', positionGuide, true);
+    document.addEventListener('keydown', event => {
+      if (guideOverlay && !guideOverlay.hidden && event.key === 'Escape') {
+        closeGuide(true);
+      }
+    });
+
+    if (localStorage.getItem(GUIDE_SEEN_KEY) !== '1') {
+      window.setTimeout(() => openGuide(0), 600);
     }
 
     initTheme();
