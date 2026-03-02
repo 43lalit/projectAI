@@ -17,12 +17,15 @@ public class BookmarkService {
         ensureTables();
     }
 
-    public List<BookmarkModels.BookmarkGroupResponse> listGroups(long userId) {
+    public List<BookmarkModels.BookmarkGroupResponse> listGroups(long userId, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         return jdbcTemplate.query(
                 """
                 SELECT g.group_id, g.name, COUNT(b.bookmark_id) AS item_count
                 FROM favorite_group g
-                LEFT JOIN bookmark_item b ON b.group_id = g.group_id
+                LEFT JOIN bookmark_item b
+                    ON b.group_id = g.group_id
+                   AND b.run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
                 WHERE g.user_id = ?
                 GROUP BY g.group_id, g.name
                 ORDER BY LOWER(g.name)
@@ -32,6 +35,7 @@ public class BookmarkService {
                         rs.getString("name"),
                         rs.getInt("item_count")
                 ),
+                normalizedRunId,
                 userId
         );
     }
@@ -123,7 +127,8 @@ public class BookmarkService {
         );
     }
 
-    public List<BookmarkModels.BookmarkItemResponse> listItems(long userId, Long groupId) {
+    public List<BookmarkModels.BookmarkItemResponse> listItems(long userId, Long groupId, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         if (groupId != null) {
             ensureGroupBelongsToUser(groupId, userId);
         }
@@ -144,6 +149,7 @@ public class BookmarkService {
                     FROM bookmark_item b
                     LEFT JOIN favorite_group g ON g.group_id = b.group_id
                     WHERE b.user_id = ?
+                      AND b.run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
                     ORDER BY b.created_at DESC
                     """,
                     (rs, rowNum) -> new BookmarkModels.BookmarkItemResponse(
@@ -157,7 +163,8 @@ public class BookmarkService {
                             rs.getString("url"),
                             rs.getLong("created_at")
                     ),
-                    userId
+                    userId,
+                    normalizedRunId
             );
         }
 
@@ -175,7 +182,9 @@ public class BookmarkService {
                     b.created_at
                 FROM bookmark_item b
                 LEFT JOIN favorite_group g ON g.group_id = b.group_id
-                WHERE b.user_id = ? AND b.group_id = ?
+                WHERE b.user_id = ?
+                  AND b.group_id = ?
+                  AND b.run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
                 ORDER BY b.created_at DESC
                 """,
                 (rs, rowNum) -> new BookmarkModels.BookmarkItemResponse(
@@ -190,11 +199,13 @@ public class BookmarkService {
                         rs.getLong("created_at")
                 ),
                 userId,
-                groupId
+                groupId,
+                normalizedRunId
         );
     }
 
-    public BookmarkModels.BookmarkItemResponse addItem(long userId, BookmarkModels.AddBookmarkRequest request) {
+    public BookmarkModels.BookmarkItemResponse addItem(long userId, BookmarkModels.AddBookmarkRequest request, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         String itemType = normalizeRequired(request.itemType(), "itemType");
         String itemKey = normalizeRequired(request.itemKey(), "itemKey");
         String title = normalizeRequired(request.title(), "title");
@@ -220,12 +231,14 @@ public class BookmarkService {
                   AND item_type = ?
                   AND item_key = ?
                   AND group_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
+                  AND run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
                 """,
                 Integer.class,
                 userId,
                 itemType,
                 itemKey,
-                groupId
+                groupId,
+                normalizedRunId
         );
         if (existing != null && existing > 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Item already bookmarked in this group");
@@ -234,8 +247,8 @@ public class BookmarkService {
         long now = System.currentTimeMillis();
         jdbcTemplate.update(
                 """
-                INSERT INTO bookmark_item (user_id, group_id, item_type, item_key, title, subtitle, url, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO bookmark_item (user_id, group_id, item_type, item_key, title, subtitle, url, run_context_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 userId,
                 groupId,
@@ -244,6 +257,7 @@ public class BookmarkService {
                 title,
                 safeNullable(request.subtitle()),
                 safeNullable(request.url()),
+                normalizedRunId,
                 now
         );
 
@@ -275,27 +289,33 @@ public class BookmarkService {
         );
     }
 
-    public void deleteItem(long userId, long bookmarkId) {
+    public void deleteItem(long userId, long bookmarkId, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         int updated = jdbcTemplate.update(
-                "DELETE FROM bookmark_item WHERE bookmark_id = ? AND user_id = ?",
+                "DELETE FROM bookmark_item WHERE bookmark_id = ? AND user_id = ?"
+                        + " AND run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)",
                 bookmarkId,
-                userId
+                userId,
+                normalizedRunId
         );
         if (updated == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bookmark not found");
         }
     }
 
-    public BookmarkModels.BookmarkItemResponse moveItemToGroup(long userId, long bookmarkId, Long groupId) {
+    public BookmarkModels.BookmarkItemResponse moveItemToGroup(long userId, long bookmarkId, Long groupId, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         if (groupId != null) {
             ensureGroupBelongsToUser(groupId, userId);
         }
 
         int updated = jdbcTemplate.update(
-                "UPDATE bookmark_item SET group_id = ? WHERE bookmark_id = ? AND user_id = ?",
+                "UPDATE bookmark_item SET group_id = ? WHERE bookmark_id = ? AND user_id = ?"
+                        + " AND run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)",
                 groupId,
                 bookmarkId,
-                userId
+                userId,
+                normalizedRunId
         );
         if (updated == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bookmark not found");
@@ -316,6 +336,7 @@ public class BookmarkService {
                 FROM bookmark_item b
                 LEFT JOIN favorite_group g ON g.group_id = b.group_id
                 WHERE b.bookmark_id = ? AND b.user_id = ?
+                  AND b.run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
                 """,
                 (rs, rowNum) -> new BookmarkModels.BookmarkItemResponse(
                         rs.getLong("bookmark_id"),
@@ -329,7 +350,8 @@ public class BookmarkService {
                         rs.getLong("created_at")
                 ),
                 bookmarkId,
-                userId
+                userId,
+                normalizedRunId
         );
     }
 
@@ -391,12 +413,22 @@ public class BookmarkService {
                     title TEXT NOT NULL,
                     subtitle TEXT NULL,
                     url TEXT NULL,
+                    run_context_id BIGINT NULL,
                     created_at BIGINT NOT NULL
                 )
                 """);
+        jdbcTemplate.execute("ALTER TABLE bookmark_item ADD COLUMN IF NOT EXISTS run_context_id BIGINT NULL");
 
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_favorite_group_user ON favorite_group(user_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_item_user ON bookmark_item(user_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_item_group ON bookmark_item(group_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_item_user_context ON bookmark_item(user_id, run_context_id)");
+    }
+
+    private Long normalizeRunContext(Long runId) {
+        if (runId == null) {
+            return null;
+        }
+        return runId > 0 ? runId : null;
     }
 }

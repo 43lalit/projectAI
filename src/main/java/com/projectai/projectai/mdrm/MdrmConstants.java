@@ -17,6 +17,7 @@ public final class MdrmConstants {
     public static final String DEFAULT_RUN_SUMMARY_TABLE = "mdrm_run_summary";
     public static final String DEFAULT_RUN_INCREMENTAL_TABLE = "mdrm_run_incremental";
     public static final String DEFAULT_FILE_SUMMARY_TABLE = "mdrm_file_summary";
+    public static final String DEFAULT_REPORT_STATUS_TABLE = "mdrm_report_status";
     public static final String DEFAULT_PROMOTE_FUNCTION = "promote_mdrm_run";
     public static final String DEFAULT_CRON = "0 0 1 * * *";
     public static final String INPUT_DATE_TIME_PATTERN = "M/d/yyyy h:mm:ss a";

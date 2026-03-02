@@ -10,13 +10,13 @@
 <body>
   <main class="shell">
     <header class="topbar panel">
-      <div class="brand">
+      <a class="brand brand-link" href="/index.html?view=view-discovery" aria-label="Go to home page">
         <div class="logo" aria-hidden="true"></div>
         <div>
           <h1>FedMDRM</h1>
           <p>Element Profile</p>
         </div>
-      </div>
+      </a>
       <nav class="menu" aria-label="MDRM menu">
         <a id="menu-discovery" class="menu-link" href="/index.html?view=view-discovery">
           <span class="menu-link-icon" aria-hidden="true">
@@ -34,13 +34,13 @@
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 20.5h17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </span>
-          <span class="menu-link-label">Reporting Viewer</span>
+          <span class="menu-link-label">Reports</span>
         </a>
         <a id="menu-load" class="menu-link" href="/index.html?view=view-load">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
-          <span class="menu-link-label">Load MDRM</span>
+          <span class="menu-link-label">Load Data</span>
         </a>
         <a id="menu-mdrm-page" class="menu-link active" href="/mdrm.html">
           <span class="menu-link-icon" aria-hidden="true">
@@ -207,6 +207,8 @@
     const authRegisterBtn = document.getElementById('authRegisterBtn');
     const authResetBtn = document.getElementById('authResetBtn');
     const authLogoutBtn = document.getElementById('authLogoutBtn');
+    const LOCAL_RECENT_ITEMS_KEY = 'mdrm-recent-items-v1';
+    const RECENT_ITEMS_MAX = 10;
     let csrfToken = null;
     let csrfHeaderName = 'X-CSRF-TOKEN';
     let currentUser = null;
@@ -282,6 +284,120 @@
       } catch (_) {
         return null;
       }
+    }
+
+    function normalizeRunContext(runIdRaw) {
+      const value = Number(runIdRaw);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    function resolveEffectiveRunContext() {
+      const pageParams = new URLSearchParams(window.location.search);
+      const fromUrl = normalizeRunContext(pageParams.get('runId'));
+      if (fromUrl) {
+        return fromUrl;
+      }
+      try {
+        const saved = localStorage.getItem('mdrm-run-context-v1');
+        return normalizeRunContext(saved);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function getRecentItemsStorageKey(runId) {
+      return runId ? `${LOCAL_RECENT_ITEMS_KEY}::run:${runId}` : `${LOCAL_RECENT_ITEMS_KEY}::latest`;
+    }
+
+    function getRecentStorageForCurrentSession() {
+      try {
+        return window.localStorage;
+      } catch (_) {
+        return window.localStorage;
+      }
+    }
+
+    function recordRecentItemLocal(item, runId) {
+      if (!item || !item.type || !item.key || !item.label) {
+        return;
+      }
+      const storage = getRecentStorageForCurrentSession();
+      let list = [];
+      try {
+        const parsed = JSON.parse(storage.getItem(getRecentItemsStorageKey(runId)) || '[]');
+        list = Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        list = [];
+      }
+      const normalizedType = String(item.type || '').trim().toLowerCase();
+      const normalizedKey = String(item.key || '').trim();
+      list = list.filter(existing => !(
+        String(existing && existing.type ? existing.type : '').trim().toLowerCase() === normalizedType
+        && String(existing && existing.key ? existing.key : '').trim() === normalizedKey
+      ));
+      list.unshift({
+        type: normalizedType,
+        key: normalizedKey,
+        label: String(item.label || normalizedKey).trim(),
+        subtitle: String(item.subtitle || '').trim(),
+        url: String(item.url || '').trim(),
+        timestamp: Date.now()
+      });
+      storage.setItem(getRecentItemsStorageKey(runId), JSON.stringify(list.slice(0, RECENT_ITEMS_MAX)));
+    }
+
+    async function recordRecentItemOnServer(item, runId) {
+      if (!item || !item.type || !item.key || !item.label) {
+        return;
+      }
+      const baseUrl = `/api/recent/items?limit=${RECENT_ITEMS_MAX}`;
+      const url = runId ? `${baseUrl}&runId=${encodeURIComponent(String(runId))}` : baseUrl;
+      await apiFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemType: String(item.type || '').trim().toLowerCase(),
+          itemKey: String(item.key || '').trim(),
+          label: String(item.label || item.key || '').trim(),
+          subtitle: String(item.subtitle || '').trim(),
+          url: String(item.url || '').trim()
+        })
+      });
+    }
+
+    function recordRecentProfileView(searchText, payload, runId) {
+      const code = String(searchText || '').trim().toUpperCase();
+      if (!code) {
+        return;
+      }
+      const subtitle = payload && payload.itemCode
+        ? `Item code: ${payload.itemCode}`
+        : 'MDRM profile';
+      const entry = {
+        type: 'mdrm',
+        key: code,
+        label: code,
+        subtitle,
+        url: window.location.pathname + window.location.search
+      };
+      recordRecentItemLocal(entry, runId);
+      recordRecentItemOnServer(entry, runId).catch(() => {
+        // best-effort sync; local entry is already saved
+      });
+    }
+
+    function buildMdrmProfileLink(mdrmCode) {
+      const code = String(mdrmCode || '').trim();
+      if (!code) {
+        return '/mdrm.html';
+      }
+      const params = new URLSearchParams();
+      params.set('mdrm', code);
+      const runId = resolveEffectiveRunContext();
+      if (runId) {
+        params.set('runId', String(runId));
+      }
+      return `/mdrm.html?${params.toString()}`;
     }
 
     function setAuthStatus(text, css = 'neutral') {
@@ -705,7 +821,7 @@
               ${members.map(member => `
                 <div class="report-member-item">
                   <div class="report-member-main">
-                    <a href="/mdrm.html?mdrm=${encodeURIComponent(member.mdrmCode || '')}">${escapeHtml(member.mdrmCode || '-')}</a>
+                    <a href="${escapeHtml(buildMdrmProfileLink(member.mdrmCode || ''))}">${escapeHtml(member.mdrmCode || '-')}</a>
                   </div>
                   <div class="report-member-meta">
                     <span>${statusCapsule(member.status || '-')}</span>
@@ -721,7 +837,7 @@
       panel.innerHTML = `
         <div class="related-detail-card">
           <div class="related-detail-title">Related MDRM</div>
-          <div class="related-detail-row"><span class="k">MDRM</span><span><a href="/mdrm.html?mdrm=${encodeURIComponent(node.mdrmCode || '')}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
+          <div class="related-detail-row"><span class="k">MDRM</span><span><a href="${escapeHtml(buildMdrmProfileLink(node.mdrmCode || ''))}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
           <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
           <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
           <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(node.itemType || '-')}</span></div>
@@ -915,7 +1031,11 @@
       setDetailStatus('Loading MDRM profile...', 'neutral');
 
       try {
-        const response = await fetch(`/api/mdrm/profile?mdrm=${encodeURIComponent(searchText)}`);
+        const runId = resolveEffectiveRunContext();
+        const profileUrl = runId
+          ? `/api/mdrm/profile?mdrm=${encodeURIComponent(searchText)}&runId=${encodeURIComponent(String(runId))}`
+          : `/api/mdrm/profile?mdrm=${encodeURIComponent(searchText)}`;
+        const response = await fetch(profileUrl);
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -933,6 +1053,7 @@
         renderTimeline(payload.timeline || []);
         renderAssociations(payload.associations || []);
         renderRelatedMdrms(payload);
+        recordRecentProfileView(searchText, payload, runId);
 
         setDetailStatus(
           `Loaded ${payload.mdrmCode} | timeline=${payload.timelineCount || 0} | associations=${payload.associationCount || 0} | related MDRMs=${payload.relatedMdrmCount || 0}`,

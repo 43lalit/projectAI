@@ -89,6 +89,41 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
     - `Inactive` red capsule
   - Applied across MDRM profile and reporting table status fields.
 
+## Latest Updates (2026-03-02)
+- Implemented full run-context "time travel" behavior across the application:
+  - Header run selector now drives as-of context globally.
+  - Backend endpoints support optional `runId` context for discovery/reporting/profile surfaces.
+  - As-of semantics enforce no future data beyond selected run (`run_id <= selectedRunId` where applicable).
+- Run context UX improvements:
+  - Dropdown labels now display `As of <Month>, <Year>`, inferred from file naming (`MDRM_MMDD.csv`) with run-time year.
+  - Latest run is shown as a normal option with `(Latest)` suffix (no separate "latest" pseudo-option).
+- Reporting metadata enhancements:
+  - Metadata refresh and extraction improved to pull form title/full name and description from Federal Reserve reporting-form pages.
+  - Description handling supports clean wrapping and read-more/read-less expansion for long text.
+- Reporting viewer redesign finalized:
+  - KPI-driven interaction model (`Runs`, `Run Compare`, `Active MDRMs`, `Net Change`).
+  - AG Grid used for active/net-change drilldowns with filter + pagination.
+  - Empty state centered with icon/message when no report is selected.
+  - Left nav and report header/status UX tightened for clarity.
+- Report status model updates:
+  - Active/Inactive report status now represented and persisted via summary/status tables.
+  - Status capsules used consistently.
+- Role-based experience updates:
+  - Admin-only access for `Load Data` (previously `Load MDRM`).
+  - Guest/non-admin guide steps now hide load-related onboarding steps.
+- Recent activity robustness:
+  - Added reliable recent tracking on MDRM profile page load (not only click interception from discovery).
+  - Recent tracking is run-context-aware.
+  - Fixed race condition in `recent_item` upsert using atomic PostgreSQL `ON CONFLICT DO UPDATE`.
+- Header/branding/navigation polish:
+  - FedMDRM brand (icon + text) is clickable and routes home.
+  - Header layout fixed to avoid unintended multi-row wrapping.
+  - Menu text updated:
+    - `Reporting Viewer` -> `Reports`
+    - `Load MDRM` -> `Load Data`
+  - Guide CTA updated to `📖 Quick Tour`.
+  - KPI labels now include icons for scanability.
+
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
 2. Discover files by pattern `mdrm.migration-file-pattern` and keep only `MDRM_mmyy.csv`
@@ -222,8 +257,8 @@ Main console:
 - Primary views:
   - **Discovery** (AG Grid search, quick filter, favorites)
   - **Bookmarks** (groups + saved MDRMs)
-  - **Reporting Viewer** (run summary + details + drill-down)
-  - **Load MDRM** (upload/load + file/run metrics)
+  - **Reports** (run summary + details + drill-down)
+  - **Load Data** (upload/load + file/run metrics)
 
 MDRM profile page:
 - `http://localhost:8080/mdrm.html?mdrm=<code>`

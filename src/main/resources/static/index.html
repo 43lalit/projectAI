@@ -39,13 +39,13 @@
 <body class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100">
   <main class="shell !max-w-7xl !px-4 md:!px-6 !py-5">
     <header class="topbar panel !rounded-2xl !border-slate-200/80 !bg-white/90 !shadow-soft dark:!border-slate-700 dark:!bg-slate-900/90">
-      <div class="brand">
+      <a class="brand brand-link" href="/index.html?view=view-discovery" aria-label="Go to home page">
         <div class="logo" aria-hidden="true"></div>
         <div>
           <h1 class="!font-semibold !text-slate-900 dark:!text-slate-100">FedMDRM</h1>
           <p class="!text-slate-500 dark:!text-slate-300">Search and Discovery Console</p>
         </div>
-      </div>
+      </a>
       <nav class="menu" aria-label="MDRM Menu">
         <a id="menu-discovery" class="menu-link active !rounded-full !px-4 !py-2 !text-xs !font-semibold" data-view="view-discovery" href="#">
           <span class="menu-link-icon" aria-hidden="true">
@@ -63,20 +63,25 @@
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 20.5h17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </span>
-          <span class="menu-link-label">Reporting Viewer</span>
+          <span class="menu-link-label">Reports</span>
         </a>
         <a id="menu-load" class="menu-link !rounded-full !px-4 !py-2 !text-xs !font-semibold" data-view="view-load" href="#">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
-          <span class="menu-link-label">Load MDRM</span>
+          <span class="menu-link-label">Load Data</span>
         </a>
       </nav>
       <div class="header-actions">
         <button id="guideMeBtn" class="guide-btn" type="button">
-          Guide Me
+          📖 Quick Tour
         </button>
         <button id="themeIconBtn" class="theme-icon-btn" type="button" aria-label="Toggle theme">☀</button>
+      <div class="run-context-wrap">
+        <select id="runContextSelect" class="form-select form-select-sm" aria-label="Run context">
+          <option value="" disabled>Loading runs...</option>
+        </select>
+      </div>
       <div class="profile-wrap">
         <button id="profileMenuBtn" class="profile-btn" type="button" aria-haspopup="true" aria-expanded="false">
           <span id="profileNameLabel" class="profile-name">Guest</span>
@@ -138,15 +143,15 @@
         <div class="hero-kpis">
           <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
             <div id="kpiReportCount" class="kpi-label">0</div>
-            <div class="kpi-value">Unique Reports</div>
+            <div class="kpi-value">📊 Unique Reports</div>
           </div>
           <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
             <div id="kpiMdrmCount" class="kpi-label">0</div>
-            <div class="kpi-value">MDRMs</div>
+            <div class="kpi-value">🧾 MDRMs</div>
           </div>
           <div class="kpi !bg-white/85 !border-slate-200 dark:!bg-slate-800/70 dark:!border-slate-700">
             <div id="kpiActiveView" class="kpi-label">Discovery</div>
-            <div class="kpi-value">Current View</div>
+            <div class="kpi-value">🧭 Current View</div>
           </div>
         </div>
       </div>
@@ -267,28 +272,112 @@
             <option value="reports">Reports (0)</option>
             <option value="mdrms">MDRMs</option>
           </select>
+          <div class="report-status-tabs" role="tablist" aria-label="Report status filter">
+            <button id="reportFilterAllBtn" class="report-status-tab active" type="button" data-status-filter="ALL">All</button>
+            <button id="reportFilterActiveBtn" class="report-status-tab" type="button" data-status-filter="ACTIVE">Active</button>
+            <button id="reportFilterInactiveBtn" class="report-status-tab" type="button" data-status-filter="INACTIVE">Inactive</button>
+          </div>
           <input id="reportSearchInput" class="form-control" type="text" placeholder="Search reports...">
           <div id="reportListContainer" class="report-list"></div>
         </aside>
 
         <section class="report-main-pane">
-          <div class="report-header">
-            <div id="selectedReportLabel" class="selected-report">Selected Report: -</div>
-            <div class="tab-row" role="tablist" aria-label="Report views">
-              <a id="tabSummaryBtn" class="tab-link active" href="#" data-tab="summaryTab" role="tab" aria-selected="true">Run Summary</a>
-              <a id="tabDetailsBtn" class="tab-link" href="#" data-tab="detailsTab" role="tab" aria-selected="false">Regular Details</a>
+          <div id="reportEmptyState" class="report-empty-state">
+            <div class="report-empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none">
+                <rect x="10" y="12" width="44" height="40" rx="8" stroke="currentColor" stroke-width="2.5"/>
+                <path d="M20 24h24M20 32h18M20 40h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="48" cy="46" r="10" fill="currentColor" opacity="0.15"/>
+                <path d="M45 46h6M48 43v6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <h3>Select A Report</h3>
+            <p>Choose a report from the left panel to view timeline, comparisons, metadata, and MDRM details.</p>
+          </div>
+          <div class="report-header card-shell p-3">
+            <div class="report-header-top">
+              <div>
+                <div class="selected-report-row">
+                  <div id="selectedReportLabel" class="selected-report">-</div>
+                  <a id="reportSourceLink" class="official-source-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">official Federal Reserve source</a>
+                  <span id="reportHeaderStatusPill" class="report-status-pill neutral" style="display:none;">No Data</span>
+                </div>
+                <div id="reportFullNameLabel" class="report-full-name"></div>
+                <div id="reportDescriptionLabel" class="report-description mt-1"></div>
+                <button id="reportDescriptionToggleBtn" class="report-description-toggle" type="button" style="display:none;">Read more</button>
+              </div>
+              <div class="d-flex gap-2 align-items-start">
+                <button id="reportMetadataRefreshBtn" class="btn btn-sm btn-outline-primary" type="button" style="display:none;" disabled>Refresh Metadata</button>
+              </div>
+            </div>
+            <div class="report-kpis">
+              <div id="reportKpiRunsTile" class="kpi-tile">
+                <div class="kpi-tile-label">Runs</div>
+                <div id="reportKpiRuns" class="kpi-tile-value">-</div>
+              </div>
+              <div id="reportKpiCompareTile" class="kpi-tile">
+                <div class="kpi-tile-label">Run Compare</div>
+                <div id="reportKpiCompare" class="kpi-tile-value">View</div>
+              </div>
+              <div class="kpi-tile">
+                <div class="kpi-tile-label">Latest Run</div>
+                <div id="reportKpiLatestRun" class="kpi-tile-value">-</div>
+              </div>
+              <div id="reportKpiActiveTile" class="kpi-tile">
+                <div class="kpi-tile-label">Active MDRMs</div>
+                <div id="reportKpiActive" class="kpi-tile-value">-</div>
+              </div>
+              <div id="reportKpiNetChangeTile" class="kpi-tile">
+                <div class="kpi-tile-label">Net Change</div>
+                <div id="reportKpiNetChange" class="kpi-tile-value">-</div>
+              </div>
             </div>
           </div>
 
-          <section id="summaryTab" class="tab-panel active" role="tabpanel" aria-labelledby="tabSummaryBtn">
+          <section id="timelineTab" class="tab-panel" role="tabpanel" aria-labelledby="tabTimelineBtn">
             <div id="summaryTableContainer" class="table-shell card-shell"></div>
-            <div id="drilldownTitle" class="status neutral">Select a count to view MDRM codes.</div>
-            <div id="drilldownTableContainer" class="table-shell card-shell"></div>
           </section>
 
-          <section id="detailsTab" class="tab-panel" role="tabpanel" aria-labelledby="tabDetailsBtn">
+          <section id="compareTab" class="tab-panel" role="tabpanel" aria-labelledby="tabCompareBtn">
+            <div class="card-shell p-3">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small mb-1" for="compareRunASelect">Baseline Run</label>
+                  <select id="compareRunASelect" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small mb-1" for="compareRunBSelect">Target Run</label>
+                  <select id="compareRunBSelect" class="form-select form-select-sm"></select>
+                </div>
+              </div>
+              <div id="compareSummaryContainer" class="table-shell mt-3"></div>
+            </div>
+          </section>
+
+          <section id="detailsTab" class="tab-panel" role="tabpanel" aria-labelledby="tabDetailsBtn" style="display:none;">
             <div id="tableContainer" class="table-shell card-shell"></div>
           </section>
+
+          <section id="activeMdrmTab" class="tab-panel" role="tabpanel" aria-label="Active MDRM details">
+            <div class="card-shell p-3">
+              <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <div class="small text-muted">Active MDRM list (latest run)</div>
+                <input id="activeMdrmQuickFilterInput" class="form-control form-control-sm" type="text" placeholder="Filter MDRM or description..." style="max-width:320px;">
+              </div>
+              <div id="activeMdrmGrid" class="mdrm-ag-grid" style="height:420px;"></div>
+            </div>
+          </section>
+
+          <section id="netChangeTab" class="tab-panel" role="tabpanel" aria-label="Net change details">
+            <div class="card-shell p-3">
+              <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <div id="netChangeInfoLabel" class="small text-muted">Modified MDRMs (latest run)</div>
+                <input id="netChangeQuickFilterInput" class="form-control form-control-sm" type="text" placeholder="Filter MDRM or description..." style="max-width:320px;">
+              </div>
+              <div id="netChangeGrid" class="mdrm-ag-grid" style="height:420px;"></div>
+            </div>
+          </section>
+
         </section>
       </div>
     </section>
@@ -350,18 +439,23 @@
     let formsLoaded = false;
     let allForms = [];
     let selectedReportingForm = '';
+    let reportFormStatusByForm = {};
+    let reportStatusFilter = 'ALL';
 
     function switchView(targetViewId) {
+      if (targetViewId === 'view-load' && !isAdminUser()) {
+        targetViewId = 'view-discovery';
+      }
       views.forEach(view => view.classList.toggle('active', view.id === targetViewId));
       menuButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === targetViewId));
       updateRecentPanelVisibility(targetViewId === 'view-discovery');
       if (kpiActiveView) {
         if (targetViewId === 'view-reporting') {
-          kpiActiveView.textContent = 'Reporting Viewer';
+          kpiActiveView.textContent = 'Reports';
         } else if (targetViewId === 'view-bookmarks') {
           kpiActiveView.textContent = 'Bookmarks';
         } else if (targetViewId === 'view-load') {
-          kpiActiveView.textContent = 'Load MDRM';
+          kpiActiveView.textContent = 'Load Data';
         } else {
           kpiActiveView.textContent = 'Discovery';
         }
@@ -426,19 +520,47 @@
     const runLoadBtn = document.getElementById('runLoadBtn');
     const uploadFileInput = document.getElementById('uploadFileInput');
     const uploadFileBtn = document.getElementById('uploadFileBtn');
+    const menuLoadBtn = document.getElementById('menu-load');
     const loadStatus = document.getElementById('loadStatus');
     const fileMetricsContainer = document.getElementById('fileMetricsContainer');
     const fileIncrementalTitle = document.getElementById('fileIncrementalTitle');
     const fileIncrementalContainer = document.getElementById('fileIncrementalContainer');
     const fileIncrementalDetailPanel = document.getElementById('fileIncrementalDetailPanel');
     const leftNavMode = document.getElementById('leftNavMode');
+    const reportFilterAllBtn = document.getElementById('reportFilterAllBtn');
+    const reportFilterActiveBtn = document.getElementById('reportFilterActiveBtn');
+    const reportFilterInactiveBtn = document.getElementById('reportFilterInactiveBtn');
     const reportSearchInput = document.getElementById('reportSearchInput');
     const reportListContainer = document.getElementById('reportListContainer');
     const selectedReportLabel = document.getElementById('selectedReportLabel');
+    const reportFullNameLabel = document.getElementById('reportFullNameLabel');
+    const reportDescriptionLabel = document.getElementById('reportDescriptionLabel');
+    const reportDescriptionToggleBtn = document.getElementById('reportDescriptionToggleBtn');
+    const reportSourceLink = document.getElementById('reportSourceLink');
+    const reportHeaderStatusPill = document.getElementById('reportHeaderStatusPill');
+    const reportEmptyState = document.getElementById('reportEmptyState');
+    const reportMetadataRefreshBtn = document.getElementById('reportMetadataRefreshBtn');
+    const reportKpiRuns = document.getElementById('reportKpiRuns');
+    const reportKpiRunsTile = document.getElementById('reportKpiRunsTile');
+    const reportKpiCompareTile = document.getElementById('reportKpiCompareTile');
+    const reportKpiLatestRun = document.getElementById('reportKpiLatestRun');
+    const reportKpiActiveTile = document.getElementById('reportKpiActiveTile');
+    const reportKpiActive = document.getElementById('reportKpiActive');
+    const reportKpiNetChange = document.getElementById('reportKpiNetChange');
+    const reportKpiNetChangeTile = document.getElementById('reportKpiNetChangeTile');
+    const activeMdrmQuickFilterInput = document.getElementById('activeMdrmQuickFilterInput');
+    const activeMdrmGrid = document.getElementById('activeMdrmGrid');
+    const netChangeInfoLabel = document.getElementById('netChangeInfoLabel');
+    const netChangeQuickFilterInput = document.getElementById('netChangeQuickFilterInput');
+    const netChangeGrid = document.getElementById('netChangeGrid');
+    const compareRunASelect = document.getElementById('compareRunASelect');
+    const compareRunBSelect = document.getElementById('compareRunBSelect');
+    const compareSummaryContainer = document.getElementById('compareSummaryContainer');
+    const reportingLayout = document.querySelector('#view-reporting .reporting-layout');
+    const reportMainPane = document.querySelector('.report-main-pane');
+    const reportHeaderCard = document.querySelector('.report-main-pane .report-header');
     const tableContainer = document.getElementById('tableContainer');
     const summaryTableContainer = document.getElementById('summaryTableContainer');
-    const drilldownTitle = document.getElementById('drilldownTitle');
-    const drilldownTableContainer = document.getElementById('drilldownTableContainer');
     const tabButtons = Array.from(document.querySelectorAll('.tab-link'));
     const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
     const kpiReportCount = document.getElementById('kpiReportCount');
@@ -511,9 +633,11 @@
     const guideNextBtn = document.getElementById('guideNextBtn');
     const profileNameLabel = document.getElementById('profileNameLabel');
     const themeIconBtn = document.getElementById('themeIconBtn');
+    const runContextSelect = document.getElementById('runContextSelect');
     const profileMenuBtn = document.getElementById('profileMenuBtn');
     const profileMenu = document.getElementById('profileMenu');
     const THEME_KEY = 'mdrm-ui-theme';
+    const RUN_CONTEXT_KEY = 'mdrm-run-context-v1';
     const LOCAL_RECENT_ITEMS_KEY = 'mdrm-recent-items-v1';
     const GUIDE_SEEN_KEY = 'mdrm-onboarding-guide-seen-v1';
     const RECENT_ITEMS_MAX = 10;
@@ -523,6 +647,9 @@
     let csrfToken = '';
     let lastDiscoveryRows = [];
     let discoveryGridApi = null;
+    let summaryGridApi = null;
+    let activeMdrmGridApi = null;
+    let netChangeGridApi = null;
     let pendingBookmarkPayload = null;
     let saveBookmarkModal = null;
     let authMode = '';
@@ -531,6 +658,11 @@
     let guideCurrentTarget = null;
     let guideCloseTimer = null;
     let guideAvatarTimer = null;
+    let currentRunHistoryRows = [];
+    let isReportDescriptionExpanded = false;
+    let latestRunIdForSelectedReport = null;
+    let latestReportTablePayload = null;
+    let selectedRunContextId = null;
     const guideAvatarMap = {
       intro: '/guide/mentor-custom.webp',
       explain: '/guide/mentor-custom.webp',
@@ -570,7 +702,7 @@
       {
         view: 'view-reporting',
         selector: '#menu-reporting',
-        title: 'Open Reporting Viewer',
+        title: 'Open Reports',
         body: 'Review report history and drill into timeline changes.',
         avatar: 'focus'
       },
@@ -580,6 +712,13 @@
         title: 'Load New MDRM Files',
         body: 'Use this screen to upload and process fresh files.',
         avatar: 'explain'
+      },
+      {
+        view: 'view-discovery',
+        selector: '#runContextSelect',
+        title: 'Set Time-Travel Context',
+        body: 'Choose an "As of" run to time-travel. Discovery, reporting, bookmarks, and recent items are all shown for that selected context.',
+        avatar: 'focus'
       },
       {
         view: 'view-discovery',
@@ -596,6 +735,15 @@
         avatar: 'smile'
       }
     ];
+
+    function getGuideSteps() {
+      return guideSteps.filter(step => {
+        if (step.view === 'view-load') {
+          return isAdminUser();
+        }
+        return true;
+      });
+    }
 
     function setGuideAvatar(avatarKey) {
       if (!guideAvatarImage) {
@@ -683,7 +831,13 @@
       if (!guideOverlay || guideOverlay.hidden) {
         return;
       }
-      const step = guideSteps[guideStepIndex];
+      const steps = getGuideSteps();
+      if (!steps.length) {
+        closeGuide(false);
+        return;
+      }
+      guideStepIndex = Math.max(0, Math.min(guideStepIndex, steps.length - 1));
+      const step = steps[guideStepIndex];
       switchView(step.view);
       closeProfileMenu();
       window.setTimeout(() => {
@@ -696,12 +850,12 @@
         if (guideCurrentTarget) {
           guideCurrentTarget.classList.add('guide-focus-target');
         }
-        guideStepLabel.textContent = `Step ${guideStepIndex + 1} of ${guideSteps.length}`;
+        guideStepLabel.textContent = `Step ${guideStepIndex + 1} of ${steps.length}`;
         guideTitle.textContent = step.title;
         guideBody.textContent = step.body;
         setGuideAvatar(step.avatar);
         guideBackBtn.disabled = guideStepIndex === 0;
-        guideNextBtn.textContent = guideStepIndex === guideSteps.length - 1 ? 'Finish' : 'Next';
+        guideNextBtn.textContent = guideStepIndex === steps.length - 1 ? 'Finish' : 'Next';
         positionGuide();
       }, 80);
     }
@@ -727,7 +881,11 @@
       if (!guideOverlay) {
         return;
       }
-      guideStepIndex = Math.max(0, Math.min(startIndex, guideSteps.length - 1));
+      const steps = getGuideSteps();
+      if (!steps.length) {
+        return;
+      }
+      guideStepIndex = Math.max(0, Math.min(startIndex, steps.length - 1));
       if (guideCloseTimer) {
         window.clearTimeout(guideCloseTimer);
         guideCloseTimer = null;
@@ -738,7 +896,8 @@
     }
 
     function nextGuideStep() {
-      if (guideStepIndex >= guideSteps.length - 1) {
+      const steps = getGuideSteps();
+      if (guideStepIndex >= steps.length - 1) {
         closeGuide(true);
         return;
       }
@@ -757,8 +916,40 @@
       return !!(uploadFileInput.files && uploadFileInput.files.length > 0);
     }
 
+    function isAdminUser() {
+      return !!(currentUser && String(currentUser.role || '').toUpperCase() === 'ADMIN');
+    }
+
     function updateLoadButtonStates() {
-      runLoadBtn.disabled = !hasSelectedUploadFile();
+      const admin = isAdminUser();
+      runLoadBtn.disabled = !admin || !hasSelectedUploadFile();
+      uploadFileBtn.disabled = !admin;
+      uploadFileInput.disabled = !admin;
+    }
+
+    function syncAdminLoadAccess() {
+      const admin = isAdminUser();
+      if (menuLoadBtn) {
+        menuLoadBtn.style.display = admin ? '' : 'none';
+      }
+      if (!admin && document.querySelector('.view.active')?.id === 'view-load') {
+        switchView('view-discovery');
+      }
+      if (!admin) {
+        setLoadStatus('Admin access required to load MDRM files.', 'neutral');
+      }
+      updateLoadButtonStates();
+    }
+
+    function syncReportMetadataRefreshAccess() {
+      const admin = isAdminUser();
+      if (!reportMetadataRefreshBtn) {
+        return;
+      }
+      const loggedIn = !!currentUser;
+      reportMetadataRefreshBtn.style.display = loggedIn ? '' : 'none';
+      reportMetadataRefreshBtn.textContent = admin ? 'Refresh Metadata' : 'Refresh Metadata (Admin only)';
+      reportMetadataRefreshBtn.disabled = !admin || !selectedReportingForm;
     }
 
     function setLoadStatus(text, css) {
@@ -767,9 +958,10 @@
     }
 
     function setLoadActionsDisabled(disabled) {
-      runLoadBtn.disabled = disabled || !hasSelectedUploadFile();
-      uploadFileBtn.disabled = disabled;
-      uploadFileInput.disabled = disabled;
+      const admin = isAdminUser();
+      runLoadBtn.disabled = disabled || !admin || !hasSelectedUploadFile();
+      uploadFileBtn.disabled = disabled || !admin;
+      uploadFileInput.disabled = disabled || !admin;
     }
 
     function setReportingBusy(isBusy) {
@@ -800,11 +992,143 @@
     }
 
     function clearReportData() {
+      if (summaryGridApi) {
+        summaryGridApi.destroy();
+        summaryGridApi = null;
+      }
+      if (activeMdrmGridApi) {
+        activeMdrmGridApi.destroy();
+        activeMdrmGridApi = null;
+      }
+      if (netChangeGridApi) {
+        netChangeGridApi.destroy();
+        netChangeGridApi = null;
+      }
       summaryTableContainer.innerHTML = '';
-      drilldownTitle.textContent = 'Select a count to view MDRM codes.';
-      drilldownTitle.className = 'status neutral';
-      drilldownTableContainer.innerHTML = '';
       tableContainer.innerHTML = '';
+      currentRunHistoryRows = [];
+      if (compareRunASelect) {
+        compareRunASelect.innerHTML = '';
+      }
+      if (compareRunBSelect) {
+        compareRunBSelect.innerHTML = '';
+      }
+      if (compareSummaryContainer) {
+        compareSummaryContainer.innerHTML = '';
+      }
+      if (reportKpiRuns) reportKpiRuns.textContent = '-';
+      if (reportKpiLatestRun) reportKpiLatestRun.textContent = '-';
+      if (reportKpiActive) reportKpiActive.textContent = '-';
+      if (reportKpiNetChange) reportKpiNetChange.textContent = '-';
+      latestRunIdForSelectedReport = null;
+      latestReportTablePayload = null;
+      if (reportDescriptionLabel) {
+        reportDescriptionLabel.textContent = '';
+        reportDescriptionLabel.classList.add('is-collapsed');
+      }
+      if (reportDescriptionToggleBtn) {
+        reportDescriptionToggleBtn.style.display = 'none';
+        reportDescriptionToggleBtn.textContent = 'Read more';
+      }
+      isReportDescriptionExpanded = false;
+      if (reportFullNameLabel) {
+        reportFullNameLabel.textContent = '';
+      }
+      if (reportSourceLink) {
+        reportSourceLink.style.display = 'none';
+        reportSourceLink.removeAttribute('href');
+      }
+      updateSelectedReportStatusPill(selectedReportingForm || '');
+      if (reportMetadataRefreshBtn) {
+        reportMetadataRefreshBtn.disabled = !isAdminUser() || !selectedReportingForm;
+      }
+      switchReportTab('');
+      syncReportEmptyState();
+    }
+
+    function syncReportEmptyState() {
+      const hasSelection = !!(selectedReportingForm && String(selectedReportingForm).trim());
+      if (reportingLayout) {
+        reportingLayout.classList.toggle('reporting-layout-empty', !hasSelection);
+      }
+      if (reportMainPane) {
+        reportMainPane.classList.toggle('report-main-empty', !hasSelection);
+      }
+      if (reportEmptyState) {
+        reportEmptyState.style.display = hasSelection ? 'none' : '';
+      }
+      if (reportHeaderCard) {
+        reportHeaderCard.style.display = hasSelection ? '' : 'none';
+      }
+      if (tabPanels && tabPanels.length) {
+        tabPanels.forEach(panel => {
+          panel.style.display = hasSelection ? '' : 'none';
+        });
+      }
+    }
+
+    function syncDescriptionToggleVisibility() {
+      if (!reportDescriptionLabel || !reportDescriptionToggleBtn) {
+        return;
+      }
+      const text = String(reportDescriptionLabel.textContent || '').trim();
+      if (!text) {
+        reportDescriptionLabel.classList.add('is-collapsed');
+        reportDescriptionToggleBtn.style.display = 'none';
+        reportDescriptionToggleBtn.textContent = 'Read more';
+        isReportDescriptionExpanded = false;
+        return;
+      }
+      if (isReportDescriptionExpanded) {
+        reportDescriptionToggleBtn.style.display = '';
+        reportDescriptionToggleBtn.textContent = 'Read less';
+        return;
+      }
+      const shouldToggle = reportDescriptionLabel.scrollHeight > reportDescriptionLabel.clientHeight + 2;
+      reportDescriptionToggleBtn.style.display = shouldToggle ? '' : 'none';
+      if (!shouldToggle) {
+        reportDescriptionLabel.classList.add('is-collapsed');
+        reportDescriptionToggleBtn.textContent = 'Read more';
+        isReportDescriptionExpanded = false;
+      }
+    }
+
+    function setReportDescriptionExpanded(expanded) {
+      isReportDescriptionExpanded = !!expanded;
+      if (reportDescriptionLabel) {
+        reportDescriptionLabel.classList.toggle('is-collapsed', !isReportDescriptionExpanded);
+      }
+      if (reportDescriptionToggleBtn) {
+        reportDescriptionToggleBtn.textContent = isReportDescriptionExpanded ? 'Read less' : 'Read more';
+      }
+      syncDescriptionToggleVisibility();
+    }
+
+    function renderReportMetadata(metadata) {
+      const fullName = String(metadata && metadata.fullName ? metadata.fullName : '').trim();
+      const description = String(metadata && metadata.description ? metadata.description : '').trim();
+      const sourceUrl = String(metadata && metadata.sourceUrl ? metadata.sourceUrl : '').trim();
+      if (reportFullNameLabel) {
+        reportFullNameLabel.textContent = fullName;
+      }
+      if (reportDescriptionLabel) {
+        reportDescriptionLabel.textContent = description;
+        reportDescriptionLabel.classList.add('is-collapsed');
+      }
+      if (reportDescriptionToggleBtn) {
+        reportDescriptionToggleBtn.textContent = 'Read more';
+      }
+      isReportDescriptionExpanded = false;
+      requestAnimationFrame(syncDescriptionToggleVisibility);
+      if (reportSourceLink) {
+        if (sourceUrl) {
+          reportSourceLink.href = sourceUrl;
+          reportSourceLink.style.display = '';
+        } else {
+          reportSourceLink.style.display = 'none';
+          reportSourceLink.removeAttribute('href');
+        }
+      }
     }
 
     function renderReportList(filteredForms) {
@@ -818,9 +1142,53 @@
       }
       reportListContainer.innerHTML = filteredForms.map(form => `
         <button class="report-item ${form === selectedReportingForm ? 'active' : ''}" type="button" data-report="${escapeHtml(form)}">
-          ${escapeHtml(form)}
+          <span>${escapeHtml(form)}</span>
         </button>
       `).join('');
+    }
+
+    function getReportStatusForForm(form) {
+      const statusEntry = reportFormStatusByForm && reportFormStatusByForm[form] ? reportFormStatusByForm[form] : null;
+      if (!statusEntry || !statusEntry.status) {
+        return 'NO_DATA';
+      }
+      return String(statusEntry.status).toUpperCase();
+    }
+
+    function updateSelectedReportStatusPill(form) {
+      if (!reportHeaderStatusPill) {
+        return;
+      }
+      if (!form) {
+        reportHeaderStatusPill.style.display = 'none';
+        reportHeaderStatusPill.textContent = '';
+        reportHeaderStatusPill.className = 'report-status-pill neutral';
+        return;
+      }
+      const status = getReportStatusForForm(form);
+      reportHeaderStatusPill.style.display = '';
+      if (status === 'ACTIVE') {
+        reportHeaderStatusPill.textContent = 'Active';
+        reportHeaderStatusPill.className = 'report-status-pill active';
+        return;
+      }
+      if (status === 'INACTIVE') {
+        reportHeaderStatusPill.textContent = 'Inactive';
+        reportHeaderStatusPill.className = 'report-status-pill inactive';
+        return;
+      }
+      reportHeaderStatusPill.textContent = 'No Data';
+      reportHeaderStatusPill.className = 'report-status-pill neutral';
+    }
+
+    function applyReportStatusFilterButtons() {
+      const buttons = [reportFilterAllBtn, reportFilterActiveBtn, reportFilterInactiveBtn];
+      buttons.forEach(button => {
+        if (!button) {
+          return;
+        }
+        button.classList.toggle('active', button.dataset.statusFilter === reportStatusFilter);
+      });
     }
 
     function filterAndRenderReportList() {
@@ -828,9 +1196,21 @@
         renderReportList([]);
         return;
       }
-      const q = reportSearchInput.value.trim().toLowerCase();
-      const filtered = q ? allForms.filter(form => form.toLowerCase().includes(q)) : allForms;
+      const filtered = getFilteredReportForms();
       renderReportList(filtered);
+    }
+
+    function getFilteredReportForms() {
+      const q = reportSearchInput.value.trim().toLowerCase();
+      return allForms.filter(form => {
+        if (q && !form.toLowerCase().includes(q)) {
+          return false;
+        }
+        if (reportStatusFilter === 'ALL') {
+          return true;
+        }
+        return getReportStatusForForm(form) === reportStatusFilter;
+      });
     }
 
     function closeProfileMenu() {
@@ -893,6 +1273,9 @@
       document.documentElement.setAttribute('data-theme', nextTheme);
       document.documentElement.classList.toggle('dark', nextTheme === 'dark');
       applyDiscoveryGridTheme(nextTheme);
+      applySummaryGridTheme(nextTheme);
+      applyActiveMdrmGridTheme(nextTheme);
+      applyNetChangeGridTheme(nextTheme);
       localStorage.setItem(THEME_KEY, nextTheme);
       if (themeIconBtn) {
         themeIconBtn.textContent = nextTheme === 'dark' ? '☀' : '☾';
@@ -943,6 +1326,120 @@
       return response;
     }
 
+    function getRunContextId() {
+      return Number.isFinite(Number(selectedRunContextId)) && Number(selectedRunContextId) > 0
+        ? Number(selectedRunContextId)
+        : null;
+    }
+
+    function appendRunContext(url) {
+      const runId = getRunContextId();
+      if (!runId) {
+        return url;
+      }
+      return `${url}${url.includes('?') ? '&' : '?'}runId=${encodeURIComponent(runId)}`;
+    }
+
+    function filterRunsByContext(runs) {
+      const list = Array.isArray(runs) ? runs : [];
+      const runId = getRunContextId();
+      if (!runId) {
+        return list;
+      }
+      return list.filter(run => Number(run && run.runId ? run.runId : 0) <= runId);
+    }
+
+    function getRecentItemsStorageKey() {
+      const runId = getRunContextId();
+      return runId ? `${LOCAL_RECENT_ITEMS_KEY}::run:${runId}` : `${LOCAL_RECENT_ITEMS_KEY}::latest`;
+    }
+
+    function getRecentStorageForCurrentSession() {
+      try {
+        return window.localStorage;
+      } catch (_) {
+        return window.localStorage;
+      }
+    }
+
+    async function loadRunContextOptions() {
+      if (!runContextSelect) {
+        return;
+      }
+      const savedRaw = localStorage.getItem(RUN_CONTEXT_KEY) || '';
+      const savedRunId = savedRaw && !Number.isNaN(Number(savedRaw)) && Number(savedRaw) > 0
+        ? Number(savedRaw)
+        : null;
+      try {
+        const response = await fetch('/api/mdrm/file-runs');
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const runs = Array.isArray(payload) ? payload : [];
+        if (!runs.length) {
+          runContextSelect.innerHTML = '<option value="" disabled selected>No runs available</option>';
+          selectedRunContextId = null;
+          return;
+        }
+        const latestRun = runs.reduce((latest, run) => {
+          if (!latest) {
+            return run;
+          }
+          return Number(run.runDatetime || 0) > Number(latest.runDatetime || 0) ? run : latest;
+        }, null);
+        const latestRunId = Number(latestRun && latestRun.runId ? latestRun.runId : 0) || null;
+        const options = runs.map(run => {
+          const id = Number(run.runId || 0);
+          const label = formatRunContextOptionLabel(run, latestRunId !== null && id === latestRunId);
+          return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+        }).join('');
+        runContextSelect.innerHTML = options;
+        const availableRunIds = new Set(runs.map(run => Number(run.runId || 0)).filter(id => id > 0));
+        if (savedRunId && availableRunIds.has(savedRunId)) {
+          selectedRunContextId = savedRunId;
+        } else if (latestRunId && availableRunIds.has(latestRunId)) {
+          selectedRunContextId = latestRunId;
+        } else {
+          selectedRunContextId = null;
+        }
+        runContextSelect.value = selectedRunContextId ? String(selectedRunContextId) : '';
+      } catch (error) {
+        runContextSelect.innerHTML = '<option value="" disabled selected>Unable to load runs</option>';
+        selectedRunContextId = null;
+      }
+    }
+
+    async function applyRunContextChange() {
+      if (!runContextSelect) {
+        return;
+      }
+      const next = String(runContextSelect.value || '').trim();
+      selectedRunContextId = next ? Number(next) : null;
+      if (selectedRunContextId && (!Number.isFinite(selectedRunContextId) || selectedRunContextId <= 0)) {
+        selectedRunContextId = null;
+      }
+      if (selectedRunContextId) {
+        localStorage.setItem(RUN_CONTEXT_KEY, String(selectedRunContextId));
+      } else {
+        localStorage.removeItem(RUN_CONTEXT_KEY);
+      }
+
+      formsLoaded = false;
+      await refreshForms();
+      if (selectedReportingForm) {
+        await loadTable(selectedReportingForm);
+      }
+      if ((discoveryQueryInput?.value || '').trim()) {
+        await runDiscoverySearch();
+      }
+      await refreshFileMetrics();
+      if (currentUser) {
+        await refreshBookmarks();
+      }
+      await loadRecentItems();
+    }
+
     function setDiscoveryMeta(text) {
       if (discoveryResultMeta) {
         discoveryResultMeta.textContent = text;
@@ -975,9 +1472,21 @@
     }
 
     function loadRecentItemsFromLocal() {
+      const storage = getRecentStorageForCurrentSession();
       try {
-        const parsed = JSON.parse(localStorage.getItem(LOCAL_RECENT_ITEMS_KEY) || '[]');
-        recentItems = Array.isArray(parsed) ? parsed : [];
+        const primaryKey = getRecentItemsStorageKey();
+        const parsedPrimary = JSON.parse(storage.getItem(primaryKey) || '[]');
+        recentItems = Array.isArray(parsedPrimary) ? parsedPrimary : [];
+        const runId = getRunContextId();
+        if (runId && (!recentItems || recentItems.length === 0)) {
+          const legacyKey = `${LOCAL_RECENT_ITEMS_KEY}::latest`;
+          const parsedLegacy = JSON.parse(storage.getItem(legacyKey) || '[]');
+          const legacyItems = Array.isArray(parsedLegacy) ? parsedLegacy : [];
+          if (legacyItems.length) {
+            recentItems = legacyItems.slice(0, RECENT_ITEMS_MAX);
+            storage.setItem(primaryKey, JSON.stringify(recentItems));
+          }
+        }
       } catch (error) {
         recentItems = [];
       }
@@ -993,7 +1502,7 @@
         return;
       }
       try {
-        const response = await fetch(`/api/recent/items?limit=${RECENT_ITEMS_MAX}`);
+        const response = await fetch(appendRunContext(`/api/recent/items?limit=${RECENT_ITEMS_MAX}`));
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
@@ -1013,11 +1522,12 @@
     }
 
     function saveRecentItems() {
-      localStorage.setItem(LOCAL_RECENT_ITEMS_KEY, JSON.stringify(recentItems.slice(0, RECENT_ITEMS_MAX)));
+      const storage = getRecentStorageForCurrentSession();
+      storage.setItem(getRecentItemsStorageKey(), JSON.stringify(recentItems.slice(0, RECENT_ITEMS_MAX)));
     }
 
     async function persistRecentItemToServer(item) {
-      const response = await apiFetch(`/api/recent/items?limit=${RECENT_ITEMS_MAX}`, {
+      const response = await apiFetch(appendRunContext(`/api/recent/items?limit=${RECENT_ITEMS_MAX}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1146,7 +1656,7 @@
         renderRecentItems();
         return;
       }
-      const response = await apiFetch('/api/bookmarks/items', {
+      const response = await apiFetch(appendRunContext('/api/bookmarks/items'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1288,6 +1798,233 @@
       discoveryGrid.classList.toggle('ag-theme-quartz', !dark);
     }
 
+    function applySummaryGridTheme(theme) {
+      const summaryGrid = document.getElementById('summaryAgGrid');
+      if (!summaryGrid) {
+        return;
+      }
+      const dark = theme === 'dark';
+      summaryGrid.classList.toggle('ag-theme-quartz-dark', dark);
+      summaryGrid.classList.toggle('ag-theme-quartz', !dark);
+    }
+
+    function applyActiveMdrmGridTheme(theme) {
+      if (!activeMdrmGrid) {
+        return;
+      }
+      const dark = theme === 'dark';
+      activeMdrmGrid.classList.toggle('ag-theme-quartz-dark', dark);
+      activeMdrmGrid.classList.toggle('ag-theme-quartz', !dark);
+    }
+
+    function applyNetChangeGridTheme(theme) {
+      if (!netChangeGrid) {
+        return;
+      }
+      const dark = theme === 'dark';
+      netChangeGrid.classList.toggle('ag-theme-quartz-dark', dark);
+      netChangeGrid.classList.toggle('ag-theme-quartz', !dark);
+    }
+
+    function initActiveMdrmGrid() {
+      if (activeMdrmGridApi || !activeMdrmGrid || !window.agGrid) {
+        return;
+      }
+      activeMdrmGridApi = agGrid.createGrid(activeMdrmGrid, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false
+        },
+        pagination: true,
+        paginationPageSize: 50,
+        paginationPageSizeSelector: [50, 100, 200],
+        suppressCellFocus: true,
+        rowHeight: 30,
+        headerHeight: 34,
+        animateRows: true,
+        columnDefs: [
+          {
+            headerName: 'MDRM',
+            field: 'mdrmCode',
+            minWidth: 150,
+            maxWidth: 240,
+            cellRenderer: params => {
+              const code = String(params.value || '').trim();
+              return code ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a>` : '-';
+            }
+          },
+          {
+            headerName: 'Description',
+            field: 'description',
+            flex: 1,
+            minWidth: 340,
+            valueFormatter: params => String(params.value || '-')
+          }
+        ],
+        rowData: []
+      });
+      applyActiveMdrmGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+    }
+
+    function initNetChangeGrid() {
+      if (netChangeGridApi || !netChangeGrid || !window.agGrid) {
+        return;
+      }
+      netChangeGridApi = agGrid.createGrid(netChangeGrid, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false
+        },
+        pagination: true,
+        paginationPageSize: 50,
+        paginationPageSizeSelector: [50, 100, 200],
+        suppressCellFocus: true,
+        rowHeight: 30,
+        headerHeight: 34,
+        animateRows: true,
+        columnDefs: [
+          {
+            headerName: 'MDRM',
+            field: 'mdrmCode',
+            minWidth: 150,
+            maxWidth: 240,
+            cellRenderer: params => {
+              const code = String(params.value || '').trim();
+              return code ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a>` : '-';
+            }
+          },
+          {
+            headerName: 'Description',
+            field: 'description',
+            flex: 1,
+            minWidth: 340,
+            valueFormatter: params => String(params.value || '-')
+          }
+        ],
+        rowData: []
+      });
+      applyNetChangeGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+    }
+
+    function readRowValueByKeys(row, keys) {
+      const map = {};
+      Object.keys(row || {}).forEach(key => {
+        map[String(key).toLowerCase()] = row[key];
+      });
+      for (const key of keys) {
+        const value = map[String(key).toLowerCase()];
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+          return String(value).trim();
+        }
+      }
+      return '';
+    }
+
+    function buildActiveMdrmRows(payload) {
+      if (!payload || !Array.isArray(payload.rows)) {
+        return [];
+      }
+      const rows = payload.rows.map(row => {
+        const activeFlag = String(readRowValueByKeys(row, ['is_active', 'status']) || '').toUpperCase();
+        if (!(activeFlag === 'Y' || activeFlag === 'ACTIVE')) {
+          return null;
+        }
+        const mdrmCode = readRowValueByKeys(row, ['mdrm_code', 'mdrm']);
+        if (!mdrmCode) {
+          return null;
+        }
+        return {
+          mdrmCode,
+          description: readRowValueByKeys(row, ['line_description', 'description', 'item_name', 'definition'])
+        };
+      }).filter(Boolean);
+      const dedup = new Map();
+      rows.forEach(row => {
+        if (!dedup.has(row.mdrmCode)) {
+          dedup.set(row.mdrmCode, row);
+        }
+      });
+      return Array.from(dedup.values());
+    }
+
+    function buildDescriptionByCodeMap(payload) {
+      const map = new Map();
+      if (!payload || !Array.isArray(payload.rows)) {
+        return map;
+      }
+      payload.rows.forEach(row => {
+        const code = readRowValueByKeys(row, ['mdrm_code', 'mdrm']);
+        if (!code || map.has(code)) {
+          return;
+        }
+        map.set(code, readRowValueByKeys(row, ['line_description', 'description', 'item_name', 'definition']));
+      });
+      return map;
+    }
+
+    function renderActiveMdrmPanel() {
+      initActiveMdrmGrid();
+      if (!activeMdrmGridApi) {
+        return;
+      }
+      const rows = buildActiveMdrmRows(latestReportTablePayload);
+      activeMdrmGridApi.setGridOption('rowData', rows);
+      if (activeMdrmQuickFilterInput) {
+        activeMdrmQuickFilterInput.value = '';
+      }
+      activeMdrmGridApi.setGridOption('quickFilterText', '');
+    }
+
+    async function renderNetChangePanel() {
+      initNetChangeGrid();
+      if (!netChangeGridApi) {
+        return;
+      }
+      if (!selectedReportingForm || !latestRunIdForSelectedReport) {
+        netChangeGridApi.setGridOption('rowData', []);
+        if (netChangeInfoLabel) {
+          netChangeInfoLabel.textContent = 'Modified MDRMs (latest run)';
+        }
+        return;
+      }
+      if (netChangeInfoLabel) {
+        netChangeInfoLabel.textContent = `Loading modified MDRMs for run ${latestRunIdForSelectedReport}...`;
+      }
+      const descriptionByCode = buildDescriptionByCodeMap(latestReportTablePayload);
+      try {
+        const query = encodeURIComponent(selectedReportingForm);
+        const response = await fetch(`/api/mdrm/run-incremental-mdrms?reportingForm=${query}&runId=${encodeURIComponent(latestRunIdForSelectedReport)}&changeType=MODIFIED`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
+        }
+        const rows = (Array.isArray(payload.mdrmCodes) ? payload.mdrmCodes : []).map(code => {
+          const normalizedCode = String(code || '').trim();
+          return {
+            mdrmCode: normalizedCode,
+            description: descriptionByCode.get(normalizedCode) || ''
+          };
+        });
+        netChangeGridApi.setGridOption('rowData', rows);
+        if (netChangeQuickFilterInput) {
+          netChangeQuickFilterInput.value = '';
+        }
+        netChangeGridApi.setGridOption('quickFilterText', '');
+        if (netChangeInfoLabel) {
+          netChangeInfoLabel.textContent = `Modified MDRMs for run ${latestRunIdForSelectedReport}: ${rows.length}`;
+        }
+      } catch (error) {
+        netChangeGridApi.setGridOption('rowData', []);
+        if (netChangeInfoLabel) {
+          netChangeInfoLabel.textContent = 'Unable to load modified MDRMs';
+        }
+      }
+    }
+
     function buildDiscoveryReturnUrl() {
       const params = new URLSearchParams();
       params.set('view', 'view-discovery');
@@ -1311,6 +2048,10 @@
       }
       const params = new URLSearchParams();
       params.set('mdrm', code);
+      const runId = getRunContextId();
+      if (runId) {
+        params.set('runId', String(runId));
+      }
       params.set('returnTo', buildDiscoveryReturnUrl());
       return `/mdrm.html?${params.toString()}`;
     }
@@ -1643,6 +2384,8 @@
       renderRecentItems();
       renameGroupBtn.disabled = !isLoggedIn || !bookmarkFilterGroupSelect.value;
       deleteGroupBtn.disabled = !isLoggedIn || !bookmarkFilterGroupSelect.value;
+      syncAdminLoadAccess();
+      syncReportMetadataRefreshAccess();
     }
 
     async function refreshAuthState() {
@@ -1654,11 +2397,17 @@
         currentUser = null;
       }
       if (currentUser) {
-        setAuthStatus(`Logged in as ${currentUser.displayName} (${currentUser.email})`, 'ok');
+        setAuthStatus(`Logged in (${currentUser.role || 'USER'})`, 'ok');
+        if (authStatusLabel) {
+          authStatusLabel.title = `${currentUser.displayName} • ${currentUser.email}`;
+        }
         await refreshBookmarks();
         await loadRecentItems();
       } else {
         setAuthStatus('Not logged in', 'neutral');
+        if (authStatusLabel) {
+          authStatusLabel.removeAttribute('title');
+        }
         bookmarkGroups = [];
         bookmarkItems = [];
         refreshDiscoveryBookmarkFlags();
@@ -1676,8 +2425,8 @@
         const filterGroupId = bookmarkFilterGroupSelect.value ? Number(bookmarkFilterGroupSelect.value) : null;
         const itemsUrl = filterGroupId ? `/api/bookmarks/items?groupId=${encodeURIComponent(filterGroupId)}` : '/api/bookmarks/items';
         const [groupsRes, itemsRes] = await Promise.all([
-          fetch('/api/bookmarks/groups'),
-          fetch(itemsUrl)
+          fetch(appendRunContext('/api/bookmarks/groups')),
+          fetch(appendRunContext(itemsUrl))
         ]);
         if (!groupsRes.ok || !itemsRes.ok) {
           throw new Error('Failed to load bookmarks');
@@ -1798,6 +2547,22 @@
       renderRecentItems();
     }
 
+    function submitAuthWithEnter() {
+      if (currentUser) {
+        logout();
+        return;
+      }
+      if (authMode === 'register') {
+        register();
+        return;
+      }
+      if (authMode === 'reset') {
+        resetPassword();
+        return;
+      }
+      login();
+    }
+
     async function createGroup() {
       const name = (newGroupNameInput.value || '').trim();
       if (!name) {
@@ -1813,7 +2578,7 @@
         return null;
       }
       try {
-        const response = await apiFetch('/api/bookmarks/groups', {
+        const response = await apiFetch(appendRunContext('/api/bookmarks/groups'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: groupName })
@@ -1873,7 +2638,7 @@
 
       const payload = { ...pendingBookmarkPayload, groupId: Number.isNaN(targetGroupId) ? null : targetGroupId };
       try {
-        const response = await apiFetch('/api/bookmarks/items', {
+        const response = await apiFetch(appendRunContext('/api/bookmarks/items'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -1897,7 +2662,7 @@
         return;
       }
       try {
-        const response = await apiFetch(`/api/bookmarks/items/${bookmarkId}`, { method: 'DELETE' });
+        const response = await apiFetch(appendRunContext(`/api/bookmarks/items/${bookmarkId}`), { method: 'DELETE' });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
@@ -1926,7 +2691,7 @@
         return;
       }
       try {
-        const response = await apiFetch(`/api/bookmarks/groups/${groupId}`, {
+        const response = await apiFetch(appendRunContext(`/api/bookmarks/groups/${groupId}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name })
@@ -1947,7 +2712,7 @@
         return;
       }
       try {
-        const response = await apiFetch(`/api/bookmarks/groups/${groupId}`, { method: 'DELETE' });
+        const response = await apiFetch(appendRunContext(`/api/bookmarks/groups/${groupId}`), { method: 'DELETE' });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
@@ -1960,7 +2725,7 @@
 
     async function moveBookmark(bookmarkId, groupId) {
       try {
-        const response = await apiFetch(`/api/bookmarks/items/${bookmarkId}/group`, {
+        const response = await apiFetch(appendRunContext(`/api/bookmarks/items/${bookmarkId}/group`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ groupId })
@@ -1994,7 +2759,7 @@
         discoveryGrid.style.display = 'none';
       }
       try {
-        const response = await fetch(`/api/mdrm/semantic-search?q=${encodeURIComponent(query)}`);
+        const response = await fetch(appendRunContext(`/api/mdrm/semantic-search?q=${encodeURIComponent(query)}`));
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -2008,6 +2773,7 @@
     }
 
     function renderTable(payload) {
+      latestReportTablePayload = payload || null;
       if (!payload || !payload.columns || !payload.rows) {
         tableContainer.innerHTML = '';
         return;
@@ -2043,71 +2809,314 @@
       return new Date(value).toLocaleString();
     }
 
-    function renderRunHistory(payload) {
-      const runs = payload && payload.runs ? payload.runs : [];
-      if (!runs.length) {
-        summaryTableContainer.innerHTML = '';
+    function parseMmddFromFileName(fileName) {
+      const raw = String(fileName || '').trim();
+      if (!raw) {
+        return null;
+      }
+      const match = raw.match(/(?:^|_)(\d{4})(?:\.[^.]+)?$/);
+      if (!match) {
+        return null;
+      }
+      const mmdd = match[1];
+      const month = Number(mmdd.slice(0, 2));
+      const day = Number(mmdd.slice(2, 4));
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 31) {
+        return null;
+      }
+      return { month, day };
+    }
+
+    function formatRunContextOptionLabel(run, isLatest = false) {
+      const fileName = String(run && run.fileName ? run.fileName : '').trim();
+      const runDateValue = Number(run && run.runDatetime ? run.runDatetime : 0);
+      const runDate = Number.isFinite(runDateValue) && runDateValue > 0 ? new Date(runDateValue) : null;
+      const year = runDate ? runDate.getFullYear() : null;
+      const mmdd = parseMmddFromFileName(fileName);
+      if (mmdd && year) {
+        const monthName = new Date(year, mmdd.month - 1, 1).toLocaleString(undefined, { month: 'long' });
+        return `As of ${monthName}, ${year}${isLatest ? ' (Latest)' : ''}`;
+      }
+      if (runDate) {
+        const monthName = runDate.toLocaleString(undefined, { month: 'long' });
+        return `As of ${monthName}, ${runDate.getFullYear()}${isLatest ? ' (Latest)' : ''}`;
+      }
+      return `As of selected run${isLatest ? ' (Latest)' : ''}`;
+    }
+
+    function setReportKpis(runs) {
+      const list = Array.isArray(runs) ? runs : [];
+      if (!list.length) {
+        if (reportKpiRuns) reportKpiRuns.textContent = '0';
+        if (reportKpiLatestRun) reportKpiLatestRun.textContent = '-';
+        if (reportKpiActive) reportKpiActive.textContent = '0';
+        if (reportKpiNetChange) reportKpiNetChange.textContent = '0';
+        latestRunIdForSelectedReport = null;
         return;
       }
-      const rowsHtml = runs.map(run => `
-        <tr>
-          <td>${escapeHtml(run.runId)}</td>
-          <td>${escapeHtml(formatRunDate(run.runDatetime))}</td>
-          <td>${escapeHtml(run.fileName)}</td>
-          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="TOTAL">${escapeHtml(run.totalUniqueMdrms)}</a></td>
-          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="ACTIVE">${escapeHtml(run.activeMdrms)}</a></td>
-          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="INACTIVE">${escapeHtml(run.inactiveMdrms)}</a></td>
-          <td><a class="count-link" href="#" data-run-id="${escapeHtml(run.runId)}" data-bucket="UPDATED">${escapeHtml(run.updatedMdrms)}</a></td>
-          <td>${escapeHtml(run.addedMdrms ?? 0)}</td>
-          <td>${escapeHtml(run.modifiedMdrms ?? 0)}</td>
-          <td>${escapeHtml(run.deletedMdrms ?? 0)}</td>
-        </tr>
-      `).join('');
-      summaryTableContainer.innerHTML = `
+      const sorted = [...list].sort((a, b) => Number(b.runDatetime || 0) - Number(a.runDatetime || 0));
+      const latest = sorted[0];
+      latestRunIdForSelectedReport = Number(latest.runId || 0) || null;
+      const latestActive = Number(latest.activeMdrms || 0);
+      const net = Number(latest.modifiedMdrms || 0);
+      if (reportKpiRuns) reportKpiRuns.textContent = formatCount(list.length);
+      if (reportKpiLatestRun) reportKpiLatestRun.textContent = formatRunDate(latest.runDatetime) || '-';
+      if (reportKpiActive) reportKpiActive.textContent = formatCount(latestActive);
+      if (reportKpiNetChange) {
+        reportKpiNetChange.textContent = formatCount(net);
+      }
+    }
+
+    function renderCompareSelectors(runs) {
+      if (!compareRunASelect || !compareRunBSelect) {
+        return;
+      }
+      const list = Array.isArray(runs) ? runs : [];
+      const options = list.map(run => {
+        const label = `${run.runId} • ${formatRunDate(run.runDatetime) || '-'} • ${run.fileName || '-'}`;
+        return `<option value="${escapeHtml(run.runId)}">${escapeHtml(label)}</option>`;
+      }).join('');
+      compareRunASelect.innerHTML = options;
+      compareRunBSelect.innerHTML = options;
+      if (list.length) {
+        compareRunASelect.value = String(list[Math.min(1, list.length - 1)].runId);
+        compareRunBSelect.value = String(list[0].runId);
+      }
+      renderRunCompare();
+    }
+
+    function renderRunCompare() {
+      if (!compareSummaryContainer) {
+        return;
+      }
+      const runAId = Number(compareRunASelect?.value || 0);
+      const runBId = Number(compareRunBSelect?.value || 0);
+      const runA = currentRunHistoryRows.find(run => Number(run.runId) === runAId);
+      const runB = currentRunHistoryRows.find(run => Number(run.runId) === runBId);
+      if (!runA || !runB) {
+        compareSummaryContainer.innerHTML = '<div class="text-muted small p-2">Select baseline and target runs.</div>';
+        return;
+      }
+      const metrics = [
+        { key: 'activeMdrms', label: 'Active' },
+        { key: 'inactiveMdrms', label: 'Inactive' },
+        { key: 'updatedMdrms', label: 'Updated' },
+        { key: 'addedMdrms', label: 'Added' },
+        { key: 'modifiedMdrms', label: 'Modified' },
+        { key: 'deletedMdrms', label: 'Deleted' }
+      ];
+      const rows = metrics.map(metric => {
+        const a = Number(runA[metric.key] || 0);
+        const b = Number(runB[metric.key] || 0);
+        const delta = b - a;
+        const sign = delta > 0 ? '+' : '';
+        return `<tr><td>${escapeHtml(metric.label)}</td><td>${formatCount(a)}</td><td>${formatCount(b)}</td><td>${sign}${formatCount(delta)}</td></tr>`;
+      }).join('');
+      compareSummaryContainer.innerHTML = `
         <table class="table table-sm table-striped table-hover mb-0">
           <thead>
-            <tr>
-              <th>Run ID</th>
-              <th>Run Date</th>
-              <th>Source File</th>
-              <th>Total Unique MDRMs</th>
-              <th>Active</th>
-              <th>Inactive</th>
-              <th>Updated</th>
-              <th>Added</th>
-              <th>Modified</th>
-              <th>Deleted</th>
-            </tr>
+            <tr><th>Metric</th><th>Baseline (${escapeHtml(runA.runId)})</th><th>Target (${escapeHtml(runB.runId)})</th><th>Delta</th></tr>
           </thead>
-          <tbody>${rowsHtml}</tbody>
+          <tbody>${rows}</tbody>
         </table>
       `;
     }
 
-    function renderDrilldown(payload) {
-      const codes = payload && payload.mdrmCodes ? payload.mdrmCodes : [];
-      drilldownTitle.textContent = `Run ${payload.runId} | ${payload.bucket} MDRMs: ${codes.length}`;
-      drilldownTitle.className = 'status ok';
-      if (!codes.length) {
-        drilldownTableContainer.innerHTML = '';
+    function renderRunHistory(payload) {
+      const runs = payload && payload.runs ? payload.runs : [];
+      currentRunHistoryRows = runs;
+      if (!runs.length) {
+        if (summaryGridApi) {
+          summaryGridApi.destroy();
+          summaryGridApi = null;
+        }
+        summaryTableContainer.innerHTML = '';
+        setReportKpis([]);
         return;
       }
-      const rowsHtml = codes.map(code => `
-        <tr>
-          <td><a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a></td>
-        </tr>
-      `).join('');
-      drilldownTableContainer.innerHTML = `
-        <table class="table table-sm table-striped table-hover mb-0">
-          <thead><tr><th>MDRM Code</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      `;
+      setReportKpis(runs);
+      renderCompareSelectors(runs);
+      const rowData = runs.map(run => ({
+        runId: Number(run.runId),
+        fileName: String(run.fileName || ''),
+        runDateDisplay: formatRunDate(run.runDatetime),
+        runMetaTooltip: `Run ID: ${run.runId} • Source File: ${run.fileName || '-'}`,
+        totalUniqueMdrms: Number(run.totalUniqueMdrms || 0),
+        activeMdrms: Number(run.activeMdrms || 0),
+        inactiveMdrms: Number(run.inactiveMdrms || 0),
+        updatedMdrms: Number(run.updatedMdrms || 0),
+        addedMdrms: Number(run.addedMdrms || 0),
+        modifiedMdrms: Number(run.modifiedMdrms || 0),
+        deletedMdrms: Number(run.deletedMdrms || 0)
+      }));
+
+      if (!summaryGridApi) {
+        summaryTableContainer.innerHTML = '<div id="summaryAgGrid" class="mdrm-ag-grid run-timeline-grid"></div>';
+        const summaryGrid = document.getElementById('summaryAgGrid');
+        if (!summaryGrid || !window.agGrid) {
+          return;
+        }
+        summaryGridApi = agGrid.createGrid(summaryGrid, {
+          defaultColDef: {
+            sortable: true,
+            filter: true,
+            resizable: true,
+            floatingFilter: false,
+            flex: 1,
+            minWidth: 110
+          },
+          suppressCellFocus: true,
+          rowHeight: 30,
+          headerHeight: 34,
+          animateRows: true,
+          tooltipShowDelay: 150,
+          tooltipMouseTrack: true,
+          onFirstDataRendered: params => {
+            if (params && params.api) {
+              params.api.sizeColumnsToFit();
+            }
+          },
+          onCellClicked: params => {
+            if (!params || !params.column || !params.data) {
+              return;
+            }
+            const bucketByColumn = {
+              totalUniqueMdrms: 'TOTAL',
+              activeMdrms: 'ACTIVE',
+              inactiveMdrms: 'INACTIVE',
+              updatedMdrms: 'UPDATED',
+              addedMdrms: 'ADDED',
+              modifiedMdrms: 'MODIFIED',
+              deletedMdrms: 'DELETED'
+            };
+            const bucket = bucketByColumn[params.column.getColId()];
+            if (!bucket || !selectedReportingForm) {
+              return;
+            }
+            if (params.event && typeof params.event.preventDefault === 'function') {
+              params.event.preventDefault();
+            }
+            loadRunBucketDrilldown(params.data.runId, bucket);
+          },
+          columnDefs: [
+            {
+              headerName: 'Run Date',
+              field: 'runDateDisplay',
+              minWidth: 155,
+              flex: 1.25,
+              tooltipValueGetter: params => String(params.data?.runMetaTooltip || ''),
+              cellRenderer: params => `<span title="${escapeHtml(String(params.data?.runMetaTooltip || ''))}">${escapeHtml(String(params.value || '-'))}</span>`
+            },
+            {
+              headerName: 'Total Unique MDRMs',
+              field: 'totalUniqueMdrms',
+              minWidth: 135,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            },
+            {
+              headerName: 'Active',
+              field: 'activeMdrms',
+              minWidth: 95,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            },
+            {
+              headerName: 'Inactive',
+              field: 'inactiveMdrms',
+              minWidth: 95,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            },
+            {
+              headerName: 'Updated',
+              field: 'updatedMdrms',
+              minWidth: 95,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            },
+            {
+              headerName: 'Added',
+              field: 'addedMdrms',
+              minWidth: 90,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            },
+            {
+              headerName: 'Modified',
+              field: 'modifiedMdrms',
+              minWidth: 95,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            },
+            {
+              headerName: 'Deleted',
+              field: 'deletedMdrms',
+              minWidth: 90,
+              cellRenderer: params => `<a class="count-link timeline-count-link" href="#">${escapeHtml(formatCount(params.value || 0))}</a>`
+            }
+          ],
+          rowData: []
+        });
+        applySummaryGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        window.addEventListener('resize', () => {
+          if (summaryGridApi) {
+            summaryGridApi.sizeColumnsToFit();
+          }
+        });
+      }
+
+      summaryGridApi.setGridOption('rowData', rowData);
+    }
+
+    async function loadRunBucketDrilldown(runId, bucket) {
+      if (!selectedReportingForm) {
+        return;
+      }
+      switchReportTab('netChangeTab');
+      initNetChangeGrid();
+      if (!netChangeGridApi) {
+        return;
+      }
+      const query = encodeURIComponent(selectedReportingForm);
+      if (netChangeInfoLabel) {
+        netChangeInfoLabel.textContent = `Loading ${bucket} MDRMs for run ${runId}...`;
+      }
+      try {
+        const normalizedBucket = String(bucket || '').toUpperCase();
+        const isIncrementalBucket = normalizedBucket === 'ADDED' || normalizedBucket === 'MODIFIED' || normalizedBucket === 'DELETED';
+        const url = isIncrementalBucket
+          ? `/api/mdrm/run-incremental-mdrms?reportingForm=${query}&runId=${encodeURIComponent(runId)}&changeType=${encodeURIComponent(normalizedBucket)}`
+          : `/api/mdrm/run-mdrms?reportingForm=${query}&runId=${encodeURIComponent(runId)}&bucket=${encodeURIComponent(normalizedBucket)}`;
+        const response = await fetch(url);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
+        }
+        const codes = isIncrementalBucket
+          ? (Array.isArray(payload.mdrmCodes) ? payload.mdrmCodes : [])
+          : (Array.isArray(payload.mdrmCodes) ? payload.mdrmCodes : []);
+        const descriptionByCode = buildDescriptionByCodeMap(latestReportTablePayload);
+        const rows = codes.map(code => {
+          const normalizedCode = String(code || '').trim();
+          return {
+            mdrmCode: normalizedCode,
+            description: descriptionByCode.get(normalizedCode) || ''
+          };
+        });
+        netChangeGridApi.setGridOption('rowData', rows);
+        if (netChangeQuickFilterInput) {
+          netChangeQuickFilterInput.value = '';
+        }
+        netChangeGridApi.setGridOption('quickFilterText', '');
+        if (netChangeInfoLabel) {
+          netChangeInfoLabel.textContent = `Run ${runId} | ${normalizedBucket} MDRMs: ${rows.length}`;
+        }
+      } catch (error) {
+        netChangeGridApi.setGridOption('rowData', []);
+        if (netChangeInfoLabel) {
+          netChangeInfoLabel.textContent = `Unable to load ${String(bucket || '').toUpperCase()} MDRMs`;
+        }
+      }
     }
 
     function renderFileMetrics(runs) {
       if (!runs || !runs.length) {
-        fileMetricsContainer.innerHTML = '';
+        fileMetricsContainer.innerHTML = '<div class="text-muted small p-2">No runs available for the selected as-of context.</div>';
         return;
       }
       const rowsHtml = runs.map(run => `
@@ -2190,7 +3199,15 @@
         if (!codes.length) {
           return '<div class="text-muted small">No MDRMs</div>';
         }
-        return `<div class="small" style="max-height: 220px; overflow: auto;"><ul class="mb-0">${codes.map(code => `<li><a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a></li>`).join('')}</ul></div>`;
+        const selectedRun = getRunContextId();
+        return `<div class="small" style="max-height: 220px; overflow: auto;"><ul class="mb-0">${codes.map(code => {
+          const params = new URLSearchParams();
+          params.set('mdrm', String(code));
+          if (selectedRun) {
+            params.set('runId', String(selectedRun));
+          }
+          return `<li><a href="/mdrm.html?${params.toString()}">${escapeHtml(code)}</a></li>`;
+        }).join('')}</ul></div>`;
       };
 
       fileIncrementalDetailPanel.innerHTML = `
@@ -2233,15 +3250,20 @@
     }
 
     function switchReportTab(targetTabId) {
-      tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === targetTabId));
+      const normalizedTarget = String(targetTabId || '').trim();
+      tabPanels.forEach(panel => panel.classList.toggle('active', !!normalizedTarget && panel.id === normalizedTarget));
       tabButtons.forEach(button => {
-        const active = button.dataset.tab === targetTabId;
+        const active = button.dataset.tab === normalizedTarget;
         button.classList.toggle('active', active);
         button.setAttribute('aria-selected', String(active));
       });
     }
 
     async function runLoad() {
+      if (!isAdminUser()) {
+        setLoadStatus('Admin access required to load MDRM files.', 'err');
+        return;
+      }
       setLoadActionsDisabled(true);
       setLoadStatus('Loading... calling /api/mdrm/load', 'neutral');
       try {
@@ -2274,6 +3296,10 @@
     }
 
     async function uploadFile() {
+      if (!isAdminUser()) {
+        setLoadStatus('Admin access required to upload MDRM files.', 'err');
+        return;
+      }
       const file = uploadFileInput.files && uploadFileInput.files[0];
       if (!file) {
         setLoadStatus('Select an MDRM_ddyy.csv file first.', 'err');
@@ -2322,13 +3348,15 @@
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
         }
-        const runs = Array.isArray(payload) ? payload : [];
-        renderFileMetrics(runs);
+        const allRuns = Array.isArray(payload) ? payload : [];
+        const visibleRuns = filterRunsByContext(allRuns);
+        renderFileMetrics(visibleRuns);
+        loadRunContextOptions().catch(() => {});
         if (kpiMdrmCount) {
-          if (!runs.length) {
+          if (!visibleRuns.length) {
             kpiMdrmCount.textContent = formatCount(0);
           } else {
-            const latestRun = runs.reduce((latest, run) => {
+            const latestRun = visibleRuns.reduce((latest, run) => {
               if (!latest) return run;
               return Number(run.runDatetime || 0) > Number(latest.runDatetime || 0) ? run : latest;
             }, null);
@@ -2394,12 +3422,30 @@
     async function refreshForms() {
       setReportingBusy(true);
       try {
-        const response = await fetch('/api/mdrm/reporting-forms');
-        const forms = await response.json();
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${JSON.stringify(forms)}`);
+        const [formsResponse, statusesResponse] = await Promise.all([
+          fetch(appendRunContext('/api/mdrm/reporting-forms')),
+          fetch(appendRunContext('/api/mdrm/reporting-form-statuses'))
+        ]);
+        const formsPayload = await formsResponse.json();
+        const statusesPayload = await statusesResponse.json();
+        if (!formsResponse.ok) {
+          throw new Error(`HTTP ${formsResponse.status}: ${JSON.stringify(formsPayload)}`);
         }
-        allForms = Array.isArray(forms) ? forms : [];
+        allForms = Array.isArray(formsPayload) ? formsPayload : [];
+        if (selectedReportingForm && !allForms.includes(selectedReportingForm)) {
+          selectedReportingForm = '';
+          selectedReportLabel.textContent = '-';
+          clearReportData();
+        }
+        reportFormStatusByForm = {};
+        if (statusesResponse.ok && Array.isArray(statusesPayload)) {
+          statusesPayload.forEach(item => {
+            const form = String(item.reportingForm || '').trim();
+            if (form) {
+              reportFormStatusByForm[form] = item;
+            }
+          });
+        }
         formsLoaded = true;
         if (kpiReportCount) {
           kpiReportCount.textContent = formatCount(allForms.length);
@@ -2408,6 +3454,8 @@
         if (reportOption) {
           reportOption.textContent = `Reports (${allForms.length})`;
         }
+        applyReportStatusFilterButtons();
+        updateSelectedReportStatusPill(selectedReportingForm || '');
         filterAndRenderReportList();
       } catch (error) {
         console.error('Failed to load report list', error);
@@ -2428,21 +3476,39 @@
         url: '/index.html'
       });
       setReportingBusy(true);
-      selectedReportLabel.textContent = `Selected Report: ${reportingForm}`;
+      selectedReportLabel.textContent = reportingForm;
+      updateSelectedReportStatusPill(reportingForm);
+      syncReportMetadataRefreshAccess();
+      syncReportEmptyState();
       clearReportData();
+      if (reportDescriptionLabel) {
+        reportDescriptionLabel.textContent = '';
+      }
+      if (reportFullNameLabel) {
+        reportFullNameLabel.textContent = '';
+      }
+      if (reportSourceLink) {
+        reportSourceLink.style.display = 'none';
+        reportSourceLink.removeAttribute('href');
+      }
       try {
         const query = encodeURIComponent(reportingForm);
-        const [historyResponse, detailsResponse] = await Promise.all([
-          fetch(`/api/mdrm/run-history?reportingForm=${query}`),
-          fetch(`/api/mdrm/data?reportingForm=${query}`)
+        const [historyResponse, detailsResponse, metadataResponse] = await Promise.all([
+          fetch(appendRunContext(`/api/mdrm/run-history?reportingForm=${query}`)),
+          fetch(appendRunContext(`/api/mdrm/data?reportingForm=${query}`)),
+          fetch(`/api/mdrm/report-metadata?reportingForm=${query}`)
         ]);
         const historyPayload = await historyResponse.json();
         const detailsPayload = await detailsResponse.json();
+        const metadataPayload = await metadataResponse.json();
         if (!historyResponse.ok) {
           throw new Error(`Run history HTTP ${historyResponse.status}: ${JSON.stringify(historyPayload)}`);
         }
         if (!detailsResponse.ok) {
           throw new Error(`Details HTTP ${detailsResponse.status}: ${JSON.stringify(detailsPayload)}`);
+        }
+        if (metadataResponse.ok) {
+          renderReportMetadata(metadataPayload);
         }
         renderRunHistory(historyPayload);
         renderTable(detailsPayload);
@@ -2455,24 +3521,140 @@
       }
     }
 
+    async function refreshSelectedReportMetadata() {
+      if (!isAdminUser() || !selectedReportingForm) {
+        return;
+      }
+      const query = encodeURIComponent(selectedReportingForm);
+      if (reportMetadataRefreshBtn) {
+        reportMetadataRefreshBtn.disabled = true;
+      }
+      try {
+        const response = await apiFetch(`/api/mdrm/report-metadata/refresh?reportingForm=${query}`, {
+          method: 'POST'
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
+        }
+        renderReportMetadata(payload);
+      } catch (error) {
+      } finally {
+        syncReportMetadataRefreshAccess();
+      }
+    }
+
     runLoadBtn.addEventListener('click', runLoad);
     uploadFileBtn.addEventListener('click', uploadFile);
     uploadFileInput.addEventListener('change', updateLoadButtonStates);
 
     reportSearchInput.addEventListener('input', filterAndRenderReportList);
+    reportSearchInput.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+      event.preventDefault();
+      filterAndRenderReportList();
+      if (leftNavMode.value !== 'reports') {
+        return;
+      }
+      const filtered = getFilteredReportForms();
+      if (!filtered.length) {
+        return;
+      }
+      selectedReportingForm = filtered[0];
+      filterAndRenderReportList();
+      loadTable(selectedReportingForm);
+    });
 
     leftNavMode.addEventListener('change', () => {
       if (leftNavMode.value === 'mdrms') {
         reportSearchInput.disabled = true;
-        selectedReportLabel.textContent = 'Selected Report: -';
+        selectedReportLabel.textContent = '-';
         selectedReportingForm = '';
         clearReportData();
+        syncReportEmptyState();
+        syncReportMetadataRefreshAccess();
       } else {
         reportSearchInput.disabled = false;
+        syncReportEmptyState();
+        syncReportMetadataRefreshAccess();
       }
       filterAndRenderReportList();
     });
 
+    [reportFilterAllBtn, reportFilterActiveBtn, reportFilterInactiveBtn].forEach(button => {
+      if (!button) {
+        return;
+      }
+      button.addEventListener('click', () => {
+        reportStatusFilter = String(button.dataset.statusFilter || 'ALL').toUpperCase();
+        applyReportStatusFilterButtons();
+        filterAndRenderReportList();
+      });
+    });
+
+    if (runContextSelect) {
+      runContextSelect.addEventListener('change', () => {
+        applyRunContextChange().catch(() => {});
+      });
+    }
+
+    if (reportMetadataRefreshBtn) {
+      reportMetadataRefreshBtn.addEventListener('click', refreshSelectedReportMetadata);
+    }
+    if (reportKpiRunsTile) {
+      reportKpiRunsTile.addEventListener('click', () => {
+        switchReportTab('timelineTab');
+      });
+    }
+    if (reportKpiCompareTile) {
+      reportKpiCompareTile.addEventListener('click', () => {
+        switchReportTab('compareTab');
+      });
+    }
+    if (reportKpiActiveTile) {
+      reportKpiActiveTile.addEventListener('click', () => {
+        switchReportTab('activeMdrmTab');
+        renderActiveMdrmPanel();
+      });
+    }
+    if (reportKpiNetChangeTile) {
+      reportKpiNetChangeTile.addEventListener('click', async () => {
+        if (!latestRunIdForSelectedReport) {
+          return;
+        }
+        switchReportTab('netChangeTab');
+        await renderNetChangePanel();
+      });
+    }
+    if (activeMdrmQuickFilterInput) {
+      activeMdrmQuickFilterInput.addEventListener('input', () => {
+        if (!activeMdrmGridApi) {
+          return;
+        }
+        activeMdrmGridApi.setGridOption('quickFilterText', String(activeMdrmQuickFilterInput.value || '').trim());
+      });
+    }
+    if (netChangeQuickFilterInput) {
+      netChangeQuickFilterInput.addEventListener('input', () => {
+        if (!netChangeGridApi) {
+          return;
+        }
+        netChangeGridApi.setGridOption('quickFilterText', String(netChangeQuickFilterInput.value || '').trim());
+      });
+    }
+    if (reportDescriptionToggleBtn) {
+      reportDescriptionToggleBtn.addEventListener('click', () => {
+        setReportDescriptionExpanded(!isReportDescriptionExpanded);
+      });
+    }
+    if (compareRunASelect) {
+      compareRunASelect.addEventListener('change', renderRunCompare);
+    }
+    if (compareRunBSelect) {
+      compareRunBSelect.addEventListener('change', renderRunCompare);
+    }
     tabButtons.forEach(button => {
       button.addEventListener('click', event => {
         event.preventDefault();
@@ -2491,34 +3673,6 @@
       selectedReportingForm = button.dataset.report || '';
       filterAndRenderReportList();
       loadTable(selectedReportingForm);
-    });
-
-    summaryTableContainer.addEventListener('click', async event => {
-      if (leftNavMode.value !== 'reports') {
-        return;
-      }
-      const link = event.target.closest('.count-link');
-      if (!link || !selectedReportingForm) {
-        return;
-      }
-      event.preventDefault();
-      const runId = link.dataset.runId;
-      const bucket = link.dataset.bucket;
-      const query = encodeURIComponent(selectedReportingForm);
-      drilldownTitle.textContent = `Loading ${bucket} MDRM codes for run ${runId}...`;
-      drilldownTitle.className = 'status neutral';
-      drilldownTableContainer.innerHTML = '';
-      try {
-        const response = await fetch(`/api/mdrm/run-mdrms?reportingForm=${query}&runId=${encodeURIComponent(runId)}&bucket=${encodeURIComponent(bucket)}`);
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
-        }
-        renderDrilldown(payload);
-      } catch (error) {
-        drilldownTitle.textContent = `Failed to load MDRM drilldown\n${error.message}`;
-        drilldownTitle.className = 'status err';
-      }
     });
 
     fileMetricsContainer.addEventListener('click', event => {
@@ -2571,6 +3725,18 @@
     authRegisterBtn.addEventListener('click', register);
     authResetBtn.addEventListener('click', resetPassword);
     authLogoutBtn.addEventListener('click', logout);
+    [authEmailInput, authFirstNameInput, authLastNameInput, authPasswordInput, authConfirmPasswordInput].forEach(input => {
+      if (!input) {
+        return;
+      }
+      input.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') {
+          return;
+        }
+        event.preventDefault();
+        submitAuthWithEnter();
+      });
+    });
     if (authModeLoginBtn) {
       authModeLoginBtn.addEventListener('click', () => setAuthMode('login'));
     }
@@ -2627,7 +3793,7 @@
         renderRecentItems();
         if (currentUser) {
           try {
-            const response = await apiFetch('/api/recent/items', { method: 'DELETE' });
+            const response = await apiFetch(appendRunContext('/api/recent/items'), { method: 'DELETE' });
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}`);
             }
@@ -2801,6 +3967,14 @@
       if (guideOverlay && !guideOverlay.hidden && event.key === 'Escape') {
         closeGuide(true);
       }
+      if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const tag = String(event.target?.tagName || '').toUpperCase();
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+          event.preventDefault();
+          reportSearchInput?.focus();
+          reportSearchInput?.select();
+        }
+      }
     });
 
     if (localStorage.getItem(GUIDE_SEEN_KEY) !== '1') {
@@ -2811,12 +3985,16 @@
     ensureCsrfToken().catch(() => {});
     setPasswordVisibility(false);
     setAuthMode('');
+    applyReportStatusFilterButtons();
     switchView(getInitialViewFromUrl());
-    applyDiscoveryStateFromUrl().catch(() => {});
+    syncReportEmptyState();
     loadRecentItems();
     refreshAuthState();
-    refreshForms();
-    refreshFileMetrics();
+    loadRunContextOptions().catch(() => {}).finally(() => {
+      applyDiscoveryStateFromUrl().catch(() => {});
+      refreshForms();
+      refreshFileMetrics();
+    });
     updateLoadButtonStates();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -1,6 +1,7 @@
 package com.projectai.projectai.mdrm;
 
 import com.projectai.projectai.auth.CsrfService;
+import com.projectai.projectai.auth.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -24,10 +25,19 @@ public class MdrmController {
 
     private final MdrmLoadService mdrmLoadService;
     private final CsrfService csrfService;
+    private final AuthService authService;
+    private final ReportMetadataService reportMetadataService;
 
-    public MdrmController(MdrmLoadService mdrmLoadService, CsrfService csrfService) {
+    public MdrmController(
+            MdrmLoadService mdrmLoadService,
+            CsrfService csrfService,
+            AuthService authService,
+            ReportMetadataService reportMetadataService
+    ) {
         this.mdrmLoadService = mdrmLoadService;
         this.csrfService = csrfService;
+        this.authService = authService;
+        this.reportMetadataService = reportMetadataService;
     }
 
     /**
@@ -36,6 +46,7 @@ public class MdrmController {
     @PostMapping("/load")
     public ResponseEntity<MdrmLoadResult> loadMdrm(HttpServletRequest request) {
         csrfService.requireValidToken(request, request.getSession());
+        authService.requireAdmin(request.getSession());
         return ResponseEntity.ok(mdrmLoadService.loadFreshMigration());
     }
 
@@ -45,6 +56,7 @@ public class MdrmController {
             HttpServletRequest request
     ) {
         csrfService.requireValidToken(request, request.getSession());
+        authService.requireAdmin(request.getSession());
         try {
             return ResponseEntity.ok(mdrmLoadService.loadUploadedMdrm(file.getOriginalFilename(), file.getBytes()));
         } catch (IllegalArgumentException ex) {
@@ -58,24 +70,54 @@ public class MdrmController {
      * Returns all available reporting forms from the staging table.
      */
     @GetMapping("/reporting-forms")
-    public ResponseEntity<List<String>> getReportingForms() {
-        return ResponseEntity.ok(mdrmLoadService.getReportingForms());
+    public ResponseEntity<List<String>> getReportingForms(
+            @RequestParam(required = false) Long runId
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getReportingForms(runId));
+    }
+
+    @GetMapping("/reporting-form-statuses")
+    public ResponseEntity<List<ReportFormStatusResponse>> getReportingFormStatuses(
+            @RequestParam(required = false) Long runId
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getReportingFormStatuses(runId));
     }
 
     /**
      * Returns all rows for the selected reporting form.
      */
     @GetMapping("/data")
-    public ResponseEntity<MdrmTableResponse> getDataByReportingForm(@RequestParam String reportingForm) {
-        return ResponseEntity.ok(mdrmLoadService.getRowsByReportingForm(reportingForm));
+    public ResponseEntity<MdrmTableResponse> getDataByReportingForm(
+            @RequestParam String reportingForm,
+            @RequestParam(required = false) Long runId
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getRowsByReportingForm(reportingForm, runId));
     }
 
     /**
      * Returns run history summary for a reporting form.
      */
     @GetMapping("/run-history")
-    public ResponseEntity<MdrmRunHistoryResponse> getRunHistoryByReportingForm(@RequestParam String reportingForm) {
-        return ResponseEntity.ok(mdrmLoadService.getRunHistoryByReportingForm(reportingForm));
+    public ResponseEntity<MdrmRunHistoryResponse> getRunHistoryByReportingForm(
+            @RequestParam String reportingForm,
+            @RequestParam(required = false) Long runId
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getRunHistoryByReportingForm(reportingForm, runId));
+    }
+
+    @GetMapping("/report-metadata")
+    public ResponseEntity<ReportMetadataResponse> getReportMetadata(@RequestParam String reportingForm) {
+        return ResponseEntity.ok(reportMetadataService.getOrFetch(reportingForm));
+    }
+
+    @PostMapping("/report-metadata/refresh")
+    public ResponseEntity<ReportMetadataResponse> refreshReportMetadata(
+            @RequestParam String reportingForm,
+            HttpServletRequest request
+    ) {
+        csrfService.requireValidToken(request, request.getSession());
+        authService.requireAdmin(request.getSession());
+        return ResponseEntity.ok(reportMetadataService.refresh(reportingForm));
     }
 
     @GetMapping("/file-runs")
@@ -100,13 +142,19 @@ public class MdrmController {
     }
 
     @GetMapping("/semantic-search")
-    public ResponseEntity<MdrmSemanticSearchResponse> semanticSearch(@RequestParam("q") String query) {
-        return ResponseEntity.ok(mdrmLoadService.semanticSearch(query));
+    public ResponseEntity<MdrmSemanticSearchResponse> semanticSearch(
+            @RequestParam("q") String query,
+            @RequestParam(required = false) Long runId
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.semanticSearch(query, runId));
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<MdrmProfileResponse> getMdrmProfile(@RequestParam("mdrm") String mdrmCode) {
-        return ResponseEntity.ok(mdrmLoadService.getMdrmProfile(mdrmCode));
+    public ResponseEntity<MdrmProfileResponse> getMdrmProfile(
+            @RequestParam("mdrm") String mdrmCode,
+            @RequestParam(required = false) Long runId
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getMdrmProfile(mdrmCode, runId));
     }
 
     @GetMapping("/run-incremental-mdrms")

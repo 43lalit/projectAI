@@ -33,9 +33,12 @@ public class BookmarkController {
     }
 
     @GetMapping("/groups")
-    public ResponseEntity<List<BookmarkModels.BookmarkGroupResponse>> listGroups(HttpSession session) {
+    public ResponseEntity<List<BookmarkModels.BookmarkGroupResponse>> listGroups(
+            @RequestParam(required = false) Long runId,
+            HttpSession session
+    ) {
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        return ResponseEntity.ok(bookmarkService.listGroups(user.userId()));
+        return ResponseEntity.ok(bookmarkService.listGroups(user.userId(), runId));
     }
 
     @PostMapping("/groups")
@@ -76,44 +79,48 @@ public class BookmarkController {
     @GetMapping("/items")
     public ResponseEntity<List<BookmarkModels.BookmarkItemResponse>> listItems(
             @RequestParam(required = false) Long groupId,
+            @RequestParam(required = false) Long runId,
             HttpSession session
     ) {
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        return ResponseEntity.ok(bookmarkService.listItems(user.userId(), groupId));
+        return ResponseEntity.ok(bookmarkService.listItems(user.userId(), groupId, runId));
     }
 
     @PostMapping("/items")
     public ResponseEntity<BookmarkModels.BookmarkItemResponse> addItem(
             @RequestBody BookmarkModels.AddBookmarkRequest request,
+            @RequestParam(required = false) Long runId,
             HttpServletRequest httpRequest,
             HttpSession session
     ) {
         csrfService.requireValidToken(httpRequest, session);
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        return ResponseEntity.ok(bookmarkService.addItem(user.userId(), request));
+        return ResponseEntity.ok(bookmarkService.addItem(user.userId(), request, runId));
     }
 
     @PatchMapping("/items/{bookmarkId}/group")
     public ResponseEntity<BookmarkModels.BookmarkItemResponse> moveItemToGroup(
             @PathVariable long bookmarkId,
             @RequestBody BookmarkModels.MoveBookmarkRequest request,
+            @RequestParam(required = false) Long runId,
             HttpServletRequest httpRequest,
             HttpSession session
     ) {
         csrfService.requireValidToken(httpRequest, session);
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        return ResponseEntity.ok(bookmarkService.moveItemToGroup(user.userId(), bookmarkId, request.groupId()));
+        return ResponseEntity.ok(bookmarkService.moveItemToGroup(user.userId(), bookmarkId, request.groupId(), runId));
     }
 
     @DeleteMapping("/items/{bookmarkId}")
     public ResponseEntity<Void> deleteItem(
             @PathVariable long bookmarkId,
+            @RequestParam(required = false) Long runId,
             HttpServletRequest httpRequest,
             HttpSession session
     ) {
         csrfService.requireValidToken(httpRequest, session);
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        bookmarkService.deleteItem(user.userId(), bookmarkId);
+        bookmarkService.deleteItem(user.userId(), bookmarkId, runId);
         return ResponseEntity.noContent().build();
     }
 }

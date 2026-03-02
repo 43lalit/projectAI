@@ -18,13 +18,15 @@ public class RecentService {
         ensureTable();
     }
 
-    public List<RecentModels.RecentItemResponse> listItems(long userId, int limit) {
+    public List<RecentModels.RecentItemResponse> listItems(long userId, int limit, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         int safeLimit = Math.max(1, Math.min(limit, 50));
         return jdbcTemplate.query(
                 """
                 SELECT recent_id, item_type, item_key, label, subtitle, url, last_accessed
                 FROM recent_item
                 WHERE user_id = ?
+                  AND run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)
                 ORDER BY last_accessed DESC
                 LIMIT ?
                 """,
@@ -38,11 +40,17 @@ public class RecentService {
                         rs.getLong("last_accessed")
                 ),
                 userId,
+                normalizedRunId,
                 safeLimit
         );
     }
 
-    public List<RecentModels.RecentItemResponse> upsertItem(long userId, RecentModels.RecentItemRequest request, int limit) {
+    public List<RecentModels.RecentItemResponse> upsertItem(
+            long userId,
+            RecentModels.RecentItemRequest request,
+            int limit,
+            Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         String itemType = normalizeRequired(request.itemType(), "itemType").toLowerCase(Locale.ROOT);
         String itemKey = normalizeRequired(request.itemKey(), "itemKey");
         String label = normalizeRequired(request.label(), "label");
@@ -50,28 +58,29 @@ public class RecentService {
         String url = safeNullable(request.url());
         long now = System.currentTimeMillis();
 
-        int updated = jdbcTemplate.update(
+        jdbcTemplate.update(
                 """
-                UPDATE recent_item
-                SET label = ?, subtitle = ?, url = ?, last_accessed = ?
-                WHERE user_id = ? AND item_type = ? AND item_key = ?
+                INSERT INTO recent_item (user_id, item_type, item_key, label, subtitle, url, run_context_id, created_at, last_accessed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (user_id, item_type, item_key, run_context_id)
+                DO UPDATE SET
+                    label = EXCLUDED.label,
+                    subtitle = EXCLUDED.subtitle,
+                    url = EXCLUDED.url,
+                    last_accessed = EXCLUDED.last_accessed
                 """,
-                label, subtitle, url, now, userId, itemType, itemKey
+                userId, itemType, itemKey, label, subtitle, url, normalizedRunId, now, now
         );
-        if (updated == 0) {
-            jdbcTemplate.update(
-                    """
-                    INSERT INTO recent_item (user_id, item_type, item_key, label, subtitle, url, created_at, last_accessed)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    userId, itemType, itemKey, label, subtitle, url, now, now
-            );
-        }
-        return listItems(userId, limit);
+        return listItems(userId, limit, normalizedRunId);
     }
 
-    public void clearItems(long userId) {
-        jdbcTemplate.update("DELETE FROM recent_item WHERE user_id = ?", userId);
+    public void clearItems(long userId, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
+        jdbcTemplate.update(
+                "DELETE FROM recent_item WHERE user_id = ? AND run_context_id IS NOT DISTINCT FROM CAST(? AS BIGINT)",
+                userId,
+                normalizedRunId
+        );
     }
 
     private void ensureTable() {
@@ -84,12 +93,16 @@ public class RecentService {
                     label TEXT NOT NULL,
                     subtitle TEXT,
                     url TEXT,
+                    run_context_id BIGINT NULL,
                     created_at BIGINT NOT NULL,
                     last_accessed BIGINT NOT NULL
                 )
                 """);
-        jdbcTemplate.execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_recent_item_user_key ON recent_item(user_id, item_type, item_key)");
+        jdbcTemplate.execute("ALTER TABLE recent_item ADD COLUMN IF NOT EXISTS run_context_id BIGINT NULL");
+        jdbcTemplate.execute("DROP INDEX IF EXISTS uk_recent_item_user_key");
+        jdbcTemplate.execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_recent_item_user_key_context ON recent_item(user_id, item_type, item_key, run_context_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_recent_item_user_last_accessed ON recent_item(user_id, last_accessed DESC)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_recent_item_user_context_last_accessed ON recent_item(user_id, run_context_id, last_accessed DESC)");
     }
 
     private String normalizeRequired(String value, String fieldName) {
@@ -106,5 +119,12 @@ public class RecentService {
         }
         String normalized = value.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private Long normalizeRunContext(Long runId) {
+        if (runId == null) {
+            return null;
+        }
+        return runId > 0 ? runId : null;
     }
 }

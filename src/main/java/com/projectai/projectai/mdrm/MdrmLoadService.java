@@ -66,6 +66,7 @@ public class MdrmLoadService {
         ensureRunSummaryTable();
         ensureRunIncrementalTable();
         ensureFileSummaryTable();
+        ensureReportStatusTable();
         ensureMasterIndexes();
         ensureRunSummaryIndexes();
         ensureRunIncrementalIndexes();
@@ -74,6 +75,7 @@ public class MdrmLoadService {
         backfillMissingRunSummaries();
         backfillMissingRunIncrementals();
         backfillMissingFileSummaries();
+        backfillReportStatuses();
     }
 
     /**
@@ -142,6 +144,7 @@ public class MdrmLoadService {
             refreshRunSummary(runId);
             refreshRunIncremental(runId);
             refreshFileSummary(runId);
+            refreshReportStatusesForRun(runId);
             if (hasPreviousRun(runId) && !hasAnyIncrementalChange(runId)) {
                 deleteRunData(runId, stagingTableName);
                 throw new IllegalStateException("Uploaded file has no incremental changes from latest available data");
@@ -176,7 +179,19 @@ public class MdrmLoadService {
      * Returns all distinct reporting form values available in the master table.
      */
     public List<String> getReportingForms() {
+        return getReportingForms(null);
+    }
+
+    public List<String> getReportingForms(Long runId) {
         ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
+        Long normalizedRunId = normalizeRunContext(runId);
+        if (normalizedRunId != null) {
+            String sql = "SELECT DISTINCT reporting_form FROM " + MdrmConstants.DEFAULT_MASTER_TABLE
+                    + " WHERE run_id = ? AND reporting_form IS NOT NULL AND btrim(reporting_form) <> ''"
+                    + " ORDER BY reporting_form";
+            return jdbcTemplate.queryForList(sql, String.class, normalizedRunId);
+        }
+        syncReportStatusesWithLatestRunSummary();
         return jdbcTemplate.queryForList(
                 MdrmConstants.SQL_SELECT_DISTINCT_REPORTING_FORM_PREFIX + MdrmConstants.DEFAULT_MASTER_TABLE
                         + MdrmConstants.SQL_SELECT_DISTINCT_REPORTING_FORM_SUFFIX,
@@ -184,21 +199,96 @@ public class MdrmLoadService {
         );
     }
 
+    public List<ReportFormStatusResponse> getReportingFormStatuses() {
+        return getReportingFormStatuses(null);
+    }
+
+    public List<ReportFormStatusResponse> getReportingFormStatuses(Long runId) {
+        ensureRunSummaryTable();
+        Long normalizedRunId = normalizeRunContext(runId);
+        if (normalizedRunId != null) {
+            String sql = """
+                    SELECT
+                        s.reporting_form,
+                        CASE WHEN COALESCE(s.active_mdrms, 0) > 0 THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+                        s.run_id,
+                        s.total_unique_mdrms,
+                        s.active_mdrms,
+                        COALESCE(rm.run_datetime, s.run_id) AS updated_at
+                    FROM __RUN_SUMMARY_TABLE__ s
+                    LEFT JOIN __RUN_MASTER_TABLE__ rm ON rm.run_id = s.run_id
+                    WHERE s.run_id = ?
+                    ORDER BY s.reporting_form
+                    """
+                    .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE)
+                    .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE);
+            return jdbcTemplate.query(
+                    connection -> {
+                        PreparedStatement ps = connection.prepareStatement(sql);
+                        ps.setLong(1, normalizedRunId);
+                        return ps;
+                    },
+                    (rs, rowNum) -> new ReportFormStatusResponse(
+                            rs.getString("reporting_form"),
+                            rs.getString("status"),
+                            rs.getLong("run_id"),
+                            rs.getInt("total_unique_mdrms"),
+                            rs.getInt("active_mdrms"),
+                            rs.getLong("updated_at")
+                    )
+            );
+        }
+        ensureReportStatusTable();
+        syncReportStatusesWithLatestRunSummary();
+        String sql = """
+                SELECT reporting_form, status, run_id, total_unique_mdrms, active_mdrms, updated_at
+                FROM __REPORT_STATUS_TABLE__
+                ORDER BY reporting_form
+                """
+                .replace("__REPORT_STATUS_TABLE__", MdrmConstants.DEFAULT_REPORT_STATUS_TABLE);
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new ReportFormStatusResponse(
+                        rs.getString("reporting_form"),
+                        rs.getString("status"),
+                        rs.getLong("run_id"),
+                        rs.getInt("total_unique_mdrms"),
+                        rs.getInt("active_mdrms"),
+                        rs.getLong("updated_at")
+                )
+        );
+    }
+
     /**
      * Returns master rows for a given reporting form from only that form's latest run.
      */
     public MdrmTableResponse getRowsByReportingForm(String reportingForm) {
+        return getRowsByReportingForm(reportingForm, null);
+    }
+
+    public MdrmTableResponse getRowsByReportingForm(String reportingForm, Long runId) {
         ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
+        Long normalizedRunId = normalizeRunContext(runId);
         String selectList = buildMasterSelectList("m");
-        String sql = "SELECT " + selectList + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
-                + " WHERE m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM "
-                + MdrmConstants.DEFAULT_MASTER_TABLE + " WHERE reporting_form = ?)";
+        String sql;
+        if (normalizedRunId == null) {
+            sql = "SELECT " + selectList + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                    + " WHERE m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM "
+                    + MdrmConstants.DEFAULT_MASTER_TABLE + " WHERE reporting_form = ?)";
+        } else {
+            sql = "SELECT " + selectList + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
+                    + " WHERE m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM "
+                    + MdrmConstants.DEFAULT_MASTER_TABLE + " WHERE reporting_form = ? AND run_id <= ?)";
+        }
 
         return jdbcTemplate.query(
                 connection -> {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setString(1, reportingForm);
                     ps.setString(2, reportingForm);
+                    if (normalizedRunId != null) {
+                        ps.setLong(3, normalizedRunId);
+                    }
                     return ps;
                 },
                 this::extractTableResponse
@@ -209,9 +299,14 @@ public class MdrmLoadService {
      * Returns run history for a reporting form with unique MDRM counts by status category.
      */
     public MdrmRunHistoryResponse getRunHistoryByReportingForm(String reportingForm) {
+        return getRunHistoryByReportingForm(reportingForm, null);
+    }
+
+    public MdrmRunHistoryResponse getRunHistoryByReportingForm(String reportingForm, Long runId) {
         ensureReportingFormColumnExists(MdrmConstants.DEFAULT_MASTER_TABLE);
         ensureRunSummaryTable();
         ensureRunIncrementalTable();
+        Long normalizedRunId = normalizeRunContext(runId);
         String sql = """
                 SELECT
                     s.run_id,
@@ -234,11 +329,18 @@ public class MdrmLoadService {
                 .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE)
                 .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE)
                 .replace("__RUN_INCREMENTAL_TABLE__", MdrmConstants.DEFAULT_RUN_INCREMENTAL_TABLE);
+        if (normalizedRunId != null) {
+            sql = sql.replace("WHERE s.reporting_form = ?", "WHERE s.reporting_form = ? AND s.run_id <= ?");
+        }
+        final String finalSql = sql;
 
         List<MdrmRunSummary> runs = jdbcTemplate.query(
                 connection -> {
-                    PreparedStatement ps = connection.prepareStatement(sql);
+                    PreparedStatement ps = connection.prepareStatement(finalSql);
                     ps.setString(1, reportingForm);
+                    if (normalizedRunId != null) {
+                        ps.setLong(2, normalizedRunId);
+                    }
                     return ps;
                 },
                 (rs, rowNum) -> new MdrmRunSummary(
@@ -435,6 +537,11 @@ public class MdrmLoadService {
      * Interprets a natural language query and searches MDRMs (latest run, optionally narrowed by inferred report).
      */
     public MdrmSemanticSearchResponse semanticSearch(String query) {
+        return semanticSearch(query, null);
+    }
+
+    public MdrmSemanticSearchResponse semanticSearch(String query, Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
         String rawQuery = query == null ? "" : query.trim();
         if (rawQuery.isEmpty()) {
             return new MdrmSemanticSearchResponse(rawQuery, null, List.of(), 0, new MdrmTableResponse(List.of(), List.of()));
@@ -458,13 +565,27 @@ public class MdrmLoadService {
         List<Object> params = new ArrayList<>();
 
         if (interpretedReportingForm != null && !interpretedReportingForm.isBlank()) {
-            sql.append("m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM ")
-                    .append(MdrmConstants.DEFAULT_MASTER_TABLE)
-                    .append(" WHERE reporting_form = ?) AND ");
-            params.add(interpretedReportingForm);
-            params.add(interpretedReportingForm);
+            if (normalizedRunId == null) {
+                sql.append("m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM ")
+                        .append(MdrmConstants.DEFAULT_MASTER_TABLE)
+                        .append(" WHERE reporting_form = ?) AND ");
+                params.add(interpretedReportingForm);
+                params.add(interpretedReportingForm);
+            } else {
+                sql.append("m.reporting_form = ? AND m.run_id = (SELECT MAX(run_id) FROM ")
+                        .append(MdrmConstants.DEFAULT_MASTER_TABLE)
+                        .append(" WHERE reporting_form = ? AND run_id <= ?) AND ");
+                params.add(interpretedReportingForm);
+                params.add(interpretedReportingForm);
+                params.add(normalizedRunId);
+            }
         } else {
-            sql.append("m.run_id = (SELECT MAX(run_id) FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(") AND ");
+            if (normalizedRunId == null) {
+                sql.append("m.run_id = (SELECT MAX(run_id) FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(") AND ");
+            } else {
+                sql.append("m.run_id = ? AND ");
+                params.add(normalizedRunId);
+            }
         }
 
         if (!keywords.isEmpty()) {
@@ -503,7 +624,12 @@ public class MdrmLoadService {
      * Returns one MDRM-centric profile with timeline, associations, and related entities.
      */
     public MdrmProfileResponse getMdrmProfile(String mdrmCode) {
+        return getMdrmProfile(mdrmCode, null);
+    }
+
+    public MdrmProfileResponse getMdrmProfile(String mdrmCode, Long runId) {
         String normalizedCode = normalizeMdrmCode(mdrmCode);
+        Long normalizedRunId = normalizeRunContext(runId);
         if (normalizedCode.isBlank()) {
             throw new IllegalArgumentException("mdrm is required");
         }
@@ -513,7 +639,7 @@ public class MdrmLoadService {
             throw new IllegalStateException("mdrm_code column is missing in mdrm_master");
         }
 
-        Map<String, String> latest = fetchLatestMdrmRow(normalizedCode);
+        Map<String, String> latest = fetchLatestMdrmRow(normalizedCode, normalizedRunId);
         if (latest == null) {
             return new MdrmProfileResponse(
                     normalizedCode,
@@ -541,13 +667,13 @@ public class MdrmLoadService {
         String resolvedItemCode = firstNonBlank(latest.get("item_code"), deriveItemCode(normalizedCode));
         String resolvedMnemonic = firstNonBlank(latest.get("mnemonic"), deriveMnemonic(normalizedCode, resolvedItemCode));
         String resolvedItemType = firstNonBlank(
-                fetchLatestResolvedItemTypeForMdrm(normalizedCode, availableColumns),
+                fetchLatestResolvedItemTypeForMdrm(normalizedCode, availableColumns, normalizedRunId),
                 latest.get("item_type"),
-                fetchLatestNonBlankItemType(normalizedCode, availableColumns),
-                fetchLatestFamilyItemType(resolvedItemCode, availableColumns)
+                fetchLatestNonBlankItemType(normalizedCode, availableColumns, normalizedRunId),
+                fetchLatestFamilyItemType(resolvedItemCode, availableColumns, normalizedRunId)
         );
-        List<MdrmProfileTimelineEntry> timeline = loadMdrmTimeline(normalizedCode);
-        List<Map<String, String>> timelineSnapshots = loadRunSnapshotsForMdrm(normalizedCode, availableColumns);
+        List<MdrmProfileTimelineEntry> timeline = loadMdrmTimeline(normalizedCode, normalizedRunId);
+        List<Map<String, String>> timelineSnapshots = loadRunSnapshotsForMdrm(normalizedCode, availableColumns, normalizedRunId);
         Map<Long, RunChangeMeta> runChangeByRunId = detectRunChanges(timelineSnapshots, availableColumns);
         List<MdrmProfileTimelineEntry> timelineWithChanges = timeline.stream()
                 .map(entry -> {
@@ -572,8 +698,8 @@ public class MdrmLoadService {
                 })
                 .toList();
         List<MdrmProfileFieldChange> fieldChanges = buildFirstToLatestFieldChanges(timelineSnapshots, availableColumns);
-        List<MdrmProfileAssociation> associations = loadMdrmAssociations(normalizedCode, availableColumns);
-        List<MdrmProfileRelatedMdrm> relatedMdrms = loadRelatedMdrms(normalizedCode, resolvedItemCode, availableColumns);
+        List<MdrmProfileAssociation> associations = loadMdrmAssociations(normalizedCode, availableColumns, normalizedRunId);
+        List<MdrmProfileRelatedMdrm> relatedMdrms = loadRelatedMdrms(normalizedCode, resolvedItemCode, availableColumns, normalizedRunId);
         List<MdrmProfileRelatedReport> relatedReports = loadRelatedReportsFromRelatedMdrms(relatedMdrms);
 
         return new MdrmProfileResponse(
@@ -599,92 +725,120 @@ public class MdrmLoadService {
         );
     }
 
-    private String fetchLatestNonBlankItemType(String mdrmCode, List<String> availableColumns) {
+    private String fetchLatestNonBlankItemType(String mdrmCode, List<String> availableColumns, Long runId) {
         String rawTypeExpr = itemTypeRawExpression("m", availableColumns);
         if (rawTypeExpr == null) {
             return null;
         }
-        String sql = "SELECT " + itemTypeValueExpression(rawTypeExpr) + " AS item_type"
-                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
-                + " WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))"
-                + "   AND NULLIF(BTRIM(" + rawTypeExpr + "), '') IS NOT NULL"
-                + " ORDER BY m.run_id DESC, m.master_id DESC"
-                + " LIMIT 1";
+        StringBuilder sql = new StringBuilder("SELECT ")
+                .append(itemTypeValueExpression(rawTypeExpr))
+                .append(" AS item_type")
+                .append(" FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(" m")
+                .append(" WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))")
+                .append("   AND NULLIF(BTRIM(").append(rawTypeExpr).append("), '') IS NOT NULL");
+        if (runId != null) {
+            sql.append(" AND m.run_id <= ?");
+        }
+        sql.append(" ORDER BY m.run_id DESC, m.master_id DESC LIMIT 1");
         return jdbcTemplate.query(
                 connection -> {
-                    PreparedStatement ps = connection.prepareStatement(sql);
+                    PreparedStatement ps = connection.prepareStatement(sql.toString());
                     ps.setString(1, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                    }
                     return ps;
                 },
                 rs -> rs.next() ? rs.getString("item_type") : null
         );
     }
 
-    private String fetchLatestFamilyItemType(String itemCode, List<String> availableColumns) {
+    private String fetchLatestFamilyItemType(String itemCode, List<String> availableColumns, Long runId) {
         String normalizedItemCode = normalizeItemCodeValue(itemCode);
         String rawTypeExpr = itemTypeRawExpression("m", availableColumns);
         if (normalizedItemCode == null || normalizedItemCode.isBlank() || rawTypeExpr == null) {
             return null;
         }
         String itemCodeExpr = itemCodeExpression("m", availableColumns);
-        String sql = "SELECT " + itemTypeValueExpression(rawTypeExpr) + " AS item_type"
-                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
-                + " WHERE " + itemCodeExpr + " = ?"
-                + "   AND NULLIF(BTRIM(" + rawTypeExpr + "), '') IS NOT NULL"
-                + " ORDER BY m.run_id DESC, m.master_id DESC"
-                + " LIMIT 1";
+        StringBuilder sql = new StringBuilder("SELECT ")
+                .append(itemTypeValueExpression(rawTypeExpr))
+                .append(" AS item_type")
+                .append(" FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(" m")
+                .append(" WHERE ").append(itemCodeExpr).append(" = ?")
+                .append("   AND NULLIF(BTRIM(").append(rawTypeExpr).append("), '') IS NOT NULL");
+        if (runId != null) {
+            sql.append(" AND m.run_id <= ?");
+        }
+        sql.append(" ORDER BY m.run_id DESC, m.master_id DESC LIMIT 1");
         return jdbcTemplate.query(
                 connection -> {
-                    PreparedStatement ps = connection.prepareStatement(sql);
+                    PreparedStatement ps = connection.prepareStatement(sql.toString());
                     ps.setString(1, normalizedItemCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                    }
                     return ps;
                 },
                 rs -> rs.next() ? rs.getString("item_type") : null
         );
     }
 
-    private String fetchLatestResolvedItemTypeForMdrm(String mdrmCode, List<String> availableColumns) {
+    private String fetchLatestResolvedItemTypeForMdrm(String mdrmCode, List<String> availableColumns, Long runId) {
         String rawTypeExpr = itemTypeRawExpression("m", availableColumns);
         if (rawTypeExpr == null) {
             return null;
         }
-        String sql = "SELECT " + itemTypeValueExpression(rawTypeExpr) + " AS item_type"
-                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
-                + " WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))"
-                + "   AND NULLIF(BTRIM(" + rawTypeExpr + "), '') IS NOT NULL"
-                + " ORDER BY m.run_id DESC, m.master_id DESC"
-                + " LIMIT 1";
+        StringBuilder sql = new StringBuilder("SELECT ")
+                .append(itemTypeValueExpression(rawTypeExpr))
+                .append(" AS item_type")
+                .append(" FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(" m")
+                .append(" WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))")
+                .append("   AND NULLIF(BTRIM(").append(rawTypeExpr).append("), '') IS NOT NULL");
+        if (runId != null) {
+            sql.append(" AND m.run_id <= ?");
+        }
+        sql.append(" ORDER BY m.run_id DESC, m.master_id DESC LIMIT 1");
         return jdbcTemplate.query(
                 connection -> {
-                    PreparedStatement ps = connection.prepareStatement(sql);
+                    PreparedStatement ps = connection.prepareStatement(sql.toString());
                     ps.setString(1, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                    }
                     return ps;
                 },
                 rs -> rs.next() ? rs.getString("item_type") : null
         );
     }
 
-    private Map<String, String> fetchLatestMdrmRow(String mdrmCode) {
+    private Map<String, String> fetchLatestMdrmRow(String mdrmCode, Long runId) {
         String selectList = buildMasterSelectList("m");
-        String sql = "SELECT " + selectList + ", rm.run_datetime AS run_datetime, rm.file_name AS run_file_name"
-                + " FROM " + MdrmConstants.DEFAULT_MASTER_TABLE + " m"
-                + " LEFT JOIN " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE + " rm ON rm.run_id = m.run_id"
-                + " WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))"
-                + " ORDER BY m.run_id DESC, m.master_id DESC"
-                + " LIMIT 1";
+        StringBuilder sql = new StringBuilder("SELECT ")
+                .append(selectList)
+                .append(", rm.run_datetime AS run_datetime, rm.file_name AS run_file_name")
+                .append(" FROM ").append(MdrmConstants.DEFAULT_MASTER_TABLE).append(" m")
+                .append(" LEFT JOIN ").append(MdrmConstants.DEFAULT_RUN_MASTER_TABLE).append(" rm ON rm.run_id = m.run_id")
+                .append(" WHERE UPPER(BTRIM(m.mdrm_code)) = UPPER(BTRIM(?))");
+        if (runId != null) {
+            sql.append(" AND m.run_id <= ?");
+        }
+        sql.append(" ORDER BY m.run_id DESC, m.master_id DESC LIMIT 1");
 
         return jdbcTemplate.query(
                 connection -> {
-                    PreparedStatement ps = connection.prepareStatement(sql);
+                    PreparedStatement ps = connection.prepareStatement(sql.toString());
                     ps.setString(1, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                    }
                     return ps;
                 },
                 rs -> rs.next() ? mapCurrentRow(rs) : null
         );
     }
 
-    private List<MdrmProfileTimelineEntry> loadMdrmTimeline(String mdrmCode) {
-        String sql = """
+    private List<MdrmProfileTimelineEntry> loadMdrmTimeline(String mdrmCode, Long runId) {
+        String sqlBase = """
                 SELECT
                     m.run_id,
                     COALESCE(rm.run_datetime, m.run_id) AS run_datetime,
@@ -708,11 +862,18 @@ public class MdrmLoadService {
                 """
                 .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
                 .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE);
+        String sql = runId == null
+                ? sqlBase
+                : sqlBase.replace("GROUP BY m.run_id, rm.run_datetime, rm.file_name",
+                "AND m.run_id <= ? GROUP BY m.run_id, rm.run_datetime, rm.file_name");
 
         return jdbcTemplate.query(
                 connection -> {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setString(1, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                    }
                     return ps;
                 },
                 (rs, rowNum) -> new MdrmProfileTimelineEntry(
@@ -732,14 +893,14 @@ public class MdrmLoadService {
         );
     }
 
-    private List<Map<String, String>> loadRunSnapshotsForMdrm(String mdrmCode, List<String> availableColumns) {
+    private List<Map<String, String>> loadRunSnapshotsForMdrm(String mdrmCode, List<String> availableColumns, Long runId) {
         if (availableColumns == null || availableColumns.isEmpty()) {
             return List.of();
         }
         String selectList = availableColumns.stream()
                 .map(column -> "m." + column + " AS " + column)
                 .collect(Collectors.joining(", "));
-        String sql = """
+        String sqlBase = """
                 SELECT
                     __SELECT_LIST__,
                     rm.run_datetime AS run_datetime,
@@ -758,11 +919,18 @@ public class MdrmLoadService {
                 .replace("__SELECT_LIST__", selectList)
                 .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
                 .replace("__RUN_MASTER_TABLE__", MdrmConstants.DEFAULT_RUN_MASTER_TABLE);
+        String sql = runId == null
+                ? sqlBase
+                : sqlBase.replace("WHERE UPPER(BTRIM(base.mdrm_code)) = UPPER(BTRIM(?))",
+                "WHERE UPPER(BTRIM(base.mdrm_code)) = UPPER(BTRIM(?)) AND base.run_id <= ?");
 
         return jdbcTemplate.query(
                 connection -> {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setString(1, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                    }
                     return ps;
                 },
                 (rs, rowNum) -> mapCurrentRow(rs)
@@ -846,7 +1014,7 @@ public class MdrmLoadService {
         return changes;
     }
 
-    private List<MdrmProfileAssociation> loadMdrmAssociations(String mdrmCode, List<String> availableColumns) {
+    private List<MdrmProfileAssociation> loadMdrmAssociations(String mdrmCode, List<String> availableColumns, Long runId) {
         String scheduleExpr = coalescedTrimmedTextExpression(
                 "m",
                 availableColumns,
@@ -865,7 +1033,7 @@ public class MdrmLoadService {
                 List.of("line_description", "description", "item_name", "definition"),
                 "'-'"
         );
-        String sql = """
+        String sqlBase = """
                 SELECT DISTINCT
                     COALESCE(NULLIF(BTRIM(m.reporting_form), ''), '-') AS reporting_form,
                     __SCHEDULE_EXPR__ AS schedule,
@@ -885,12 +1053,19 @@ public class MdrmLoadService {
                 .replace("__SCHEDULE_EXPR__", scheduleExpr)
                 .replace("__LINE_EXPR__", lineExpr)
                 .replace("__LABEL_EXPR__", labelExpr);
+        String sql = runId == null
+                ? sqlBase
+                : sqlBase.replace("WHERE UPPER(BTRIM(x.mdrm_code)) = UPPER(BTRIM(?))",
+                "WHERE UPPER(BTRIM(x.mdrm_code)) = UPPER(BTRIM(?)) AND x.run_id <= ?");
 
         return jdbcTemplate.query(
                 connection -> {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setString(1, mdrmCode);
                     ps.setString(2, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(3, runId);
+                    }
                     return ps;
                 },
                 (rs, rowNum) -> new MdrmProfileAssociation(
@@ -902,7 +1077,11 @@ public class MdrmLoadService {
         );
     }
 
-    private List<MdrmProfileRelatedMdrm> loadRelatedMdrms(String mdrmCode, String itemCode, List<String> availableColumns) {
+    private List<MdrmProfileRelatedMdrm> loadRelatedMdrms(
+            String mdrmCode,
+            String itemCode,
+            List<String> availableColumns,
+            Long runId) {
         if (itemCode == null || itemCode.isBlank()) {
             return List.of();
         }
@@ -917,7 +1096,7 @@ public class MdrmLoadService {
         String resolvedTypeExpr = itemTypeExpr == null
                 ? "''"
                 : itemTypeValueExpression("COALESCE(NULLIF(BTRIM(" + itemTypeExpr + "), ''), '')");
-        String sql = """
+        String sqlBase = """
                 WITH code_scope AS (
                     SELECT
                         m.mdrm_code,
@@ -959,12 +1138,21 @@ public class MdrmLoadService {
                 .replace("__ITEM_CODE_EXPR__", itemCodeExpr)
                 .replace("__TYPE_EXPR__", resolvedTypeExpr)
                 .replace("__LABEL_EXPR__", labelExpr);
+        String sql = runId == null
+                ? sqlBase
+                : sqlBase.replace("AND BTRIM(m.mdrm_code) <> ''",
+                "AND BTRIM(m.mdrm_code) <> '' AND m.run_id <= ?");
 
         return jdbcTemplate.query(
                 connection -> {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setString(1, itemCode);
-                    ps.setString(2, mdrmCode);
+                    if (runId != null) {
+                        ps.setLong(2, runId);
+                        ps.setString(3, mdrmCode);
+                    } else {
+                        ps.setString(2, mdrmCode);
+                    }
                     return ps;
                 },
                 (rs, rowNum) -> new MdrmProfileRelatedMdrm(
@@ -1094,6 +1282,17 @@ public class MdrmLoadService {
                 + ")");
     }
 
+    private void ensureReportStatusTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + MdrmConstants.DEFAULT_REPORT_STATUS_TABLE + " ("
+                + "reporting_form TEXT PRIMARY KEY, "
+                + "run_id BIGINT NOT NULL, "
+                + "status TEXT NOT NULL, "
+                + "total_unique_mdrms INT NOT NULL, "
+                + "active_mdrms INT NOT NULL, "
+                + "updated_at BIGINT NOT NULL"
+                + ")");
+    }
+
     /**
      * Ensures master table exists and contains current staging columns plus derived columns.
      */
@@ -1167,6 +1366,8 @@ public class MdrmLoadService {
      * Clears all MDRM tables to support a production-style fresh migration run.
      */
     private void truncateAllMdrmTables() {
+        ensureReportStatusTable();
+        jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_REPORT_STATUS_TABLE);
         jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_FILE_SUMMARY_TABLE);
         jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_RUN_INCREMENTAL_TABLE);
         jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE);
@@ -1486,6 +1687,76 @@ public class MdrmLoadService {
         for (Long runId : runIds) {
             refreshFileSummary(runId);
         }
+    }
+
+    private void refreshReportStatusesForRun(long runId) {
+        ensureRunSummaryTable();
+        ensureReportStatusTable();
+        String sql = """
+                INSERT INTO __REPORT_STATUS_TABLE__ (
+                    reporting_form, run_id, status, total_unique_mdrms, active_mdrms, updated_at
+                )
+                SELECT
+                    s.reporting_form,
+                    s.run_id,
+                    CASE
+                        WHEN s.active_mdrms > 0 THEN 'ACTIVE'
+                        WHEN s.total_unique_mdrms > 0 THEN 'INACTIVE'
+                        ELSE 'NO_DATA'
+                    END AS status,
+                    s.total_unique_mdrms,
+                    s.active_mdrms,
+                    ? AS updated_at
+                FROM __RUN_SUMMARY_TABLE__ s
+                WHERE s.run_id = ?
+                ON CONFLICT (reporting_form)
+                DO UPDATE SET
+                    run_id = EXCLUDED.run_id,
+                    status = EXCLUDED.status,
+                    total_unique_mdrms = EXCLUDED.total_unique_mdrms,
+                    active_mdrms = EXCLUDED.active_mdrms,
+                    updated_at = EXCLUDED.updated_at
+                """
+                .replace("__REPORT_STATUS_TABLE__", MdrmConstants.DEFAULT_REPORT_STATUS_TABLE)
+                .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE);
+
+        long now = System.currentTimeMillis();
+        jdbcTemplate.update(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setLong(1, now);
+                    ps.setLong(2, runId);
+                    return ps;
+                }
+        );
+    }
+
+    private void syncReportStatusesWithLatestRunSummary() {
+        ensureRunSummaryTable();
+        ensureReportStatusTable();
+        String sql = """
+                WITH latest AS (
+                    SELECT reporting_form, MAX(run_id) AS run_id
+                    FROM __RUN_SUMMARY_TABLE__
+                    GROUP BY reporting_form
+                )
+                SELECT l.run_id
+                FROM latest l
+                LEFT JOIN __REPORT_STATUS_TABLE__ rs
+                  ON rs.reporting_form = l.reporting_form
+                WHERE rs.reporting_form IS NULL OR rs.run_id < l.run_id
+                """
+                .replace("__RUN_SUMMARY_TABLE__", MdrmConstants.DEFAULT_RUN_SUMMARY_TABLE)
+                .replace("__REPORT_STATUS_TABLE__", MdrmConstants.DEFAULT_REPORT_STATUS_TABLE);
+
+        List<Long> runIds = jdbcTemplate.query(sql, (rs, rowNum) -> rs.getLong("run_id"));
+        runIds.stream().distinct().forEach(this::refreshReportStatusesForRun);
+    }
+
+    private void backfillReportStatuses() {
+        ensureRunSummaryTable();
+        ensureReportStatusTable();
+        syncReportStatusesWithLatestRunSummary();
     }
 
     /**
@@ -2171,6 +2442,13 @@ public class MdrmLoadService {
             case "TOTAL", "ACTIVE", "INACTIVE", "UPDATED" -> normalized;
             default -> throw new IllegalArgumentException("Unsupported bucket: " + bucket);
         };
+    }
+
+    private Long normalizeRunContext(Long runId) {
+        if (runId == null) {
+            return null;
+        }
+        return runId > 0 ? runId : null;
     }
 
     private String bucketConditionSql(String bucket) {

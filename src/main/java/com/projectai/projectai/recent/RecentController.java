@@ -33,32 +33,35 @@ public class RecentController {
     @GetMapping("/items")
     public ResponseEntity<List<RecentModels.RecentItemResponse>> listItems(
             @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long runId,
             HttpSession session
     ) {
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        return ResponseEntity.ok(recentService.listItems(user.userId(), limit));
+        return ResponseEntity.ok(recentService.listItems(user.userId(), limit, runId));
     }
 
     @PostMapping("/items")
     public ResponseEntity<List<RecentModels.RecentItemResponse>> upsertItem(
             @RequestBody RecentModels.RecentItemRequest request,
             @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long runId,
             HttpServletRequest httpRequest,
             HttpSession session
     ) {
         csrfService.requireValidToken(httpRequest, session);
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        return ResponseEntity.ok(recentService.upsertItem(user.userId(), request, limit));
+        return ResponseEntity.ok(recentService.upsertItem(user.userId(), request, limit, runId));
     }
 
     @DeleteMapping("/items")
     public ResponseEntity<Void> clearItems(
+            @RequestParam(required = false) Long runId,
             HttpServletRequest httpRequest,
             HttpSession session
     ) {
         csrfService.requireValidToken(httpRequest, session);
         AuthModels.AuthUserResponse user = authService.requireCurrentUser(session);
-        recentService.clearItems(user.userId());
+        recentService.clearItems(user.userId(), runId);
         return ResponseEntity.noContent().build();
     }
 }
