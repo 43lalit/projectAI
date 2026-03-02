@@ -123,6 +123,24 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
     - `Load MDRM` -> `Load Data`
   - Guide CTA updated to `📖 Quick Tour`.
   - KPI labels now include icons for scanability.
+- Command palette beta added to main console:
+  - `Cmd/Ctrl + K` opens quick actions with keyboard navigation (arrows + Enter + Escape).
+  - Intent actions support:
+    - open report by typed report code/name
+    - run discovery search from free text
+    - open MDRM profile by typed MDRM code
+  - Natural-language stop words are ignored for better matching (e.g. "go to FFIEC041").
+  - Guide tour now includes command-palette step.
+- Search productivity enhancements:
+  - `Recent Searches` in Discovery with click-to-rerun and clear action.
+  - `Saved Searches` in Discovery with save/apply/remove behavior.
+  - Search state includes query + filters + run context for reproducible workflows.
+  - Saved/recent searches are surfaced in command palette actions.
+- Deep-link sharing improvements:
+  - Discovery view has share link copy (query/filter/run-context aware).
+  - Reports view has share link copy for selected report (run-context aware).
+  - MDRM profile page has share link copy (mdrm/run-context/return-journey aware).
+  - Copy interactions show quick floating "Link copied" confirmation near the clicked control.
 
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)

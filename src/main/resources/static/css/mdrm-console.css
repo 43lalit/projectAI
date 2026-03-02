@@ -444,6 +444,136 @@ body {
   background: color-mix(in oklab, var(--brand-soft) 85%, var(--panel));
 }
 
+.command-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.command-btn kbd {
+  border: 1px solid color-mix(in oklab, var(--brand) 34%, var(--line));
+  border-bottom-width: 2px;
+  border-radius: 8px;
+  padding: 3px 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: color-mix(in oklab, var(--panel) 75%, var(--brand-soft));
+  color: var(--muted);
+}
+
+.command-btn:hover {
+  border-color: color-mix(in oklab, var(--brand) 54%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 65%, var(--panel-soft));
+}
+
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2150;
+  background: rgba(8, 18, 34, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+  padding: min(9vh, 84px) 14px 16px;
+}
+
+.command-palette-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.command-palette-shell {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 22px 44px rgba(3, 16, 34, 0.32);
+  overflow: hidden;
+}
+
+.command-palette-input-wrap {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.command-palette-input {
+  width: 100%;
+  border: 1px solid color-mix(in oklab, var(--brand) 42%, var(--line));
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 11px 12px;
+  font-size: 0.92rem;
+  outline: none;
+}
+
+.command-palette-input:focus {
+  border-color: color-mix(in oklab, var(--brand) 70%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-soft) 85%, transparent);
+}
+
+.command-palette-meta {
+  padding: 7px 12px 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.command-palette-list {
+  max-height: min(56vh, 460px);
+  overflow: auto;
+  padding: 0 8px 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.command-palette-item {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+  padding: 9px 10px;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+}
+
+.command-palette-item:hover,
+.command-palette-item.active {
+  background: color-mix(in oklab, var(--brand-soft) 70%, var(--panel-soft));
+  border-color: color-mix(in oklab, var(--brand) 34%, var(--line));
+}
+
+.command-palette-item-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.command-palette-item-hint {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.command-palette-empty {
+  padding: 14px 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .guide-overlay {
   position: fixed;
   inset: 0;
@@ -989,6 +1119,116 @@ body {
 
 .searchBoxLite .form-control {
   flex: 1;
+}
+
+.search-memory {
+  border-style: dashed;
+}
+
+.search-memory-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.search-memory-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.search-chip-row {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  line-height: 1.1;
+  cursor: pointer;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-chip:hover {
+  border-color: color-mix(in oklab, var(--brand) 52%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 46%, var(--panel));
+}
+
+.search-chip.saved {
+  border-color: color-mix(in oklab, var(--brand) 42%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 32%, var(--panel));
+}
+
+.search-chip-remove {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.search-chip-remove:hover {
+  color: var(--err);
+}
+
+.link-action-btn {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.link-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.copy-flash {
+  position: fixed;
+  z-index: 2300;
+  transform: translate(-50%, -4px);
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--brand) 52%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 86%, var(--panel));
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(9, 20, 40, 0.18);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.copy-flash.show {
+  opacity: 1;
+  transform: translate(-50%, -14px);
 }
 
 .discovery-layout {
@@ -2077,6 +2317,10 @@ input:disabled {
 
   .guide-card {
     width: min(340px, calc(100vw - 20px)) !important;
+  }
+
+  .command-btn span {
+    display: none;
   }
 
   .guide-head {

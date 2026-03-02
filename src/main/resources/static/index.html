@@ -73,6 +73,10 @@
         </a>
       </nav>
       <div class="header-actions">
+        <button id="commandPaletteBtn" class="command-btn" type="button" aria-label="Open command palette">
+          <span>Command</span>
+          <kbd>⌘K</kbd>
+        </button>
         <button id="guideMeBtn" class="guide-btn" type="button">
           📖 Quick Tour
         </button>
@@ -177,6 +181,24 @@
           <input id="discoveryQueryInput" class="form-control !rounded-xl !border-slate-300 !bg-white !text-sm dark:!border-slate-600 dark:!bg-slate-800 dark:!text-slate-100" type="text"
                  placeholder="Search MDRM elements, reports, keywords... e.g. RCFN1415, assets, FRY9C">
           <button id="discoverySearchBtn" class="btn btn-primary action-btn !rounded-xl !px-5 !font-semibold" type="button">Search</button>
+          <button id="discoveryCopyLinkBtn" class="btn btn-outline-secondary link-action-btn" type="button" aria-label="Share discovery link" title="Share discovery link">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 14l4-4m-6.5 8.5l-2 2a3 3 0 104.2 4.3l2-2m5-13l2-2a3 3 0 10-4.2-4.3l-2 2m-2.3 8.3l4.6-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Share</span>
+          </button>
+        </div>
+        <div class="search-memory card-shell mt-2 p-2">
+          <div class="search-memory-head">
+            <div class="search-memory-title">Recent Searches</div>
+            <button id="clearRecentSearchesBtn" class="btn btn-sm btn-outline-secondary" type="button">Clear</button>
+          </div>
+          <div id="recentSearchesContainer" class="search-chip-row"></div>
+          <div class="search-memory-head mt-2">
+            <div class="search-memory-title">Saved Searches</div>
+            <button id="saveCurrentSearchBtn" class="btn btn-sm btn-outline-primary" type="button">Save Current</button>
+          </div>
+          <div id="savedSearchesContainer" class="search-chip-row"></div>
         </div>
         <div id="discoveryFiltersRow" class="row g-2 mt-2" style="display:none;">
           <div class="col-md-4">
@@ -308,6 +330,12 @@
               </div>
               <div class="d-flex gap-2 align-items-start">
                 <button id="reportMetadataRefreshBtn" class="btn btn-sm btn-outline-primary" type="button" style="display:none;" disabled>Refresh Metadata</button>
+                <button id="copyReportLinkBtn" class="btn btn-sm btn-outline-secondary link-action-btn" type="button" disabled aria-label="Share report link" title="Share report link">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M10 14l4-4m-6.5 8.5l-2 2a3 3 0 104.2 4.3l2-2m5-13l2-2a3 3 0 10-4.2-4.3l-2 2m-2.3 8.3l4.6-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Share</span>
+                </button>
               </div>
             </div>
             <div class="report-kpis">
@@ -382,6 +410,16 @@
       </div>
     </section>
   </main>
+
+  <div id="commandPaletteOverlay" class="command-palette-overlay" hidden>
+    <div class="command-palette-shell" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="command-palette-input-wrap">
+        <input id="commandPaletteInput" class="command-palette-input" type="text" placeholder="Type a command...">
+      </div>
+      <div id="commandPaletteMeta" class="command-palette-meta">Quick actions</div>
+      <div id="commandPaletteList" class="command-palette-list"></div>
+    </div>
+  </div>
 
   <div id="guideOverlay" class="guide-overlay" hidden>
     <div id="guideSpotlight" class="guide-spotlight" aria-hidden="true"></div>
@@ -482,6 +520,410 @@
       return 'view-discovery';
     }
 
+    function isCommandPaletteOpen() {
+      return !!(commandPaletteOverlay && !commandPaletteOverlay.hidden);
+    }
+
+    const COMMAND_STOP_WORDS = new Set([
+      'go', 'to', 'open', 'show', 'me', 'please', 'the', 'a', 'an', 'for', 'in', 'on', 'with'
+    ]);
+
+    function tokenizeCommandQuery(value) {
+      return String(value || '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map(token => token.trim())
+        .filter(token => token && !COMMAND_STOP_WORDS.has(token));
+    }
+
+    function normalizeCommandKey(value) {
+      return String(value || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+    }
+
+    function parseMdrmCodeFromQuery(query) {
+      const raw = String(query || '').trim();
+      if (!raw) {
+        return '';
+      }
+      const explicit = raw.match(/\bmdrm[:\s-]*([a-z0-9]{4,12})\b/i);
+      if (explicit && explicit[1]) {
+        return explicit[1].toUpperCase();
+      }
+      const compact = raw.match(/^[a-z][a-z0-9]{5,11}$/i);
+      if (compact && /[a-z]/i.test(raw) && /\d/.test(raw)) {
+        return raw.toUpperCase();
+      }
+      return '';
+    }
+
+    async function openReportFromPalette(reportingForm) {
+      const form = String(reportingForm || '').trim();
+      if (!form) {
+        return;
+      }
+      if (!formsLoaded || !allForms.includes(form)) {
+        await refreshForms();
+      }
+      switchView('view-reporting');
+      if (leftNavMode && leftNavMode.value !== 'reports') {
+        leftNavMode.value = 'reports';
+        reportSearchInput.disabled = false;
+      }
+      selectedReportingForm = form;
+      if (reportSearchInput) {
+        reportSearchInput.value = form;
+      }
+      filterAndRenderReportList();
+      await loadTable(form);
+    }
+
+    function buildContextualCommandActions(query) {
+      const raw = String(query || '').trim();
+      if (!raw) {
+        return [];
+      }
+      const actions = [];
+      const normalizedQuery = normalizeCommandKey(raw);
+
+      actions.push({
+        id: `search-discovery-${raw.toLowerCase()}`,
+        label: `Search Discovery: ${raw}`,
+        hint: 'Run semantic search in discovery',
+        keywords: `search discovery ${raw.toLowerCase()}`,
+        run: async () => {
+          switchView('view-discovery');
+          if (discoveryQueryInput) {
+            discoveryQueryInput.value = raw;
+          }
+          await runDiscoverySearch();
+        }
+      });
+
+      const reportCandidates = allForms
+        .map(form => {
+          const normalizedForm = normalizeCommandKey(form);
+          if (!normalizedForm) {
+            return null;
+          }
+          let score = 0;
+          if (normalizedQuery && normalizedForm === normalizedQuery) {
+            score += 100;
+          }
+          if (normalizedQuery && normalizedForm.startsWith(normalizedQuery)) {
+            score += 70;
+          }
+          if (normalizedQuery && normalizedForm.includes(normalizedQuery)) {
+            score += 50;
+          }
+          const queryTokens = tokenizeCommandQuery(raw).map(token => token.toUpperCase()).filter(token => token.length >= 2);
+          queryTokens.forEach(token => {
+            if (normalizedForm.includes(token)) {
+              score += token.length >= 4 ? 15 : 8;
+            }
+          });
+          return score > 0 ? { form, score } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score || a.form.localeCompare(b.form))
+        .slice(0, 6);
+
+      reportCandidates.forEach(candidate => {
+        actions.push({
+          id: `open-report-${candidate.form}`,
+          label: `Open Report: ${candidate.form}`,
+          hint: 'Go to report details and timeline',
+          keywords: `open report ${candidate.form.toLowerCase()}`,
+          run: () => openReportFromPalette(candidate.form)
+        });
+      });
+
+      const mdrmCode = parseMdrmCodeFromQuery(raw);
+      const hasExplicitMdrmIntent = /\bmdrm\b/i.test(raw);
+      const mdrmLooksLikeTopReport = !!reportCandidates.find(
+        candidate => normalizeCommandKey(candidate.form) === normalizeCommandKey(mdrmCode)
+      );
+      if (mdrmCode && (hasExplicitMdrmIntent || !mdrmLooksLikeTopReport)) {
+        actions.push({
+          id: `open-mdrm-${mdrmCode}`,
+          label: `Open MDRM: ${mdrmCode}`,
+          hint: 'Open MDRM profile page',
+          keywords: `open mdrm ${mdrmCode.toLowerCase()}`,
+          run: () => {
+            window.location.href = buildMdrmProfileUrl(mdrmCode);
+          }
+        });
+      }
+
+      return actions;
+    }
+
+    function buildCommandPaletteActions() {
+      const actions = [
+        {
+          id: 'view-discovery',
+          label: 'Go to Discovery',
+          hint: 'Open search and discovery workspace',
+          keywords: 'discovery search',
+          run: () => switchView('view-discovery')
+        },
+        {
+          id: 'view-bookmarks',
+          label: 'Go to Bookmarks',
+          hint: 'Open bookmark groups and saved MDRMs',
+          keywords: 'bookmarks favorites',
+          run: () => switchView('view-bookmarks')
+        },
+        {
+          id: 'view-reporting',
+          label: 'Go to Reports',
+          hint: 'Open reporting viewer',
+          keywords: 'reports reporting run history',
+          run: () => switchView('view-reporting')
+        },
+        {
+          id: 'focus-discovery',
+          label: 'Focus Discovery Search',
+          hint: 'Jump to discovery input',
+          keywords: 'focus find lookup',
+          run: () => {
+            switchView('view-discovery');
+            discoveryQueryInput?.focus();
+            discoveryQueryInput?.select();
+          }
+        },
+        {
+          id: 'focus-reports',
+          label: 'Focus Report Search',
+          hint: 'Jump to report filter input',
+          keywords: 'focus reports find',
+          run: () => {
+            switchView('view-reporting');
+            reportSearchInput?.focus();
+            reportSearchInput?.select();
+          }
+        },
+        {
+          id: 'toggle-theme',
+          label: 'Toggle Theme',
+          hint: 'Switch light or dark mode',
+          keywords: 'theme dark light',
+          run: () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+          }
+        },
+        {
+          id: 'quick-tour',
+          label: 'Start Quick Tour',
+          hint: 'Launch onboarding guide',
+          keywords: 'guide onboarding tour help',
+          run: () => openGuide(0)
+        }
+      ];
+
+      if (isAdminUser()) {
+        actions.push({
+          id: 'view-load',
+          label: 'Go to Load Data',
+          hint: 'Open MDRM upload and run screen',
+          keywords: 'load upload admin',
+          run: () => switchView('view-load')
+        });
+      }
+
+      if (!currentUser) {
+        actions.push({
+          id: 'open-login',
+          label: 'Open Login',
+          hint: 'Open profile menu in login mode',
+          keywords: 'login sign in auth',
+          run: () => {
+            profileMenu?.classList.add('open');
+            profileMenuBtn?.setAttribute('aria-expanded', 'true');
+            setAuthMode('login');
+            authEmailInput?.focus();
+          }
+        });
+      }
+
+      if (runContextSelect) {
+        const runOptions = Array.from(runContextSelect.options || [])
+          .map(option => ({
+            value: Number(option.value),
+            label: String(option.textContent || '').trim()
+          }))
+          .filter(option => Number.isFinite(option.value) && option.value > 0)
+          .slice(0, 8);
+
+        runOptions.forEach(option => {
+          actions.push({
+            id: `run-${option.value}`,
+            label: `Set Context: ${option.label}`,
+            hint: 'Switch as-of run context',
+            keywords: `context run asof ${option.label.toLowerCase()}`,
+            run: async () => {
+              if (!runContextSelect) {
+                return;
+              }
+              runContextSelect.value = String(option.value);
+              await applyRunContextChange();
+            }
+          });
+        });
+      }
+
+      (savedSearches || []).slice(0, 5).forEach((entry, idx) => {
+        const resolvedIndex = savedSearches.indexOf(entry);
+        if (resolvedIndex < 0) {
+          return;
+        }
+        actions.push({
+          id: `saved-search-${resolvedIndex}`,
+          label: `Saved Search: ${String(entry.name || `Search ${idx + 1}`)}`,
+          hint: 'Apply saved discovery search',
+          keywords: `saved search ${String(entry.name || '').toLowerCase()} ${String(entry.state?.q || '').toLowerCase()}`,
+          run: () => applySavedSearchByIndex(resolvedIndex)
+        });
+      });
+
+      (recentSearches || []).slice(0, 5).forEach(entry => {
+        const resolvedIndex = recentSearches.indexOf(entry);
+        const query = String(entry && entry.query ? entry.query : '').trim();
+        if (resolvedIndex < 0 || !query) {
+          return;
+        }
+        actions.push({
+          id: `recent-search-${resolvedIndex}`,
+          label: `Recent Search: ${query}`,
+          hint: 'Re-run this search',
+          keywords: `recent search ${query.toLowerCase()}`,
+          run: () => applyRecentSearchByIndex(resolvedIndex)
+        });
+      });
+
+      return actions;
+    }
+
+    function renderCommandPaletteResults() {
+      if (!commandPaletteList || !commandPaletteMeta) {
+        return;
+      }
+      if (!commandPaletteActions.length) {
+        commandPaletteMeta.textContent = 'No matching commands';
+        commandPaletteList.innerHTML = '<div class="command-palette-empty">No results</div>';
+        return;
+      }
+      commandPaletteMeta.textContent = `${commandPaletteActions.length} command${commandPaletteActions.length === 1 ? '' : 's'}`;
+      commandPaletteSelectionIndex = Math.max(0, Math.min(commandPaletteSelectionIndex, commandPaletteActions.length - 1));
+      commandPaletteList.innerHTML = commandPaletteActions.map((action, index) => `
+        <button class="command-palette-item ${index === commandPaletteSelectionIndex ? 'active' : ''}" type="button" data-index="${index}">
+          <span class="command-palette-item-label">${escapeHtml(action.label)}</span>
+          <span class="command-palette-item-hint">${escapeHtml(action.hint || '')}</span>
+        </button>
+      `).join('');
+    }
+
+    function refreshCommandPalette(query = '') {
+      const qRaw = String(query || '').trim();
+      const q = qRaw.toLowerCase();
+      const staticActions = buildCommandPaletteActions();
+      const contextualActions = buildContextualCommandActions(qRaw);
+      const deduped = [];
+      const seenIds = new Set();
+      [...contextualActions, ...staticActions].forEach(action => {
+        const id = String(action && action.id ? action.id : '');
+        if (!id || seenIds.has(id)) {
+          return;
+        }
+        seenIds.add(id);
+        deduped.push(action);
+      });
+      const allActions = deduped;
+      if (!q) {
+        commandPaletteActions = allActions;
+        commandPaletteSelectionIndex = 0;
+        renderCommandPaletteResults();
+        return;
+      }
+      const tokens = tokenizeCommandQuery(q);
+      if (!tokens.length && q) {
+        commandPaletteActions = allActions;
+        commandPaletteSelectionIndex = 0;
+        renderCommandPaletteResults();
+        return;
+      }
+      commandPaletteActions = allActions.filter(action => {
+        const haystack = `${action.label} ${action.hint || ''} ${action.keywords || ''}`.toLowerCase();
+        return tokens.every(token => haystack.includes(token));
+      });
+      commandPaletteSelectionIndex = 0;
+      renderCommandPaletteResults();
+    }
+
+    function openCommandPalette(initialQuery = '') {
+      if (!commandPaletteOverlay || !commandPaletteInput) {
+        return;
+      }
+      if (commandPaletteCloseTimer) {
+        window.clearTimeout(commandPaletteCloseTimer);
+        commandPaletteCloseTimer = null;
+      }
+      closeProfileMenu();
+      commandPaletteOverlay.hidden = false;
+      window.requestAnimationFrame(() => commandPaletteOverlay.classList.add('is-open'));
+      commandPaletteInput.value = initialQuery;
+      refreshCommandPalette(initialQuery);
+      commandPaletteInput.focus();
+      commandPaletteInput.select();
+    }
+
+    function closeCommandPalette() {
+      if (!commandPaletteOverlay) {
+        return;
+      }
+      commandPaletteOverlay.classList.remove('is-open');
+      if (commandPaletteCloseTimer) {
+        window.clearTimeout(commandPaletteCloseTimer);
+      }
+      commandPaletteCloseTimer = window.setTimeout(() => {
+        commandPaletteOverlay.hidden = true;
+        commandPaletteCloseTimer = null;
+      }, 120);
+    }
+
+    function moveCommandPaletteSelection(delta) {
+      if (!commandPaletteActions.length) {
+        return;
+      }
+      const nextIndex = commandPaletteSelectionIndex + delta;
+      if (nextIndex < 0) {
+        commandPaletteSelectionIndex = commandPaletteActions.length - 1;
+      } else if (nextIndex >= commandPaletteActions.length) {
+        commandPaletteSelectionIndex = 0;
+      } else {
+        commandPaletteSelectionIndex = nextIndex;
+      }
+      renderCommandPaletteResults();
+    }
+
+    async function executeCommandPaletteSelection(index = commandPaletteSelectionIndex) {
+      if (!commandPaletteActions.length) {
+        return;
+      }
+      const paletteQuery = String(commandPaletteInput?.value || '').trim();
+      if (paletteQuery) {
+        upsertRecentSearch(paletteQuery);
+      }
+      const selectedAction = commandPaletteActions[index];
+      if (!selectedAction || typeof selectedAction.run !== 'function') {
+        return;
+      }
+      closeCommandPalette();
+      await Promise.resolve(selectedAction.run());
+    }
+
     async function applyDiscoveryStateFromUrl() {
       const params = new URLSearchParams(window.location.search);
       const q = (params.get('q') || '').trim();
@@ -498,6 +940,7 @@
 
       if (!q) {
         setDiscoveryResultsVisible(false);
+        syncCopyLinkButtons();
         return;
       }
       await runDiscoverySearch();
@@ -505,6 +948,26 @@
         discoveryGridApi.setGridOption('quickFilterText', qf);
         updateDiscoveryMetaCounts();
       }
+      syncCopyLinkButtons();
+    }
+
+    async function applyReportingStateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const report = String(params.get('report') || '').trim();
+      if (!report) {
+        return;
+      }
+      switchView('view-reporting');
+      if (leftNavMode && leftNavMode.value !== 'reports') {
+        leftNavMode.value = 'reports';
+        reportSearchInput.disabled = false;
+      }
+      if (reportSearchInput) {
+        reportSearchInput.value = report;
+      }
+      selectedReportingForm = report;
+      filterAndRenderReportList();
+      await loadTable(report);
     }
 
     menuButtons.forEach(button => {
@@ -537,6 +1000,7 @@
     const reportDescriptionLabel = document.getElementById('reportDescriptionLabel');
     const reportDescriptionToggleBtn = document.getElementById('reportDescriptionToggleBtn');
     const reportSourceLink = document.getElementById('reportSourceLink');
+    const copyReportLinkBtn = document.getElementById('copyReportLinkBtn');
     const reportHeaderStatusPill = document.getElementById('reportHeaderStatusPill');
     const reportEmptyState = document.getElementById('reportEmptyState');
     const reportMetadataRefreshBtn = document.getElementById('reportMetadataRefreshBtn');
@@ -569,6 +1033,11 @@
     const discoveryRecentPanel = document.getElementById('discoveryRecentPanel');
     const discoveryQueryInput = document.getElementById('discoveryQueryInput');
     const discoverySearchBtn = document.getElementById('discoverySearchBtn');
+    const discoveryCopyLinkBtn = document.getElementById('discoveryCopyLinkBtn');
+    const saveCurrentSearchBtn = document.getElementById('saveCurrentSearchBtn');
+    const clearRecentSearchesBtn = document.getElementById('clearRecentSearchesBtn');
+    const recentSearchesContainer = document.getElementById('recentSearchesContainer');
+    const savedSearchesContainer = document.getElementById('savedSearchesContainer');
     const discoveryFiltersRow = document.getElementById('discoveryFiltersRow');
     const filterCodeInput = document.getElementById('filterCodeInput');
     const filterDescriptionInput = document.getElementById('filterDescriptionInput');
@@ -620,6 +1089,11 @@
     const saveBookmarkNewGroupInput = document.getElementById('saveBookmarkNewGroupInput');
     const saveBookmarkContext = document.getElementById('saveBookmarkContext');
     const saveBookmarkConfirmBtn = document.getElementById('saveBookmarkConfirmBtn');
+    const commandPaletteBtn = document.getElementById('commandPaletteBtn');
+    const commandPaletteOverlay = document.getElementById('commandPaletteOverlay');
+    const commandPaletteInput = document.getElementById('commandPaletteInput');
+    const commandPaletteMeta = document.getElementById('commandPaletteMeta');
+    const commandPaletteList = document.getElementById('commandPaletteList');
     const guideMeBtn = document.getElementById('guideMeBtn');
     const guideOverlay = document.getElementById('guideOverlay');
     const guideSpotlight = document.getElementById('guideSpotlight');
@@ -639,8 +1113,12 @@
     const THEME_KEY = 'mdrm-ui-theme';
     const RUN_CONTEXT_KEY = 'mdrm-run-context-v1';
     const LOCAL_RECENT_ITEMS_KEY = 'mdrm-recent-items-v1';
+    const RECENT_SEARCHES_KEY = 'mdrm-recent-searches-v1';
+    const SAVED_SEARCHES_KEY = 'mdrm-saved-searches-v1';
     const GUIDE_SEEN_KEY = 'mdrm-onboarding-guide-seen-v1';
     const RECENT_ITEMS_MAX = 10;
+    const RECENT_SEARCHES_MAX = 12;
+    const SAVED_SEARCHES_MAX = 20;
     let currentUser = null;
     let bookmarkGroups = [];
     let bookmarkItems = [];
@@ -663,6 +1141,11 @@
     let latestRunIdForSelectedReport = null;
     let latestReportTablePayload = null;
     let selectedRunContextId = null;
+    let recentSearches = [];
+    let savedSearches = [];
+    let commandPaletteActions = [];
+    let commandPaletteSelectionIndex = 0;
+    let commandPaletteCloseTimer = null;
     const guideAvatarMap = {
       intro: '/guide/mentor-custom.webp',
       explain: '/guide/mentor-custom.webp',
@@ -691,6 +1174,13 @@
         title: 'Type Your Query',
         body: 'Search by MDRM code, reporting form, or keyword.',
         avatar: 'focus'
+      },
+      {
+        view: 'view-discovery',
+        selector: '#commandPaletteBtn',
+        title: 'Use Command Palette',
+        body: 'Press Cmd/Ctrl + K to open quick actions. Type a report code, MDRM code, or any query and press Enter.',
+        avatar: 'explain'
       },
       {
         view: 'view-bookmarks',
@@ -952,6 +1442,16 @@
       reportMetadataRefreshBtn.disabled = !admin || !selectedReportingForm;
     }
 
+    function syncCopyLinkButtons() {
+      if (copyReportLinkBtn) {
+        copyReportLinkBtn.disabled = !(selectedReportingForm && String(selectedReportingForm).trim());
+      }
+      if (discoveryCopyLinkBtn) {
+        const state = getDiscoverySearchState();
+        discoveryCopyLinkBtn.disabled = !(state.q || state.fc || state.fd || state.fr || state.qf);
+      }
+    }
+
     function setLoadStatus(text, css) {
       loadStatus.textContent = text;
       loadStatus.className = `status ${css}`;
@@ -1044,6 +1544,7 @@
       }
       switchReportTab('');
       syncReportEmptyState();
+      syncCopyLinkButtons();
     }
 
     function syncReportEmptyState() {
@@ -1366,6 +1867,11 @@
       if (!runContextSelect) {
         return;
       }
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlRunRaw = String(urlParams.get('runId') || '').trim();
+      const urlRunId = urlRunRaw && !Number.isNaN(Number(urlRunRaw)) && Number(urlRunRaw) > 0
+        ? Number(urlRunRaw)
+        : null;
       const savedRaw = localStorage.getItem(RUN_CONTEXT_KEY) || '';
       const savedRunId = savedRaw && !Number.isNaN(Number(savedRaw)) && Number(savedRaw) > 0
         ? Number(savedRaw)
@@ -1396,7 +1902,9 @@
         }).join('');
         runContextSelect.innerHTML = options;
         const availableRunIds = new Set(runs.map(run => Number(run.runId || 0)).filter(id => id > 0));
-        if (savedRunId && availableRunIds.has(savedRunId)) {
+        if (urlRunId && availableRunIds.has(urlRunId)) {
+          selectedRunContextId = urlRunId;
+        } else if (savedRunId && availableRunIds.has(savedRunId)) {
           selectedRunContextId = savedRunId;
         } else if (latestRunId && availableRunIds.has(latestRunId)) {
           selectedRunContextId = latestRunId;
@@ -1438,6 +1946,7 @@
         await refreshBookmarks();
       }
       await loadRecentItems();
+      syncCopyLinkButtons();
     }
 
     function setDiscoveryMeta(text) {
@@ -1524,6 +2033,243 @@
     function saveRecentItems() {
       const storage = getRecentStorageForCurrentSession();
       storage.setItem(getRecentItemsStorageKey(), JSON.stringify(recentItems.slice(0, RECENT_ITEMS_MAX)));
+    }
+
+    function getSearchMemoryStorage() {
+      try {
+        return window.localStorage;
+      } catch (_) {
+        return window.localStorage;
+      }
+    }
+
+    function loadSearchMemory() {
+      const storage = getSearchMemoryStorage();
+      try {
+        const parsedRecent = JSON.parse(storage.getItem(RECENT_SEARCHES_KEY) || '[]');
+        recentSearches = Array.isArray(parsedRecent) ? parsedRecent : [];
+      } catch (_) {
+        recentSearches = [];
+      }
+      try {
+        const parsedSaved = JSON.parse(storage.getItem(SAVED_SEARCHES_KEY) || '[]');
+        savedSearches = Array.isArray(parsedSaved) ? parsedSaved : [];
+      } catch (_) {
+        savedSearches = [];
+      }
+      recentSearches = recentSearches
+        .filter(item => item && String(item.query || '').trim())
+        .slice(0, RECENT_SEARCHES_MAX);
+      savedSearches = savedSearches
+        .filter(item => item && item.state && String(item.name || '').trim())
+        .slice(0, SAVED_SEARCHES_MAX);
+    }
+
+    function persistSearchMemory() {
+      const storage = getSearchMemoryStorage();
+      storage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recentSearches.slice(0, RECENT_SEARCHES_MAX)));
+      storage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(savedSearches.slice(0, SAVED_SEARCHES_MAX)));
+    }
+
+    function normalizeSearchQuery(query) {
+      return String(query || '').trim().toLowerCase();
+    }
+
+    function upsertRecentSearch(query) {
+      const cleaned = String(query || '').trim();
+      if (!cleaned) {
+        return;
+      }
+      const normalized = normalizeSearchQuery(cleaned);
+      recentSearches = (recentSearches || []).filter(item => normalizeSearchQuery(item.query) !== normalized);
+      recentSearches.unshift({
+        query: cleaned,
+        ts: Date.now()
+      });
+      recentSearches = recentSearches.slice(0, RECENT_SEARCHES_MAX);
+      persistSearchMemory();
+      renderSearchMemory();
+    }
+
+    function renderRecentSearches() {
+      if (!recentSearchesContainer) {
+        return;
+      }
+      if (!recentSearches.length) {
+        recentSearchesContainer.innerHTML = '<div class="text-muted small px-1">No recent searches yet.</div>';
+        return;
+      }
+      recentSearchesContainer.innerHTML = recentSearches.map((item, index) => `
+        <button class="search-chip" type="button" data-recent-search-index="${index}" title="${escapeHtml(item.query)}">${escapeHtml(item.query)}</button>
+      `).join('');
+    }
+
+    function renderSavedSearches() {
+      if (!savedSearchesContainer) {
+        return;
+      }
+      if (!savedSearches.length) {
+        savedSearchesContainer.innerHTML = '<div class="text-muted small px-1">No saved searches yet.</div>';
+        return;
+      }
+      savedSearchesContainer.innerHTML = savedSearches.map((item, index) => `
+        <div class="search-chip-wrap">
+          <button class="search-chip saved" type="button" data-saved-search-index="${index}" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>
+          <button class="search-chip-remove" type="button" data-remove-saved-search-index="${index}" aria-label="Remove saved search">×</button>
+        </div>
+      `).join('');
+    }
+
+    function renderSearchMemory() {
+      renderRecentSearches();
+      renderSavedSearches();
+      if (clearRecentSearchesBtn) {
+        clearRecentSearchesBtn.disabled = !recentSearches.length;
+      }
+    }
+
+    async function applySearchState(state) {
+      if (!state) {
+        return;
+      }
+      const targetRunId = Number(state.runId || 0);
+      const currentRunId = Number(getRunContextId() || 0);
+      if (targetRunId > 0 && runContextSelect && targetRunId !== currentRunId && Array.from(runContextSelect.options || []).some(option => Number(option.value) === targetRunId)) {
+        runContextSelect.value = String(targetRunId);
+        await applyRunContextChange();
+      }
+      switchView('view-discovery');
+      applyDiscoverySearchState(state);
+      const desiredQuickFilter = String(state.qf || '').trim();
+      const query = String(state.q || '').trim();
+      if (!query) {
+        setDiscoveryResultsVisible(false);
+        syncCopyLinkButtons();
+        return;
+      }
+      await runDiscoverySearch();
+      if (discoveryQuickFilterInput) {
+        discoveryQuickFilterInput.value = desiredQuickFilter;
+      }
+      if (discoveryGridApi) {
+        discoveryGridApi.setGridOption('quickFilterText', desiredQuickFilter);
+        updateDiscoveryMetaCounts();
+      }
+    }
+
+    async function applyRecentSearchByIndex(index) {
+      const entry = recentSearches[index];
+      if (!entry) {
+        return;
+      }
+      await applySearchState({
+        q: String(entry.query || '').trim(),
+        fc: '',
+        fd: '',
+        fr: '',
+        qf: '',
+        runId: getRunContextId()
+      });
+    }
+
+    async function applySavedSearchByIndex(index) {
+      const entry = savedSearches[index];
+      if (!entry || !entry.state) {
+        return;
+      }
+      await applySearchState(entry.state);
+    }
+
+    function clearRecentSearches() {
+      recentSearches = [];
+      persistSearchMemory();
+      renderSearchMemory();
+    }
+
+    function removeSavedSearchByIndex(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= savedSearches.length) {
+        return;
+      }
+      savedSearches.splice(index, 1);
+      persistSearchMemory();
+      renderSearchMemory();
+    }
+
+    function saveCurrentSearch() {
+      const state = getDiscoverySearchState();
+      if (!state.q && !state.fc && !state.fd && !state.fr && !state.qf) {
+        return;
+      }
+      const defaultName = state.q || state.fr || state.fc || 'Saved search';
+      const nameInput = window.prompt('Name this saved search:', defaultName);
+      const name = String(nameInput || '').trim();
+      if (!name) {
+        return;
+      }
+      const normalizedName = name.toLowerCase();
+      const nextEntry = {
+        name,
+        state,
+        ts: Date.now()
+      };
+      savedSearches = (savedSearches || []).filter(item => String(item.name || '').trim().toLowerCase() !== normalizedName);
+      savedSearches.unshift(nextEntry);
+      savedSearches = savedSearches.slice(0, SAVED_SEARCHES_MAX);
+      persistSearchMemory();
+      renderSearchMemory();
+    }
+
+    function showCopyFlash(target, message = 'Link copied') {
+      const el = target && target.getBoundingClientRect ? target : null;
+      if (!el) {
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const flash = document.createElement('div');
+      flash.className = 'copy-flash';
+      flash.textContent = message;
+      flash.style.left = `${Math.round(rect.left + rect.width / 2)}px`;
+      flash.style.top = `${Math.round(rect.top - 8)}px`;
+      document.body.appendChild(flash);
+      window.requestAnimationFrame(() => flash.classList.add('show'));
+      window.setTimeout(() => {
+        flash.classList.remove('show');
+        flash.addEventListener('transitionend', () => flash.remove(), { once: true });
+      }, 780);
+    }
+
+    async function copyText(value, successMessage, triggerElement) {
+      const text = String(value || '').trim();
+      if (!text) {
+        return;
+      }
+      try {
+        if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(text);
+        } else {
+          throw new Error('Clipboard API unavailable');
+        }
+        if (triggerElement) {
+          showCopyFlash(triggerElement, successMessage || 'Link copied');
+        }
+      } catch (_) {
+        try {
+          const fallbackInput = document.createElement('textarea');
+          fallbackInput.value = text;
+          fallbackInput.style.position = 'fixed';
+          fallbackInput.style.left = '-9999px';
+          document.body.appendChild(fallbackInput);
+          fallbackInput.focus();
+          fallbackInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(fallbackInput);
+          if (triggerElement) {
+            showCopyFlash(triggerElement, successMessage || 'Link copied');
+          }
+        } catch (error) {
+          setAuthStatus('Could not copy link.', 'err');
+        }
+      }
     }
 
     async function persistRecentItemToServer(item) {
@@ -2025,20 +2771,56 @@
       }
     }
 
-    function buildDiscoveryReturnUrl() {
+    function getDiscoverySearchState() {
+      return {
+        q: (discoveryQueryInput?.value || '').trim(),
+        fc: (filterCodeInput?.value || '').trim(),
+        fd: (filterDescriptionInput?.value || '').trim(),
+        fr: (filterReportingFormInput?.value || '').trim(),
+        qf: (discoveryQuickFilterInput?.value || '').trim(),
+        runId: getRunContextId()
+      };
+    }
+
+    function applyDiscoverySearchState(state = {}) {
+      if (discoveryQueryInput) discoveryQueryInput.value = String(state.q || '').trim();
+      if (filterCodeInput) filterCodeInput.value = String(state.fc || '').trim();
+      if (filterDescriptionInput) filterDescriptionInput.value = String(state.fd || '').trim();
+      if (filterReportingFormInput) filterReportingFormInput.value = String(state.fr || '').trim();
+      if (discoveryQuickFilterInput) discoveryQuickFilterInput.value = String(state.qf || '').trim();
+    }
+
+    function buildDiscoveryReturnUrl(state = null) {
       const params = new URLSearchParams();
       params.set('view', 'view-discovery');
-      const q = (discoveryQueryInput?.value || '').trim();
-      const codeFilter = (filterCodeInput?.value || '').trim();
-      const descriptionFilter = (filterDescriptionInput?.value || '').trim();
-      const reportingFilter = (filterReportingFormInput?.value || '').trim();
-      const quickFilter = (discoveryQuickFilterInput?.value || '').trim();
+      const nextState = state || getDiscoverySearchState();
+      const q = String(nextState.q || '').trim();
+      const codeFilter = String(nextState.fc || '').trim();
+      const descriptionFilter = String(nextState.fd || '').trim();
+      const reportingFilter = String(nextState.fr || '').trim();
+      const quickFilter = String(nextState.qf || '').trim();
+      const runId = Number(nextState.runId || 0);
       if (q) params.set('q', q);
       if (codeFilter) params.set('fc', codeFilter);
       if (descriptionFilter) params.set('fd', descriptionFilter);
       if (reportingFilter) params.set('fr', reportingFilter);
       if (quickFilter) params.set('qf', quickFilter);
+      if (runId > 0) params.set('runId', String(runId));
       return `/index.html?${params.toString()}`;
+    }
+
+    function buildReportDeepLink(reportingForm) {
+      const form = String(reportingForm || '').trim();
+      const params = new URLSearchParams();
+      params.set('view', 'view-reporting');
+      if (form) {
+        params.set('report', form);
+      }
+      const runId = getRunContextId();
+      if (runId) {
+        params.set('runId', String(runId));
+      }
+      return `${window.location.origin}/index.html?${params.toString()}`;
     }
 
     function buildMdrmProfileUrl(mdrmCode) {
@@ -2743,8 +3525,10 @@
       const query = (discoveryQueryInput.value || '').trim();
       if (!query) {
         setDiscoveryResultsVisible(false);
+        syncCopyLinkButtons();
         return;
       }
+      upsertRecentSearch(query);
       discoverySearchBtn.disabled = true;
       setDiscoveryResultsVisible(true);
       setDiscoveryMeta('Searching...');
@@ -2769,6 +3553,7 @@
         setDiscoveryMeta(`Search failed: ${error.message}`);
       } finally {
         discoverySearchBtn.disabled = false;
+        syncCopyLinkButtons();
       }
     }
 
@@ -3457,6 +4242,7 @@
         applyReportStatusFilterButtons();
         updateSelectedReportStatusPill(selectedReportingForm || '');
         filterAndRenderReportList();
+        syncCopyLinkButtons();
       } catch (error) {
         console.error('Failed to load report list', error);
       } finally {
@@ -3478,6 +4264,7 @@
       setReportingBusy(true);
       selectedReportLabel.textContent = reportingForm;
       updateSelectedReportStatusPill(reportingForm);
+      syncCopyLinkButtons();
       syncReportMetadataRefreshAccess();
       syncReportEmptyState();
       clearReportData();
@@ -3554,6 +4341,10 @@
         return;
       }
       event.preventDefault();
+      const reportQuery = String(reportSearchInput.value || '').trim();
+      if (reportQuery) {
+        upsertRecentSearch(reportQuery);
+      }
       filterAndRenderReportList();
       if (leftNavMode.value !== 'reports') {
         return;
@@ -3581,6 +4372,7 @@
         syncReportMetadataRefreshAccess();
       }
       filterAndRenderReportList();
+      syncCopyLinkButtons();
     });
 
     [reportFilterAllBtn, reportFilterActiveBtn, reportFilterInactiveBtn].forEach(button => {
@@ -3602,6 +4394,14 @@
 
     if (reportMetadataRefreshBtn) {
       reportMetadataRefreshBtn.addEventListener('click', refreshSelectedReportMetadata);
+    }
+    if (copyReportLinkBtn) {
+      copyReportLinkBtn.addEventListener('click', () => {
+        if (!selectedReportingForm) {
+          return;
+        }
+        copyText(buildReportDeepLink(selectedReportingForm), 'Link copied', copyReportLinkBtn);
+      });
     }
     if (reportKpiRunsTile) {
       reportKpiRunsTile.addEventListener('click', () => {
@@ -3704,13 +4504,60 @@
 
     discoverySearchBtn.addEventListener('click', runDiscoverySearch);
     [filterCodeInput, filterDescriptionInput, filterReportingFormInput].forEach(input => {
-      input.addEventListener('input', () => renderDiscoveryRows(lastDiscoveryRows));
+      input.addEventListener('input', () => {
+        renderDiscoveryRows(lastDiscoveryRows);
+        syncCopyLinkButtons();
+      });
     });
     if (discoveryQuickFilterInput) {
       discoveryQuickFilterInput.addEventListener('input', () => {
         if (discoveryGridApi) {
           discoveryGridApi.setGridOption('quickFilterText', discoveryQuickFilterInput.value || '');
           updateDiscoveryMetaCounts();
+        }
+        syncCopyLinkButtons();
+      });
+    }
+    if (discoveryCopyLinkBtn) {
+      discoveryCopyLinkBtn.addEventListener('click', () => {
+        copyText(`${window.location.origin}${buildDiscoveryReturnUrl()}`, 'Link copied', discoveryCopyLinkBtn);
+      });
+    }
+    if (saveCurrentSearchBtn) {
+      saveCurrentSearchBtn.addEventListener('click', saveCurrentSearch);
+    }
+    if (clearRecentSearchesBtn) {
+      clearRecentSearchesBtn.addEventListener('click', clearRecentSearches);
+    }
+    if (recentSearchesContainer) {
+      recentSearchesContainer.addEventListener('click', event => {
+        const button = event.target.closest('[data-recent-search-index]');
+        if (!button) {
+          return;
+        }
+        const index = Number(button.dataset.recentSearchIndex);
+        if (!Number.isNaN(index)) {
+          applyRecentSearchByIndex(index).catch(() => {});
+        }
+      });
+    }
+    if (savedSearchesContainer) {
+      savedSearchesContainer.addEventListener('click', event => {
+        const removeButton = event.target.closest('[data-remove-saved-search-index]');
+        if (removeButton) {
+          const removeIndex = Number(removeButton.dataset.removeSavedSearchIndex);
+          if (!Number.isNaN(removeIndex)) {
+            removeSavedSearchByIndex(removeIndex);
+          }
+          return;
+        }
+        const applyButton = event.target.closest('[data-saved-search-index]');
+        if (!applyButton) {
+          return;
+        }
+        const applyIndex = Number(applyButton.dataset.savedSearchIndex);
+        if (!Number.isNaN(applyIndex)) {
+          applySavedSearchByIndex(applyIndex).catch(() => {});
         }
       });
     }
@@ -3720,6 +4567,7 @@
         runDiscoverySearch();
       }
     });
+    discoveryQueryInput.addEventListener('input', syncCopyLinkButtons);
 
     authLoginBtn.addEventListener('click', login);
     authRegisterBtn.addEventListener('click', register);
@@ -3945,6 +4793,33 @@
     if (guideMeBtn) {
       guideMeBtn.addEventListener('click', () => openGuide(0));
     }
+    if (commandPaletteBtn) {
+      commandPaletteBtn.addEventListener('click', () => openCommandPalette(''));
+    }
+    if (commandPaletteInput) {
+      commandPaletteInput.addEventListener('input', () => {
+        refreshCommandPalette(commandPaletteInput.value || '');
+      });
+    }
+    if (commandPaletteList) {
+      commandPaletteList.addEventListener('click', event => {
+        const button = event.target.closest('.command-palette-item');
+        if (!button) {
+          return;
+        }
+        const index = Number(button.dataset.index);
+        if (!Number.isNaN(index)) {
+          executeCommandPaletteSelection(index).catch(() => {});
+        }
+      });
+    }
+    if (commandPaletteOverlay) {
+      commandPaletteOverlay.addEventListener('click', event => {
+        if (event.target === commandPaletteOverlay) {
+          closeCommandPalette();
+        }
+      });
+    }
     if (guideNextBtn) {
       guideNextBtn.addEventListener('click', nextGuideStep);
     }
@@ -3964,6 +4839,38 @@
     window.addEventListener('resize', positionGuide);
     window.addEventListener('scroll', positionGuide, true);
     document.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        if (isCommandPaletteOpen()) {
+          closeCommandPalette();
+        } else {
+          openCommandPalette('');
+        }
+        return;
+      }
+      if (isCommandPaletteOpen()) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeCommandPalette();
+          return;
+        }
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveCommandPaletteSelection(1);
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveCommandPaletteSelection(-1);
+          return;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          executeCommandPaletteSelection().catch(() => {});
+          return;
+        }
+        return;
+      }
       if (guideOverlay && !guideOverlay.hidden && event.key === 'Escape') {
         closeGuide(true);
       }
@@ -3985,15 +4892,20 @@
     ensureCsrfToken().catch(() => {});
     setPasswordVisibility(false);
     setAuthMode('');
+    loadSearchMemory();
+    renderSearchMemory();
     applyReportStatusFilterButtons();
     switchView(getInitialViewFromUrl());
     syncReportEmptyState();
+    syncCopyLinkButtons();
     loadRecentItems();
     refreshAuthState();
-    loadRunContextOptions().catch(() => {}).finally(() => {
-      applyDiscoveryStateFromUrl().catch(() => {});
-      refreshForms();
-      refreshFileMetrics();
+    loadRunContextOptions().catch(() => {}).finally(async () => {
+      await applyDiscoveryStateFromUrl().catch(() => {});
+      await refreshForms();
+      await applyReportingStateFromUrl().catch(() => {});
+      await refreshFileMetrics();
+      syncCopyLinkButtons();
     });
     updateLoadButtonStates();
   </script>

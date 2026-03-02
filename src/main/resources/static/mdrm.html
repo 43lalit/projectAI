@@ -113,7 +113,15 @@
 
       <div class="element-head mt-3">
         <div class="element-main">
-          <h2><span class="mono" id="elementCodeLabel">MDRM</span></h2>
+          <div class="d-flex align-items-center gap-2">
+            <h2 class="mb-0"><span class="mono" id="elementCodeLabel">MDRM</span></h2>
+            <button id="copyMdrmLinkBtn" class="btn btn-sm btn-outline-secondary link-action-btn" type="button" disabled aria-label="Share MDRM link" title="Share MDRM link">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M10 14l4-4m-6.5 8.5l-2 2a3 3 0 104.2 4.3l2-2m5-13l2-2a3 3 0 10-4.2-4.3l-2 2m-2.3 8.3l4.6-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Share</span>
+            </button>
+          </div>
           <p id="elementDefinition" class="muted mb-0">Detailed timeline, associations, and related relationships for a single MDRM.</p>
           <div id="elementTagRow" class="tag-row mt-3"></div>
         </div>
@@ -176,6 +184,7 @@
     const relatedMdrmContainer = document.getElementById('relatedMdrmContainer');
     const fieldChangesContainer = document.getElementById('fieldChangesContainer');
     const backToJourneyLink = document.getElementById('backToJourneyLink');
+    const copyMdrmLinkBtn = document.getElementById('copyMdrmLinkBtn');
 
     const profileMenuBtn = document.getElementById('profileMenuBtn');
     const profileMenu = document.getElementById('profileMenu');
@@ -384,6 +393,78 @@
       recordRecentItemOnServer(entry, runId).catch(() => {
         // best-effort sync; local entry is already saved
       });
+    }
+
+    function buildCurrentMdrmDeepLink() {
+      const code = String(crumbMdrmCode?.textContent || '').trim();
+      if (!code || code === '-') {
+        return '';
+      }
+      const params = new URLSearchParams();
+      params.set('mdrm', code);
+      const runId = resolveEffectiveRunContext();
+      if (runId) {
+        params.set('runId', String(runId));
+      }
+      const currentParams = new URLSearchParams(window.location.search);
+      const returnTo = resolveReturnUrl(currentParams.get('returnTo'));
+      if (returnTo) {
+        params.set('returnTo', returnTo);
+      }
+      return `${window.location.origin}/mdrm.html?${params.toString()}`;
+    }
+
+    function showCopyFlash(target, message = 'Link copied') {
+      const el = target && target.getBoundingClientRect ? target : null;
+      if (!el) {
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const flash = document.createElement('div');
+      flash.className = 'copy-flash';
+      flash.textContent = message;
+      flash.style.left = `${Math.round(rect.left + rect.width / 2)}px`;
+      flash.style.top = `${Math.round(rect.top - 8)}px`;
+      document.body.appendChild(flash);
+      window.requestAnimationFrame(() => flash.classList.add('show'));
+      window.setTimeout(() => {
+        flash.classList.remove('show');
+        flash.addEventListener('transitionend', () => flash.remove(), { once: true });
+      }, 780);
+    }
+
+    async function copyText(value, successMessage, triggerElement) {
+      const text = String(value || '').trim();
+      if (!text) {
+        return;
+      }
+      try {
+        if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(text);
+        } else {
+          throw new Error('Clipboard API unavailable');
+        }
+        if (triggerElement) {
+          showCopyFlash(triggerElement, successMessage || 'Link copied');
+        }
+      } catch (_) {
+        try {
+          const fallbackInput = document.createElement('textarea');
+          fallbackInput.value = text;
+          fallbackInput.style.position = 'fixed';
+          fallbackInput.style.left = '-9999px';
+          document.body.appendChild(fallbackInput);
+          fallbackInput.focus();
+          fallbackInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(fallbackInput);
+          if (triggerElement) {
+            showCopyFlash(triggerElement, successMessage || 'Link copied');
+          }
+        } catch (error) {
+          setDetailStatus('Could not copy profile link.', 'err');
+        }
+      }
     }
 
     function buildMdrmProfileLink(mdrmCode) {
@@ -1012,6 +1093,9 @@
       elementCodeLabel.textContent = code;
       crumbMdrmCode.textContent = code;
       elementDefinition.textContent = `Item code family ${profile.itemCode || '-'} with ${profile.timelineCount || 0} timeline events and ${profile.associationCount || 0} report mappings.`;
+      if (copyMdrmLinkBtn) {
+        copyMdrmLinkBtn.disabled = !code || code === '-';
+      }
 
       elementTagRow.innerHTML = `
         <span class="tag">Status: ${statusCapsule(profile.latestStatus || 'Unknown')}</span>
@@ -1080,6 +1164,12 @@
       themeIconBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      });
+    }
+    if (copyMdrmLinkBtn) {
+      copyMdrmLinkBtn.addEventListener('click', () => {
+        const link = buildCurrentMdrmDeepLink();
+        copyText(link, 'Link copied', copyMdrmLinkBtn);
       });
     }
 
