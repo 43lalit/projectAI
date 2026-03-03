@@ -52,8 +52,8 @@ body {
 
 .shell {
   width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   padding: 18px;
   display: grid;
   gap: 14px;
@@ -135,27 +135,32 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.menu::-webkit-scrollbar {
+  display: none;
 }
 
 .menu-link {
   text-decoration: none;
   color: var(--muted);
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: color-mix(in oklab, var(--panel-soft) 90%, transparent);
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
   padding: 8px 13px;
   font-size: 0.82rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .menu-link:hover {
   color: var(--text);
   background: color-mix(in oklab, var(--brand-soft) 58%, var(--panel-soft));
-  border-color: color-mix(in oklab, var(--brand) 45%, var(--line));
   transform: translateY(-1px);
 }
 
@@ -179,10 +184,9 @@ body {
 }
 
 .menu-link.active {
-  border-color: color-mix(in oklab, var(--brand) 70%, var(--line));
   color: var(--text);
-  background: color-mix(in oklab, var(--brand-soft) 88%, var(--panel));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand) 20%, transparent);
+  background: color-mix(in oklab, var(--brand-soft) 62%, var(--panel));
+  box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--brand) 65%, transparent);
 }
 
 .menu-link.active .menu-link-icon {
@@ -251,9 +255,9 @@ body {
 .theme-icon-btn {
   width: 36px;
   height: 36px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 10px;
-  background: var(--panel-soft);
+  background: transparent;
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1;
@@ -264,7 +268,8 @@ body {
 }
 
 .theme-icon-btn:hover {
-  border-color: color-mix(in oklab, var(--brand) 45%, var(--line));
+  border: 0;
+  background: transparent;
 }
 
 .profile-btn {
@@ -428,9 +433,9 @@ body {
 }
 
 .guide-btn {
-  border: 1px solid color-mix(in oklab, var(--brand) 40%, var(--line));
+  border: 0;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--brand-soft) 72%, var(--panel));
+  background: transparent;
   color: var(--text);
   padding: 7px 12px;
   font-size: 0.76rem;
@@ -440,14 +445,14 @@ body {
 }
 
 .guide-btn:hover {
-  border-color: color-mix(in oklab, var(--brand) 62%, var(--line));
-  background: color-mix(in oklab, var(--brand-soft) 85%, var(--panel));
+  border: 0;
+  background: transparent;
 }
 
 .command-btn {
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 999px;
-  background: var(--panel-soft);
+  background: transparent;
   color: var(--text);
   padding: 7px 10px;
   font-size: 0.74rem;
@@ -471,8 +476,8 @@ body {
 }
 
 .command-btn:hover {
-  border-color: color-mix(in oklab, var(--brand) 54%, var(--line));
-  background: color-mix(in oklab, var(--brand-soft) 65%, var(--panel-soft));
+  border: 0;
+  background: transparent;
 }
 
 .command-palette-overlay {
@@ -725,8 +730,8 @@ body {
 
 :root[data-theme="dark"] .guide-btn {
   color: #dbe9ff;
-  border-color: color-mix(in oklab, var(--brand) 54%, var(--line));
-  background: color-mix(in oklab, var(--brand-soft) 36%, var(--panel-soft));
+  border: 0;
+  background: transparent;
 }
 
 :root[data-theme="dark"] .guide-focus-target {
@@ -1265,36 +1270,70 @@ body {
   display: none;
 }
 
-.bookmark-box {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-soft);
-  padding: 10px;
-  max-height: 220px;
-  overflow: auto;
-}
-
 .bookmark-list {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
 }
 
 .bookmark-item {
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
+  border-radius: 12px;
   background: var(--panel);
-  padding: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+}
+
+.bookmark-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bookmark-item-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: color-mix(in oklab, var(--brand) 72%, var(--text));
+}
+
+.bookmark-item-time {
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .bookmark-title {
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
+  line-height: 1.2;
+}
+
+.bookmark-title a {
+  color: inherit;
 }
 
 .bookmark-subtitle {
   font-size: 0.78rem;
   color: var(--muted);
-  margin-top: 4px;
+}
+
+.bookmark-note {
+  font-size: 0.76rem;
+  color: color-mix(in oklab, var(--muted) 88%, var(--text));
+  line-height: 1.3;
+}
+
+.bookmark-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.bookmark-actions-row .bookmark-move-group {
+  flex: 1 1 150px;
 }
 
 .bookmark-star-btn {
@@ -1331,8 +1370,130 @@ body {
   min-width: 0;
 }
 
-.bookmarks-main .bookmark-box {
+.bookmarks-layout.bookmarks-redesign {
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  min-height: 620px;
+}
+
+.bookmark-pane-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bookmark-pane-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.bookmark-pane-head p {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+}
+
+.bookmark-create-row {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.bookmark-group-tools {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.bookmark-group-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.bookmark-groups-list {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--panel-soft) 86%, var(--panel));
+  padding: 8px;
+  max-height: calc(100vh - 420px);
+  min-height: 180px;
+  overflow: auto;
+}
+
+.bookmark-group-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.bookmark-group-chip {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bookmark-group-chip:hover {
+  border-color: color-mix(in oklab, var(--brand) 48%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 40%, var(--panel));
+}
+
+.bookmark-group-chip.active {
+  border-color: color-mix(in oklab, var(--brand) 68%, var(--line));
+  background: color-mix(in oklab, var(--brand-soft) 64%, var(--panel));
+}
+
+.bookmark-group-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.bookmark-group-count {
+  border: 1px solid color-mix(in oklab, var(--brand) 28%, var(--line));
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.7rem;
+  color: color-mix(in oklab, var(--brand) 74%, var(--text));
+}
+
+.bookmark-toolbar {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 8px;
+}
+
+.bookmark-items-canvas {
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  padding: 4px 2px;
   max-height: calc(100vh - 360px);
+  overflow: auto;
+}
+
+.bookmark-empty {
+  border: 1px dashed color-mix(in oklab, var(--muted) 35%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--panel) 65%, transparent);
+  color: var(--muted);
+  padding: 14px 12px;
+  font-size: 0.84rem;
+}
+
+.bookmark-empty-main {
+  min-height: 170px;
+  display: grid;
+  place-items: center;
+  text-align: center;
 }
 
 .recent-strip {
@@ -1340,24 +1501,25 @@ body {
 }
 
 .recent-items-row {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 6px;
+  overflow: visible;
   padding: 6px 2px 2px;
 }
 
 .recent-item-card {
   position: relative;
-  min-width: 190px;
-  max-width: 220px;
+  min-width: 0;
+  max-width: none;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
   color: var(--text);
-  padding: 10px;
+  padding: 8px 7px;
   text-align: left;
   display: grid;
-  gap: 5px;
+  gap: 4px;
   cursor: pointer;
   transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
 }
@@ -1375,12 +1537,12 @@ body {
 
 .recent-bookmark-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 5px;
+  right: 5px;
   border: 0;
   background: transparent;
   color: color-mix(in oklab, var(--muted) 82%, transparent);
-  font-size: 1rem;
+  font-size: 0.86rem;
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -1399,18 +1561,18 @@ body {
 }
 
 .recent-item-type {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .recent-item-type-icon {
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   line-height: 1;
 }
 
@@ -1423,7 +1585,7 @@ body {
 }
 
 .recent-item-title {
-  font-size: 0.86rem;
+  font-size: 0.74rem;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1431,7 +1593,7 @@ body {
 }
 
 .recent-item-subtitle {
-  font-size: 0.75rem;
+  font-size: 0.67rem;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2290,6 +2452,45 @@ input:disabled {
   color: var(--muted) !important;
 }
 
+/* Global square-corner mode across all application screens. */
+body :where(
+  .panel,
+  .card-shell,
+  .menu-link,
+  .logo,
+  .command-btn,
+  .guide-btn,
+  .theme-icon-btn,
+  .profile-btn,
+  .profile-menu,
+  .status,
+  .kpi,
+  .tag,
+  .search-chip,
+  .bookmark-item,
+  .bookmark-group-chip,
+  .bookmark-items-canvas,
+  .bookmark-groups-list,
+  .bookmark-empty,
+  .report-status-pill,
+  .report-status-tab,
+  .tab-chip,
+  .table-shell,
+  .recent-item-card,
+  .recent-bookmark-btn,
+  .command-palette-shell,
+  .guide-card,
+  .guide-spotlight,
+  .modal-content,
+  .accordion-item,
+  .btn,
+  .form-control,
+  .form-select,
+  .form-check-input
+) {
+  border-radius: 0 !important;
+}
+
 @media (max-width: 1024px) {
   .topbar {
     position: static;
@@ -2349,6 +2550,23 @@ input:disabled {
     min-height: auto;
   }
 
+  .bookmark-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .bookmark-actions-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bookmark-groups-list,
+  .bookmark-items-canvas {
+    max-height: none;
+  }
+
+  .recent-items-row {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
   .discovery-grid-headline {
     flex-wrap: wrap;
   }
@@ -2388,5 +2606,11 @@ input:disabled {
 
   .relationship-graph {
     height: 520px;
+  }
+}
+
+@media (max-width: 640px) {
+  .recent-items-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

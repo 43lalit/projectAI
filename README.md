@@ -142,6 +142,27 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - MDRM profile page has share link copy (mdrm/run-context/return-journey aware).
   - Copy interactions show quick floating "Link copied" confirmation near the clicked control.
 
+## Latest Updates (2026-03-03)
+- Header/action controls visual cleanup:
+  - Removed border/background treatment from `Command`, `Quick Tour`, and theme toggle controls.
+  - Removed remaining dark-theme shaded background for `Quick Tour`.
+- Global shell/layout refinements:
+  - Full-width application layout behavior consolidated.
+  - Square-corner styling applied consistently across screens.
+- Bookmarks UX refresh (bookmarks view only):
+  - Reduced visual clutter by trimming extra sectional borders.
+  - Improved card density so more bookmark cards fit side-by-side.
+- Bookmarking coverage expanded:
+  - Bookmark toggle on MDRM profile page.
+  - Bookmark toggle for reports in reporting view.
+  - Bookmark toggle for MDRMs directly from reporting AG Grid tables.
+- Recent items panel refinement:
+  - Adjusted card sizing/layout to avoid horizontal scrollbar for the 10-item view.
+- Functional specification artifacts generated from repository and stored in `docs/`:
+  - `docs/ProjectAI_Functional_Specification.docx`
+  - `docs/ProjectAI_Functional_Specification.html`
+  - `docs/ProjectAI_Functional_Specification.txt`
+
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
 2. Discover files by pattern `mdrm.migration-file-pattern` and keep only `MDRM_mmyy.csv`
@@ -213,6 +234,7 @@ Current ingestion flow (`POST /api/mdrm/load`):
 - Static UI: `src/main/resources/static`
 - Tests: `src/test/java`
 - Prompt transcripts: `src/main/resources/prompts`
+- Session prompt logs: `prompts`
 
 ## Configuration
 Set in `application.properties`:

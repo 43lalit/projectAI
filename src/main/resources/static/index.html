@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="/css/mdrm-console.css">
 </head>
 <body class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100">
-  <main class="shell !max-w-7xl !px-4 md:!px-6 !py-5">
+  <main class="shell !px-4 md:!px-6 !py-5">
     <header class="topbar panel !rounded-2xl !border-slate-200/80 !bg-white/90 !shadow-soft dark:!border-slate-700 dark:!bg-slate-900/90">
       <a class="brand brand-link" href="/index.html?view=view-discovery" aria-label="Go to home page">
         <div class="logo" aria-hidden="true"></div>
@@ -47,25 +47,25 @@
         </div>
       </a>
       <nav class="menu" aria-label="MDRM Menu">
-        <a id="menu-discovery" class="menu-link active !rounded-full !px-4 !py-2 !text-xs !font-semibold" data-view="view-discovery" href="#">
+        <a id="menu-discovery" class="menu-link active !px-4 !py-2 !text-xs !font-semibold" data-view="view-discovery" href="#">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M11 4a7 7 0 105.2 11.7l3.6 3.6 1.4-1.4-3.6-3.6A7 7 0 0011 4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
           <span class="menu-link-label">Discovery</span>
         </a>
-        <a id="menu-bookmarks" class="menu-link !rounded-full !px-4 !py-2 !text-xs !font-semibold" data-view="view-bookmarks" href="#">
+        <a id="menu-bookmarks" class="menu-link !px-4 !py-2 !text-xs !font-semibold" data-view="view-bookmarks" href="#">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 17.3l-5.2 3 1.2-5.9-4.4-4.2 6-.7L12 4l2.4 5.5 6 .7-4.4 4.2 1.2 5.9-5.2-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
           </span>
           <span class="menu-link-label">Bookmarks</span>
         </a>
-        <a id="menu-reporting" class="menu-link !rounded-full !px-4 !py-2 !text-xs !font-semibold" data-view="view-reporting" href="#">
+        <a id="menu-reporting" class="menu-link !px-4 !py-2 !text-xs !font-semibold" data-view="view-reporting" href="#">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 20.5h17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </span>
           <span class="menu-link-label">Reports</span>
         </a>
-        <a id="menu-load" class="menu-link !rounded-full !px-4 !py-2 !text-xs !font-semibold" data-view="view-load" href="#">
+        <a id="menu-load" class="menu-link !px-4 !py-2 !text-xs !font-semibold" data-view="view-load" href="#">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
@@ -224,40 +224,52 @@
     </section>
 
     <section id="view-bookmarks" class="panel view">
-      <div class="bookmarks-layout">
+      <div class="bookmarks-layout bookmarks-redesign">
         <aside class="bookmarks-sidebar card-shell p-3">
-          <div class="sectionTitle">
-            <h3>Bookmarks</h3>
-            <p id="bookmarkUserLabel" class="muted">Login required</p>
-          </div>
-          <div class="row g-2 mt-1">
-            <div class="col-8">
-              <input id="newGroupNameInput" class="form-control" type="text" placeholder="New group name">
-            </div>
-            <div class="col-4">
-              <button id="createGroupBtn" class="btn btn-outline-primary w-100" type="button" disabled>Create</button>
-            </div>
-            <div class="col-12">
-              <select id="bookmarkFilterGroupSelect" class="form-select" disabled>
-                <option value="">Browse all groups</option>
-              </select>
-            </div>
-            <div class="col-8">
-              <input id="renameGroupNameInput" class="form-control" type="text" placeholder="Rename selected group">
-            </div>
-            <div class="col-4 d-flex gap-1">
-              <button id="renameGroupBtn" class="btn btn-outline-secondary w-100" type="button" disabled>Rename</button>
-              <button id="deleteGroupBtn" class="btn btn-outline-danger w-100" type="button" disabled>Delete</button>
+          <div class="bookmark-pane-head">
+            <div>
+              <h3>My Collections</h3>
+              <p id="bookmarkUserLabel" class="muted">Login required</p>
             </div>
           </div>
-          <div id="bookmarkGroupsContainer" class="bookmark-box mt-3"></div>
+          <div class="bookmark-create-row">
+            <input id="newGroupNameInput" class="form-control" type="text" placeholder="Create a collection">
+            <button id="createGroupBtn" class="btn btn-primary" type="button" disabled>New</button>
+          </div>
+          <div class="bookmark-group-tools">
+            <select id="bookmarkFilterGroupSelect" class="form-select form-select-sm" disabled>
+              <option value="">All collections</option>
+            </select>
+            <input id="renameGroupNameInput" class="form-control form-control-sm" type="text" placeholder="Rename selected collection">
+            <div class="bookmark-group-actions">
+              <button id="renameGroupBtn" class="btn btn-outline-secondary btn-sm w-100" type="button" disabled>Rename</button>
+              <button id="deleteGroupBtn" class="btn btn-outline-danger btn-sm w-100" type="button" disabled>Delete</button>
+            </div>
+          </div>
+          <div id="bookmarkGroupsContainer" class="bookmark-groups-list mt-2"></div>
         </aside>
         <section class="bookmarks-main card-shell p-3">
-          <div class="sectionTitle compact">
-            <h3>Saved MDRMs</h3>
-            <p>Browse and manage saved items.</p>
+          <div class="bookmark-pane-head">
+            <div>
+              <h3>Saved Items</h3>
+              <p>Search, sort, and manage your bookmarks for this run context.</p>
+            </div>
           </div>
-          <div id="bookmarkItemsContainer" class="bookmark-box mt-2"></div>
+          <div class="bookmark-toolbar">
+            <input id="bookmarkSearchInput" class="form-control form-control-sm" type="text" placeholder="Search bookmarks...">
+            <select id="bookmarkTypeFilterSelect" class="form-select form-select-sm">
+              <option value="all">All types</option>
+              <option value="mdrm">MDRM</option>
+              <option value="report">Report</option>
+              <option value="search">Search</option>
+            </select>
+            <select id="bookmarkSortSelect" class="form-select form-select-sm">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">Title A-Z</option>
+            </select>
+          </div>
+          <div id="bookmarkItemsContainer" class="bookmark-items-canvas mt-2"></div>
         </section>
       </div>
     </section>
@@ -330,6 +342,10 @@
               </div>
               <div class="d-flex gap-2 align-items-start">
                 <button id="reportMetadataRefreshBtn" class="btn btn-sm btn-outline-primary" type="button" style="display:none;" disabled>Refresh Metadata</button>
+                <button id="bookmarkReportBtn" class="btn btn-sm btn-outline-warning link-action-btn" type="button" disabled aria-label="Bookmark report" title="Bookmark report">
+                  <span id="bookmarkReportBtnIcon" aria-hidden="true">☆</span>
+                  <span>Bookmark</span>
+                </button>
                 <button id="copyReportLinkBtn" class="btn btn-sm btn-outline-secondary link-action-btn" type="button" disabled aria-label="Share report link" title="Share report link">
                   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M10 14l4-4m-6.5 8.5l-2 2a3 3 0 104.2 4.3l2-2m5-13l2-2a3 3 0 10-4.2-4.3l-2 2m-2.3 8.3l4.6-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1000,6 +1016,8 @@
     const reportDescriptionLabel = document.getElementById('reportDescriptionLabel');
     const reportDescriptionToggleBtn = document.getElementById('reportDescriptionToggleBtn');
     const reportSourceLink = document.getElementById('reportSourceLink');
+    const bookmarkReportBtn = document.getElementById('bookmarkReportBtn');
+    const bookmarkReportBtnIcon = document.getElementById('bookmarkReportBtnIcon');
     const copyReportLinkBtn = document.getElementById('copyReportLinkBtn');
     const reportHeaderStatusPill = document.getElementById('reportHeaderStatusPill');
     const reportEmptyState = document.getElementById('reportEmptyState');
@@ -1083,6 +1101,9 @@
     const deleteGroupBtn = document.getElementById('deleteGroupBtn');
     const bookmarkGroupsContainer = document.getElementById('bookmarkGroupsContainer');
     const bookmarkItemsContainer = document.getElementById('bookmarkItemsContainer');
+    const bookmarkSearchInput = document.getElementById('bookmarkSearchInput');
+    const bookmarkTypeFilterSelect = document.getElementById('bookmarkTypeFilterSelect');
+    const bookmarkSortSelect = document.getElementById('bookmarkSortSelect');
     const saveBookmarkModalEl = document.getElementById('saveBookmarkModal');
     const saveBookmarkGroupSelect = document.getElementById('saveBookmarkGroupSelect');
     const saveBookmarkNewGroupWrap = document.getElementById('saveBookmarkNewGroupWrap');
@@ -1446,6 +1467,7 @@
       if (copyReportLinkBtn) {
         copyReportLinkBtn.disabled = !(selectedReportingForm && String(selectedReportingForm).trim());
       }
+      updateReportBookmarkButton();
       if (discoveryCopyLinkBtn) {
         const state = getDiscoverySearchState();
         discoveryCopyLinkBtn.disabled = !(state.q || state.fc || state.fd || state.fr || state.qf);
@@ -2358,29 +2380,98 @@
       updateRecentPanelVisibility();
     }
 
+    function isBookmarkedByTypeAndKey(itemType, itemKey) {
+      const targetType = String(itemType || '').trim().toLowerCase();
+      const targetKey = String(itemKey || '').trim().toLowerCase();
+      if (!targetType || !targetKey) {
+        return false;
+      }
+      return (bookmarkItems || []).some(bookmark =>
+        String(bookmark.itemType || '').trim().toLowerCase() === targetType
+        && String(bookmark.itemKey || '').trim().toLowerCase() === targetKey
+      );
+    }
+
+    function findBookmarkIdByTypeAndKey(itemType, itemKey) {
+      const targetType = String(itemType || '').trim().toLowerCase();
+      const targetKey = String(itemKey || '').trim().toLowerCase();
+      if (!targetType || !targetKey) {
+        return null;
+      }
+      const bookmark = (bookmarkItems || []).find(entry =>
+        String(entry.itemType || '').trim().toLowerCase() === targetType
+        && String(entry.itemKey || '').trim().toLowerCase() === targetKey
+      );
+      return bookmark ? Number(bookmark.bookmarkId) : null;
+    }
+
+    function removeBookmarkByTypeAndKey(itemType, itemKey) {
+      const bookmarkId = findBookmarkIdByTypeAndKey(itemType, itemKey);
+      if (!bookmarkId) {
+        return Promise.resolve();
+      }
+      return removeBookmark(bookmarkId);
+    }
+
+    function isSelectedReportBookmarked() {
+      const report = String(selectedReportingForm || '').trim();
+      return report ? isBookmarkedByTypeAndKey('report', report) : false;
+    }
+
+    function updateReportBookmarkButton() {
+      if (!bookmarkReportBtn) {
+        return;
+      }
+      const hasReport = !!(selectedReportingForm && String(selectedReportingForm).trim());
+      const bookmarked = hasReport && isSelectedReportBookmarked();
+      bookmarkReportBtn.disabled = !hasReport;
+      bookmarkReportBtn.classList.toggle('btn-warning', bookmarked);
+      bookmarkReportBtn.classList.toggle('btn-outline-warning', !bookmarked);
+      if (bookmarkReportBtnIcon) {
+        bookmarkReportBtnIcon.textContent = bookmarked ? '★' : '☆';
+      }
+      bookmarkReportBtn.title = bookmarked ? 'Remove bookmark' : 'Bookmark report';
+      bookmarkReportBtn.setAttribute('aria-label', bookmarked ? 'Remove report bookmark' : 'Bookmark report');
+    }
+
+    function refreshReportingBookmarkFlags() {
+      updateReportBookmarkButton();
+      if (activeMdrmGridApi) {
+        const rows = [];
+        activeMdrmGridApi.forEachNode(node => {
+          const code = String(node.data && node.data.mdrmCode ? node.data.mdrmCode : '').trim();
+          rows.push({
+            ...(node.data || {}),
+            bookmarked: isBookmarkedByTypeAndKey('mdrm', code)
+          });
+        });
+        activeMdrmGridApi.setGridOption('rowData', rows);
+      }
+      if (netChangeGridApi) {
+        const rows = [];
+        netChangeGridApi.forEachNode(node => {
+          const code = String(node.data && node.data.mdrmCode ? node.data.mdrmCode : '').trim();
+          rows.push({
+            ...(node.data || {}),
+            bookmarked: isBookmarkedByTypeAndKey('mdrm', code)
+          });
+        });
+        netChangeGridApi.setGridOption('rowData', rows);
+      }
+    }
+
     function isRecentItemBookmarked(item) {
       if (!item) {
         return false;
       }
-      const targetType = String(item.type || '').trim().toLowerCase();
-      const targetKey = String(item.key || '').trim();
-      return (bookmarkItems || []).some(bookmark =>
-        String(bookmark.itemType || '').trim().toLowerCase() === targetType
-        && String(bookmark.itemKey || '').trim() === targetKey
-      );
+      return isBookmarkedByTypeAndKey(item.type, item.key);
     }
 
     function findBookmarkIdForRecentItem(item) {
       if (!item) {
         return null;
       }
-      const targetType = String(item.type || '').trim().toLowerCase();
-      const targetKey = String(item.key || '').trim();
-      const bookmark = (bookmarkItems || []).find(entry =>
-        String(entry.itemType || '').trim().toLowerCase() === targetType
-        && String(entry.itemKey || '').trim() === targetKey
-      );
-      return bookmark ? Number(bookmark.bookmarkId) : null;
+      return findBookmarkIdByTypeAndKey(item.type, item.key);
     }
 
     async function toggleRecentItemBookmark(index) {
@@ -2486,18 +2577,14 @@
     }
 
     function refreshDiscoveryBookmarkFlags() {
-      const keySet = new Set(
-        (bookmarkItems || [])
-          .map(item => String(item.itemKey || '').trim().toLowerCase())
-          .filter(Boolean)
-      );
       lastDiscoveryRows = (lastDiscoveryRows || []).map(row => ({
         ...row,
-        bookmarked: keySet.has(String(row.code || '').trim().toLowerCase())
+        bookmarked: isBookmarkedByTypeAndKey('mdrm', row.code)
       }));
       if (discoveryGridApi) {
         discoveryGridApi.setGridOption('rowData', lastDiscoveryRows);
       }
+      refreshReportingBookmarkFlags();
     }
 
     function buildBookmarkPayload(itemKey, title, subtitle, url, itemType = 'mdrm') {
@@ -2590,6 +2677,42 @@
         rowHeight: 30,
         headerHeight: 34,
         animateRows: true,
+        onCellClicked: async params => {
+          if (!params || !params.column || params.column.getColId() !== 'bookmarkAction') {
+            return;
+          }
+          const row = params.data || {};
+          const code = String(row.mdrmCode || '').trim();
+          if (!code) {
+            return;
+          }
+          try {
+            if (!currentUser) {
+              setAuthStatus('Login required to save bookmarks.', 'err');
+              if (profileMenu && profileMenuBtn) {
+                profileMenu.classList.add('open');
+                profileMenuBtn.setAttribute('aria-expanded', 'true');
+              }
+              return;
+            }
+            if (row.bookmarked) {
+              await removeBookmarkByTypeAndKey('mdrm', code);
+              return;
+            }
+            const subtitle = [String(row.description || '').trim(), selectedReportingForm ? `Form ${selectedReportingForm}` : '']
+              .filter(Boolean)
+              .join(' | ');
+            showSaveBookmarkModal(buildBookmarkPayload(
+              code,
+              code,
+              subtitle,
+              buildMdrmProfileUrl(code),
+              'mdrm'
+            ));
+          } catch (error) {
+            setAuthStatus('Bookmark action failed. Please retry.', 'err');
+          }
+        },
         columnDefs: [
           {
             headerName: 'MDRM',
@@ -2607,6 +2730,29 @@
             flex: 1,
             minWidth: 340,
             valueFormatter: params => String(params.value || '-')
+          },
+          {
+            headerName: 'Favorite',
+            colId: 'bookmarkAction',
+            field: 'bookmarked',
+            minWidth: 92,
+            maxWidth: 120,
+            sortable: true,
+            filter: false,
+            resizable: false,
+            cellStyle: { textAlign: 'center' },
+            comparator: (valueA, valueB) => Number(Boolean(valueA)) - Number(Boolean(valueB)),
+            cellRenderer: params => {
+              const code = String(params.data && params.data.mdrmCode ? params.data.mdrmCode : '').trim();
+              if (!code) {
+                return '-';
+              }
+              const isBookmarked = !!(params.data && params.data.bookmarked);
+              return `<button class="bookmark-star-btn bookmark-item-btn ${isBookmarked ? 'active' : ''}"
+                        type="button"
+                        title="${isBookmarked ? 'Bookmarked' : 'Save bookmark'}"
+                        data-bookmarked="${isBookmarked ? 'true' : 'false'}">${isBookmarked ? '★' : '☆'}</button>`;
+            }
           }
         ],
         rowData: []
@@ -2632,6 +2778,42 @@
         rowHeight: 30,
         headerHeight: 34,
         animateRows: true,
+        onCellClicked: async params => {
+          if (!params || !params.column || params.column.getColId() !== 'bookmarkAction') {
+            return;
+          }
+          const row = params.data || {};
+          const code = String(row.mdrmCode || '').trim();
+          if (!code) {
+            return;
+          }
+          try {
+            if (!currentUser) {
+              setAuthStatus('Login required to save bookmarks.', 'err');
+              if (profileMenu && profileMenuBtn) {
+                profileMenu.classList.add('open');
+                profileMenuBtn.setAttribute('aria-expanded', 'true');
+              }
+              return;
+            }
+            if (row.bookmarked) {
+              await removeBookmarkByTypeAndKey('mdrm', code);
+              return;
+            }
+            const subtitle = [String(row.description || '').trim(), selectedReportingForm ? `Form ${selectedReportingForm}` : '']
+              .filter(Boolean)
+              .join(' | ');
+            showSaveBookmarkModal(buildBookmarkPayload(
+              code,
+              code,
+              subtitle,
+              buildMdrmProfileUrl(code),
+              'mdrm'
+            ));
+          } catch (error) {
+            setAuthStatus('Bookmark action failed. Please retry.', 'err');
+          }
+        },
         columnDefs: [
           {
             headerName: 'MDRM',
@@ -2649,6 +2831,29 @@
             flex: 1,
             minWidth: 340,
             valueFormatter: params => String(params.value || '-')
+          },
+          {
+            headerName: 'Favorite',
+            colId: 'bookmarkAction',
+            field: 'bookmarked',
+            minWidth: 92,
+            maxWidth: 120,
+            sortable: true,
+            filter: false,
+            resizable: false,
+            cellStyle: { textAlign: 'center' },
+            comparator: (valueA, valueB) => Number(Boolean(valueA)) - Number(Boolean(valueB)),
+            cellRenderer: params => {
+              const code = String(params.data && params.data.mdrmCode ? params.data.mdrmCode : '').trim();
+              if (!code) {
+                return '-';
+              }
+              const isBookmarked = !!(params.data && params.data.bookmarked);
+              return `<button class="bookmark-star-btn bookmark-item-btn ${isBookmarked ? 'active' : ''}"
+                        type="button"
+                        title="${isBookmarked ? 'Bookmarked' : 'Save bookmark'}"
+                        data-bookmarked="${isBookmarked ? 'true' : 'false'}">${isBookmarked ? '★' : '☆'}</button>`;
+            }
           }
         ],
         rowData: []
@@ -2685,7 +2890,8 @@
         }
         return {
           mdrmCode,
-          description: readRowValueByKeys(row, ['line_description', 'description', 'item_name', 'definition'])
+          description: readRowValueByKeys(row, ['line_description', 'description', 'item_name', 'definition']),
+          bookmarked: isBookmarkedByTypeAndKey('mdrm', mdrmCode)
         };
       }).filter(Boolean);
       const dedup = new Map();
@@ -2752,7 +2958,8 @@
           const normalizedCode = String(code || '').trim();
           return {
             mdrmCode: normalizedCode,
-            description: descriptionByCode.get(normalizedCode) || ''
+            description: descriptionByCode.get(normalizedCode) || '',
+            bookmarked: isBookmarkedByTypeAndKey('mdrm', normalizedCode)
           };
         });
         netChangeGridApi.setGridOption('rowData', rows);
@@ -3061,8 +3268,8 @@
 
     function renderBookmarkGroups() {
       if (!currentUser) {
-        bookmarkGroupsContainer.innerHTML = '<div class="text-muted small p-2">Login to create groups.</div>';
-        bookmarkFilterGroupSelect.innerHTML = '<option value="">Browse all groups</option>';
+        bookmarkGroupsContainer.innerHTML = '<div class="bookmark-empty">Login to create collections.</div>';
+        bookmarkFilterGroupSelect.innerHTML = '<option value="">All collections</option>';
         if (saveBookmarkGroupSelect) {
           saveBookmarkGroupSelect.innerHTML = '<option value="">Default Favorites</option>';
         }
@@ -3070,7 +3277,7 @@
       }
 
       const selectedFilterGroup = bookmarkFilterGroupSelect.value;
-      bookmarkFilterGroupSelect.innerHTML = `<option value="">Browse all groups</option>${bookmarkGroups.map(group =>
+      bookmarkFilterGroupSelect.innerHTML = `<option value="">All collections</option>${bookmarkGroups.map(group =>
         `<option value="${group.groupId}">${escapeHtml(group.name)} (${group.itemCount})</option>`
       ).join('')}`;
       if (saveBookmarkGroupSelect) {
@@ -3087,38 +3294,89 @@
       }
 
       if (!bookmarkGroups.length) {
-        bookmarkGroupsContainer.innerHTML = '<div class="text-muted small p-2">No groups yet.</div>';
+        bookmarkGroupsContainer.innerHTML = '<div class="bookmark-empty">No collections yet. Create one to organize bookmarks.</div>';
         return;
       }
 
       bookmarkGroupsContainer.innerHTML = `
-        <div class="small fw-semibold mb-1">Groups</div>
-        <div class="d-flex flex-wrap gap-2">
-          ${bookmarkGroups.map(group => `<span class="tag">${escapeHtml(group.name)} (${group.itemCount})</span>`).join('')}
+        <div class="bookmark-group-stack">
+          <button class="bookmark-group-chip ${!selectedFilterGroup ? 'active' : ''}" type="button" data-group-select="">
+            <span class="bookmark-group-name">All Collections</span>
+            <span class="bookmark-group-count">${bookmarkGroups.reduce((sum, group) => sum + (Number(group.itemCount) || 0), 0)}</span>
+          </button>
+          ${bookmarkGroups.map(group => `
+            <button class="bookmark-group-chip ${String(selectedFilterGroup) === String(group.groupId) ? 'active' : ''}" type="button" data-group-select="${group.groupId}">
+              <span class="bookmark-group-name">${escapeHtml(group.name)}</span>
+              <span class="bookmark-group-count">${group.itemCount}</span>
+            </button>
+          `).join('')}
         </div>
       `;
     }
 
+    function getVisibleBookmarkItems() {
+      const query = String(bookmarkSearchInput?.value || '').trim().toLowerCase();
+      const typeFilter = String(bookmarkTypeFilterSelect?.value || 'all').toLowerCase();
+      const sortOrder = String(bookmarkSortSelect?.value || 'newest').toLowerCase();
+
+      let items = Array.isArray(bookmarkItems) ? [...bookmarkItems] : [];
+
+      if (typeFilter !== 'all') {
+        items = items.filter(item => String(item.itemType || '').trim().toLowerCase() === typeFilter);
+      }
+
+      if (query) {
+        items = items.filter(item => {
+          const haystack = [
+            item.itemKey,
+            item.title,
+            item.subtitle,
+            item.groupName,
+            item.itemType
+          ].map(value => String(value || '').toLowerCase()).join(' ');
+          return haystack.includes(query);
+        });
+      }
+
+      if (sortOrder === 'az') {
+        items.sort((a, b) => String(a.title || a.itemKey || '').localeCompare(String(b.title || b.itemKey || ''), undefined, { sensitivity: 'base' }));
+      } else if (sortOrder === 'oldest') {
+        items.sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      } else {
+        items.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+      }
+
+      return items;
+    }
+
     function renderBookmarkItems() {
       if (!currentUser) {
-        bookmarkItemsContainer.innerHTML = '<div class="text-muted small p-2">Login to browse bookmarks.</div>';
+        bookmarkItemsContainer.innerHTML = '<div class="bookmark-empty bookmark-empty-main">Login to browse bookmarks.</div>';
         return;
       }
-      if (!bookmarkItems.length) {
-        bookmarkItemsContainer.innerHTML = '<div class="text-muted small p-2">No bookmarks yet.</div>';
+      const visibleItems = getVisibleBookmarkItems();
+      if (!visibleItems.length) {
+        const hasAnyBookmarks = Array.isArray(bookmarkItems) && bookmarkItems.length > 0;
+        bookmarkItemsContainer.innerHTML = hasAnyBookmarks
+          ? '<div class="bookmark-empty bookmark-empty-main">No bookmarks match the current filters.</div>'
+          : '<div class="bookmark-empty bookmark-empty-main">No bookmarks yet. Save items from Discovery to build your library.</div>';
         return;
       }
 
       bookmarkItemsContainer.innerHTML = `
-        <div class="small fw-semibold mb-1">Saved items</div>
         <div class="bookmark-list">
-          ${bookmarkItems.map(item => `
+          ${visibleItems.map(item => `
             <div class="bookmark-item">
-              <div class="bookmark-title">
-                ${item.url ? `<a href="${escapeHtml(item.url)}">${escapeHtml(item.itemKey)}</a>` : escapeHtml(item.itemKey)}
+              <div class="bookmark-item-head">
+                <div class="bookmark-item-kicker">${escapeHtml(String(item.itemType || 'item').toUpperCase())}</div>
+                <div class="bookmark-item-time">${formatRunDate(item.createdAt)}</div>
               </div>
-              <div class="bookmark-subtitle">${escapeHtml(item.title)}${item.groupName ? ` • ${escapeHtml(item.groupName)}` : ''}</div>
-              <div class="d-flex gap-1 mt-1">
+              <div class="bookmark-title">
+                ${item.url ? `<a href="${escapeHtml(item.url)}" title="Open bookmark">${escapeHtml(item.itemKey || item.title || 'Item')}</a>` : escapeHtml(item.itemKey || item.title || 'Item')}
+              </div>
+              <div class="bookmark-subtitle">${escapeHtml(item.title || '')}${item.groupName ? ` • ${escapeHtml(item.groupName)}` : ''}</div>
+              ${item.subtitle ? `<div class="bookmark-note">${escapeHtml(item.subtitle)}</div>` : ''}
+              <div class="bookmark-actions-row">
                 <select class="form-select form-select-sm bookmark-move-group" data-bookmark-id="${item.bookmarkId}">
                   <option value="">No group</option>
                   ${bookmarkGroups.map(group => `
@@ -3126,8 +3384,9 @@
                   `).join('')}
                 </select>
                 <button class="btn btn-sm btn-outline-secondary move-bookmark-btn" type="button" data-bookmark-id="${item.bookmarkId}">Move</button>
+                ${item.url ? `<a class="btn btn-sm btn-outline-primary" href="${escapeHtml(item.url)}">Open</a>` : ''}
+                <button class="btn btn-sm btn-outline-danger remove-bookmark-btn" type="button" data-bookmark-id="${item.bookmarkId}">Remove</button>
               </div>
-              <button class="btn btn-sm btn-outline-danger remove-bookmark-btn mt-1" type="button" data-bookmark-id="${item.bookmarkId}">Remove</button>
             </div>
           `).join('')}
         </div>
@@ -3142,6 +3401,9 @@
       authLogoutBtn.disabled = !isLoggedIn;
       createGroupBtn.disabled = !isLoggedIn;
       bookmarkFilterGroupSelect.disabled = !isLoggedIn;
+      if (bookmarkSearchInput) bookmarkSearchInput.disabled = !isLoggedIn;
+      if (bookmarkTypeFilterSelect) bookmarkTypeFilterSelect.disabled = !isLoggedIn;
+      if (bookmarkSortSelect) bookmarkSortSelect.disabled = !isLoggedIn;
       bookmarkUserLabel.textContent = isLoggedIn ? `Logged in as ${currentUser.displayName}` : 'Login required';
       profileNameLabel.textContent = isLoggedIn ? currentUser.displayName : 'Guest';
       if (authInputRows && authLoginCol && authRegisterCol && authLogoutCol) {
@@ -3459,11 +3721,7 @@
       if (!key || !currentUser) {
         return;
       }
-      const existing = (bookmarkItems || []).find(item => String(item.itemKey || '').trim().toLowerCase() === key);
-      if (!existing || !existing.bookmarkId) {
-        return;
-      }
-      await removeBookmark(Number(existing.bookmarkId));
+      await removeBookmarkByTypeAndKey('mdrm', key);
     }
 
     async function renameSelectedGroup() {
@@ -4265,6 +4523,7 @@
       selectedReportLabel.textContent = reportingForm;
       updateSelectedReportStatusPill(reportingForm);
       syncCopyLinkButtons();
+      updateReportBookmarkButton();
       syncReportMetadataRefreshAccess();
       syncReportEmptyState();
       clearReportData();
@@ -4306,6 +4565,34 @@
       } finally {
         setReportingBusy(false);
       }
+    }
+
+    async function toggleReportBookmark() {
+      const reportingForm = String(selectedReportingForm || '').trim();
+      if (!reportingForm) {
+        return;
+      }
+      if (!currentUser) {
+        setAuthStatus('Login required to save bookmarks.', 'err');
+        if (profileMenu && profileMenuBtn) {
+          profileMenu.classList.add('open');
+          profileMenuBtn.setAttribute('aria-expanded', 'true');
+        }
+        return;
+      }
+      if (isSelectedReportBookmarked()) {
+        await removeBookmarkByTypeAndKey('report', reportingForm);
+        return;
+      }
+      const fullName = String(reportFullNameLabel ? reportFullNameLabel.textContent : '').trim();
+      const subtitle = fullName || 'Reporting form';
+      showSaveBookmarkModal(buildBookmarkPayload(
+        reportingForm,
+        reportingForm,
+        subtitle,
+        buildReportDeepLink(reportingForm),
+        'report'
+      ));
     }
 
     async function refreshSelectedReportMetadata() {
@@ -4401,6 +4688,13 @@
           return;
         }
         copyText(buildReportDeepLink(selectedReportingForm), 'Link copied', copyReportLinkBtn);
+      });
+    }
+    if (bookmarkReportBtn) {
+      bookmarkReportBtn.addEventListener('click', () => {
+        toggleReportBookmark().catch(() => {
+          setAuthStatus('Could not update report bookmark.', 'err');
+        });
       });
     }
     if (reportKpiRunsTile) {
@@ -4605,6 +4899,31 @@
       deleteGroupBtn.disabled = !currentUser || !bookmarkFilterGroupSelect.value;
       await refreshBookmarks();
     });
+    if (bookmarkGroupsContainer) {
+      bookmarkGroupsContainer.addEventListener('click', async event => {
+        const button = event.target.closest('[data-group-select]');
+        if (!button || !bookmarkFilterGroupSelect) {
+          return;
+        }
+        const nextValue = String(button.dataset.groupSelect || '');
+        if (bookmarkFilterGroupSelect.value === nextValue) {
+          return;
+        }
+        bookmarkFilterGroupSelect.value = nextValue;
+        renameGroupBtn.disabled = !currentUser || !bookmarkFilterGroupSelect.value;
+        deleteGroupBtn.disabled = !currentUser || !bookmarkFilterGroupSelect.value;
+        await refreshBookmarks();
+      });
+    }
+    if (bookmarkSearchInput) {
+      bookmarkSearchInput.addEventListener('input', renderBookmarkItems);
+    }
+    if (bookmarkTypeFilterSelect) {
+      bookmarkTypeFilterSelect.addEventListener('change', renderBookmarkItems);
+    }
+    if (bookmarkSortSelect) {
+      bookmarkSortSelect.addEventListener('change', renderBookmarkItems);
+    }
     if (saveBookmarkGroupSelect) {
       saveBookmarkGroupSelect.addEventListener('change', () => {
         const createNew = saveBookmarkGroupSelect.value === '__new__';

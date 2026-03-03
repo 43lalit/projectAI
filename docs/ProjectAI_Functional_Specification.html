@@ -1,0 +1,405 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ProjectAI Functional Specification</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.35; color: #222; }
+    h1, h2, h3 { color: #0f2a4d; }
+    h1 { font-size: 24pt; }
+    h2 { font-size: 16pt; margin-top: 24px; }
+    h3 { font-size: 13pt; margin-top: 18px; }
+    p, li, td, th { font-size: 10.5pt; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0 18px; }
+    th, td { border: 1px solid #999; padding: 6px 8px; vertical-align: top; }
+    th { background: #eef4fb; text-align: left; }
+    code { font-family: Consolas, monospace; font-size: 9.5pt; }
+    .small { font-size: 9pt; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>ProjectAI (FedMDRM) Functional Specification</h1>
+  <p class="small"><strong>Repository Basis:</strong> <code>ProjectAI</code> Spring Boot application source code and static UI pages.</p>
+  <p class="small"><strong>Document Version:</strong> 1.0</p>
+  <p class="small"><strong>Date:</strong> 2026-03-03</p>
+
+  <h2>1. Purpose</h2>
+  <p>
+    This document defines the functional behavior of ProjectAI, a web application for MDRM data ingestion,
+    discovery, reporting analysis, profile exploration, bookmarks, and recent-activity tracking.
+    It specifies user-facing functionality, backend behavior, API contracts, business rules, data persistence,
+    authorization rules, and operational flows as implemented in the current repository.
+  </p>
+
+  <h2>2. Product Scope</h2>
+  <p>ProjectAI provides:</p>
+  <ul>
+    <li>MDRM data ingestion from classpath files and uploaded files, with run-based lineage.</li>
+    <li>Run summary and incremental change analytics across reporting forms.</li>
+    <li>Discovery search (keyword and semantic query pattern) with run-context time travel.</li>
+    <li>Report-centric analysis with KPIs, history, and drilldown.</li>
+    <li>Detailed MDRM profile page with timeline, association mapping, and related MDRM graph.</li>
+    <li>User authentication (sign up, login, logout, password reset) with session + CSRF protection.</li>
+    <li>User bookmarks (groups and items), run-context-aware.</li>
+    <li>User recent item history, run-context-aware with server and local fallback.</li>
+    <li>Onboarding guide and command palette for navigation/productivity.</li>
+  </ul>
+
+  <h2>3. System Context</h2>
+  <h3>3.1 Technology Stack</h3>
+  <ul>
+    <li>Backend: Java 17, Spring Boot 3.3.5, Spring Web, Spring JDBC.</li>
+    <li>Database: PostgreSQL (required for MDRM promotion function).</li>
+    <li>Security components: BCrypt password hashing (<code>spring-security-crypto</code>), session + custom CSRF token.</li>
+    <li>CSV parsing: Apache Commons CSV.</li>
+    <li>Frontend: Static HTML/CSS/JavaScript, Bootstrap, AG Grid, D3 (profile graph), Tailwind utilities on main page.</li>
+  </ul>
+
+  <h3>3.2 Runtime Entry Points</h3>
+  <ul>
+    <li><code>GET /</code> forwards to <code>/index.html</code>.</li>
+    <li>Main console page: <code>/index.html</code>.</li>
+    <li>MDRM profile page: <code>/mdrm.html</code>.</li>
+  </ul>
+
+  <h2>4. User Roles and Access Model</h2>
+  <table>
+    <tr><th>Role</th><th>Description</th><th>Capabilities</th></tr>
+    <tr>
+      <td>Guest (not authenticated)</td>
+      <td>User without active session user ID.</td>
+      <td>Can access public read APIs (MDRM read/reporting). Cannot use bookmark/recent APIs. Cannot run admin actions.</td>
+    </tr>
+    <tr>
+      <td>Authenticated User</td>
+      <td>User authenticated via session.</td>
+      <td>All read capabilities plus bookmarks and recent-items APIs in selected run context.</td>
+    </tr>
+    <tr>
+      <td>Admin</td>
+      <td>Authenticated user whose email is <code>43.lalit@gmail.com</code> (or existing user row with role ADMIN).</td>
+      <td>All user actions plus MDRM load/upload and report metadata refresh.</td>
+    </tr>
+  </table>
+
+  <h2>5. High-Level Functional Modules</h2>
+  <table>
+    <tr><th>Module</th><th>Primary UI</th><th>Primary Backend</th></tr>
+    <tr><td>Authentication and Session</td><td>Profile menu in header (index + mdrm pages)</td><td><code>AuthController</code>, <code>AuthService</code>, <code>CsrfService</code></td></tr>
+    <tr><td>MDRM Ingestion</td><td>Load Data view</td><td><code>MdrmController</code>, <code>MdrmLoadService</code>, <code>MdrmScheduler</code></td></tr>
+    <tr><td>Discovery Search</td><td>Discovery view</td><td><code>/api/mdrm/semantic-search</code>, <code>/api/mdrm/data</code></td></tr>
+    <tr><td>Reporting Analytics</td><td>Reports view</td><td>Run summary/history/incremental endpoints</td></tr>
+    <tr><td>MDRM Profile</td><td><code>mdrm.html</code> tabbed page</td><td><code>/api/mdrm/profile</code></td></tr>
+    <tr><td>Bookmarks</td><td>Bookmarks view, quick save actions</td><td><code>BookmarkController</code>, <code>BookmarkService</code></td></tr>
+    <tr><td>Recent Items</td><td>Discovery recent strip + profile tracking</td><td><code>RecentController</code>, <code>RecentService</code></td></tr>
+    <tr><td>Report Metadata</td><td>Reports view metadata panel</td><td><code>ReportMetadataService</code>, Federal Reserve source fetch</td></tr>
+    <tr><td>Guidance and Command UX</td><td>Guide overlay + command palette</td><td>Frontend-only orchestration over existing APIs</td></tr>
+  </table>
+
+  <h2>6. Functional Requirements</h2>
+
+  <h3>6.1 Authentication and Security</h3>
+  <ul>
+    <li>FR-AUTH-001: System shall support user registration with first name, last name, email, and password.</li>
+    <li>FR-AUTH-002: Registration email shall be normalized to lowercase and must be unique.</li>
+    <li>FR-AUTH-003: Password length shall be at least 6 characters for register and reset.</li>
+    <li>FR-AUTH-004: System shall support login using email + password and set session user ID on success.</li>
+    <li>FR-AUTH-005: System shall expose <code>/api/auth/me</code> to return authentication status and user details.</li>
+    <li>FR-AUTH-006: System shall support logout by invalidating the session.</li>
+    <li>FR-AUTH-007: All mutating endpoints protected by CSRF shall require header <code>X-CSRF-Token</code>.</li>
+    <li>FR-AUTH-008: System shall expose <code>/api/auth/csrf</code> to issue/retrieve session CSRF token.</li>
+    <li>FR-AUTH-009: Admin-only endpoints shall require authenticated user with role ADMIN.</li>
+  </ul>
+
+  <h3>6.2 MDRM Ingestion and Run Management</h3>
+  <ul>
+    <li>FR-LOAD-001: Manual full migration shall be triggered via <code>POST /api/mdrm/load</code> (admin + CSRF).</li>
+    <li>FR-LOAD-002: Full migration shall clear MDRM operational tables and process all matching classpath files oldest-first.</li>
+    <li>FR-LOAD-003: Uploaded file ingestion shall be available via <code>POST /api/mdrm/upload</code> (multipart, admin + CSRF).</li>
+    <li>FR-LOAD-004: Uploaded file name shall match <code>MDRM_ddyy.csv</code>.</li>
+    <li>FR-LOAD-005: Uploaded headers shall match current staging header structure when existing structure is present.</li>
+    <li>FR-LOAD-006: CSV parser shall treat line 1 as metadata and line 2 as header row.</li>
+    <li>FR-LOAD-007: Headers shall be sanitized to unique DB-safe snake_case identifiers.</li>
+    <li>FR-LOAD-008: System shall recreate staging table per run based on sanitized headers plus <code>run_id</code>.</li>
+    <li>FR-LOAD-009: Promotion to master shall be executed through PostgreSQL function <code>promote_mdrm_run</code>.</li>
+    <li>FR-LOAD-010: Rows with invalid or blank date fields shall be written to run error table and excluded from master.</li>
+    <li>FR-LOAD-011: System shall derive <code>mdrm_code = mnemonic + item_code</code>.</li>
+    <li>FR-LOAD-012: System shall derive <code>is_active</code> based on end date (year 9999 or future => Y, else N).</li>
+    <li>FR-LOAD-013: System shall compute and persist run summary, incremental summary, file summary, and report status.</li>
+    <li>FR-LOAD-014: For uploaded no-op runs (no incremental changes vs previous), run data shall be rolled back/deleted and request shall fail.</li>
+  </ul>
+
+  <h3>6.3 Discovery, Reporting, and Profile Querying</h3>
+  <ul>
+    <li>FR-QUERY-001: System shall provide reporting forms list and status list for latest run or selected as-of run.</li>
+    <li>FR-QUERY-002: System shall return tabular rows for a reporting form from the latest eligible run (<code>run_id &lt;= selectedRun</code> when context provided).</li>
+    <li>FR-QUERY-003: System shall provide run history including total/active/inactive/updated and incremental add/modify/delete counts.</li>
+    <li>FR-QUERY-004: System shall provide MDRM code drilldowns by run bucket (TOTAL/ACTIVE/INACTIVE/UPDATED).</li>
+    <li>FR-QUERY-005: System shall provide incremental MDRM code drilldowns (ADDED/MODIFIED/DELETED).</li>
+    <li>FR-QUERY-006: Semantic search shall support keyword extraction with stop-word removal and optional inferred reporting form.</li>
+    <li>FR-QUERY-007: Semantic search shall return up to 500 results with interpreted query metadata.</li>
+    <li>FR-QUERY-008: MDRM profile API shall return consolidated profile data (overview, timeline, field changes, associations, related MDRMs/reports).</li>
+  </ul>
+
+  <h3>6.4 Bookmarks and Recent Activity</h3>
+  <ul>
+    <li>FR-BM-001: Authenticated users shall manage bookmark groups (list, create, rename, delete).</li>
+    <li>FR-BM-002: Authenticated users shall manage bookmark items (list, add, move group, delete).</li>
+    <li>FR-BM-003: Bookmark uniqueness shall be enforced per user + item_type + item_key + group + run_context.</li>
+    <li>FR-BM-004: Bookmark and group actions shall validate ownership and reject invalid group IDs.</li>
+    <li>FR-REC-001: Authenticated users shall list, upsert, and clear recent items per run context.</li>
+    <li>FR-REC-002: Recent upsert shall be atomic via DB conflict update on user/type/key/run_context.</li>
+    <li>FR-REC-003: Recent list limit shall be clamped to 1..50 server-side.</li>
+  </ul>
+
+  <h3>6.5 Frontend Interaction Requirements</h3>
+  <ul>
+    <li>FR-UI-001: Main page shall provide four primary views: Discovery, Bookmarks, Load Data, Reports.</li>
+    <li>FR-UI-002: Header run selector shall apply global as-of run context across discovery/reporting/bookmarks/recent workflows.</li>
+    <li>FR-UI-003: Command palette shall support keyboard-driven quick actions and deep-link navigation.</li>
+    <li>FR-UI-004: Guide overlay shall provide step-based onboarding with first-visit behavior.</li>
+    <li>FR-UI-005: UI shall support light/dark themes with persisted preference.</li>
+    <li>FR-UI-006: MDRM profile page shall provide tabs: Overview, Timeline, Report Association, Related MDRM Graph.</li>
+    <li>FR-UI-007: Deep links shall support discovery/report/reporting/profile state sharing with run context.</li>
+  </ul>
+
+  <h2>7. API Functional Specification</h2>
+  <h3>7.1 Authentication APIs</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Auth</th><th>CSRF</th><th>Purpose</th></tr>
+    <tr><td>GET</td><td><code>/api/auth/csrf</code></td><td>No</td><td>No</td><td>Get/create session CSRF token.</td></tr>
+    <tr><td>POST</td><td><code>/api/auth/register</code></td><td>No</td><td>Yes</td><td>Register user and create session.</td></tr>
+    <tr><td>POST</td><td><code>/api/auth/login</code></td><td>No</td><td>Yes</td><td>Authenticate and create session.</td></tr>
+    <tr><td>POST</td><td><code>/api/auth/logout</code></td><td>Session</td><td>Yes</td><td>Invalidate session.</td></tr>
+    <tr><td>POST</td><td><code>/api/auth/reset-password</code></td><td>No</td><td>Yes</td><td>Reset by email.</td></tr>
+    <tr><td>GET</td><td><code>/api/auth/me</code></td><td>No</td><td>No</td><td>Current auth state and user.</td></tr>
+  </table>
+
+  <h3>7.2 MDRM APIs</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Auth/Role</th><th>CSRF</th><th>Notes</th></tr>
+    <tr><td>POST</td><td><code>/api/mdrm/load</code></td><td>Admin</td><td>Yes</td><td>Fresh migration across all classpath files.</td></tr>
+    <tr><td>POST</td><td><code>/api/mdrm/upload</code></td><td>Admin</td><td>Yes</td><td>Single uploaded CSV ingest.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/reporting-forms</code></td><td>Public</td><td>No</td><td>Optional <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/reporting-form-statuses</code></td><td>Public</td><td>No</td><td>Optional <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/data</code></td><td>Public</td><td>No</td><td>Params: <code>reportingForm</code>, optional <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/run-history</code></td><td>Public</td><td>No</td><td>Params: <code>reportingForm</code>, optional <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/file-runs</code></td><td>Public</td><td>No</td><td>File-level run metrics.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/incremental-summary</code></td><td>Public</td><td>No</td><td>Param: <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/run-mdrms</code></td><td>Public</td><td>No</td><td>Params: <code>reportingForm, runId, bucket</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/run-incremental-mdrms</code></td><td>Public</td><td>No</td><td>Params: <code>reportingForm, runId, changeType</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/semantic-search</code></td><td>Public</td><td>No</td><td>Params: <code>q</code>, optional <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/profile</code></td><td>Public</td><td>No</td><td>Params: <code>mdrm</code>, optional <code>runId</code>.</td></tr>
+    <tr><td>GET</td><td><code>/api/mdrm/report-metadata</code></td><td>Public</td><td>No</td><td>Param: <code>reportingForm</code>.</td></tr>
+    <tr><td>POST</td><td><code>/api/mdrm/report-metadata/refresh</code></td><td>Admin</td><td>Yes</td><td>Forces metadata refetch.</td></tr>
+  </table>
+
+  <h3>7.3 Bookmark APIs (Authenticated)</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>CSRF</th><th>Notes</th></tr>
+    <tr><td>GET</td><td><code>/api/bookmarks/groups</code></td><td>No</td><td>Optional <code>runId</code>.</td></tr>
+    <tr><td>POST</td><td><code>/api/bookmarks/groups</code></td><td>Yes</td><td>Create group.</td></tr>
+    <tr><td>PATCH</td><td><code>/api/bookmarks/groups/{groupId}</code></td><td>Yes</td><td>Rename group.</td></tr>
+    <tr><td>DELETE</td><td><code>/api/bookmarks/groups/{groupId}</code></td><td>Yes</td><td>Delete group.</td></tr>
+    <tr><td>GET</td><td><code>/api/bookmarks/items</code></td><td>No</td><td>Optional <code>groupId</code>, optional <code>runId</code>.</td></tr>
+    <tr><td>POST</td><td><code>/api/bookmarks/items</code></td><td>Yes</td><td>Add item; optional <code>runId</code>.</td></tr>
+    <tr><td>PATCH</td><td><code>/api/bookmarks/items/{bookmarkId}/group</code></td><td>Yes</td><td>Move item group; optional <code>runId</code>.</td></tr>
+    <tr><td>DELETE</td><td><code>/api/bookmarks/items/{bookmarkId}</code></td><td>Yes</td><td>Delete item; optional <code>runId</code>.</td></tr>
+  </table>
+
+  <h3>7.4 Recent APIs (Authenticated)</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>CSRF</th><th>Notes</th></tr>
+    <tr><td>GET</td><td><code>/api/recent/items</code></td><td>No</td><td>Params: <code>limit</code> default 10, optional <code>runId</code>.</td></tr>
+    <tr><td>POST</td><td><code>/api/recent/items</code></td><td>Yes</td><td>Upsert item and return latest list.</td></tr>
+    <tr><td>DELETE</td><td><code>/api/recent/items</code></td><td>Yes</td><td>Clear items for selected run context.</td></tr>
+  </table>
+
+  <h2>8. Data Model Specification</h2>
+  <h3>8.1 Core MDRM Tables</h3>
+  <ul>
+    <li><code>mdrm_run_master</code>: run metadata (run_id, run_datetime, file_name, file/ingest/error counts).</li>
+    <li><code>mdrm_staging</code>: per-run recreated staging with dynamic CSV columns + run_id.</li>
+    <li><code>mdrm_master</code>: canonical persisted rows, includes dynamic source columns and derived fields.</li>
+    <li><code>mdrm_run_error</code>: row-level rejection log with raw record and error description.</li>
+    <li><code>mdrm_run_summary</code>: per run/reporting_form aggregate counts.</li>
+    <li><code>mdrm_run_incremental</code>: per run/reporting_form added/modified/deleted counts versus previous run.</li>
+    <li><code>mdrm_file_summary</code>: per run file-level KPI rollup.</li>
+    <li><code>mdrm_report_status</code>: latest status snapshot by reporting form.</li>
+  </ul>
+
+  <h3>8.2 User and Personalization Tables</h3>
+  <ul>
+    <li><code>app_user</code>: identity, role, hashed password, profile fields.</li>
+    <li><code>favorite_group</code>: user-defined bookmark groups.</li>
+    <li><code>bookmark_item</code>: bookmarked entities with optional group and optional run context.</li>
+    <li><code>recent_item</code>: recent entities with run-context dimension and last_accessed ordering.</li>
+    <li><code>report_metadata</code>: cached report full name and description fetched from Federal Reserve pages.</li>
+  </ul>
+
+  <h3>8.3 Key Indexing/Constraints</h3>
+  <ul>
+    <li>Unique email index on <code>app_user(email)</code>.</li>
+    <li>Unique bookmark group name per user.</li>
+    <li>Recent uniqueness: <code>(user_id, item_type, item_key, run_context_id)</code>.</li>
+    <li>Summary/incremental primary keys by <code>(run_id, reporting_form)</code>.</li>
+  </ul>
+
+  <h2>9. Business Rules and Calculations</h2>
+  <ul>
+    <li>BR-001: Run ID is epoch milliseconds and must be unique; collisions are incrementally retried.</li>
+    <li>BR-002: <code>reporting_form</code> and MDRM codes are required for summary participation.</li>
+    <li>BR-003: Run bucket classification uses code-level flags:
+      <ul>
+        <li>ACTIVE: has active only.</li>
+        <li>INACTIVE: has inactive only.</li>
+        <li>UPDATED: has both active and inactive.</li>
+      </ul>
+    </li>
+    <li>BR-004: Incremental MODIFIED compares row count, active/inactive flags, min start date, max end date.</li>
+    <li>BR-005: Semantic search removes common stop words and attempts reporting-form inference from known forms.</li>
+    <li>BR-006: Item type code mapping (J, D, F, R, S, E, P) is normalized to business labels in outputs.</li>
+    <li>BR-007: Run context semantics are as-of: data selected with <code>run_id &lt;= selectedRunId</code> where implemented.</li>
+  </ul>
+
+  <h2>10. Screen-Level Functional Behavior</h2>
+  <h3>10.1 Main Console (<code>index.html</code>)</h3>
+  <ul>
+    <li>Persistent header with brand navigation, menu tabs, command palette, quick tour, theme toggle, run context selector, auth menu.</li>
+    <li>Discovery view:
+      <ul>
+        <li>Search box and filters.</li>
+        <li>Recent searches and saved searches.</li>
+        <li>AG Grid result table (bookmark action integration).</li>
+        <li>Recent items strip with bookmark toggles and reopen behavior.</li>
+      </ul>
+    </li>
+    <li>Bookmarks view:
+      <ul>
+        <li>Group management and item listing.</li>
+        <li>Create/rename/delete groups; move/remove items.</li>
+      </ul>
+    </li>
+    <li>Load Data view:
+      <ul>
+        <li>Admin-only load/upload actions.</li>
+        <li>File run metrics and incremental details.</li>
+      </ul>
+    </li>
+    <li>Reports view:
+      <ul>
+        <li>Reporting form list/status filters.</li>
+        <li>Run history KPIs and compare controls.</li>
+        <li>Drilldown panels for active and net change buckets.</li>
+        <li>Report metadata display and admin refresh action.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>10.2 MDRM Profile Page (<code>mdrm.html</code>)</h3>
+  <ul>
+    <li>Header with same auth + theme controls as main console.</li>
+    <li>MDRM-specific breadcrumb and share-link copy action.</li>
+    <li>Tabbed panels:
+      <ul>
+        <li>Overview: high-level profile summary + first vs latest field deltas.</li>
+        <li>Timeline: run events, statuses, per-run field changes.</li>
+        <li>Report Association: report/schedule/line mapping.</li>
+        <li>Related MDRM Graph: D3 concentric graph with detail panel and active/inactive filtering behavior.</li>
+      </ul>
+    </li>
+    <li>Profile load supports optional run context from query parameters.</li>
+    <li>Recent activity is recorded locally and server-side when authenticated.</li>
+  </ul>
+
+  <h2>11. External Integration</h2>
+  <h3>11.1 Federal Reserve Reporting Forms</h3>
+  <ul>
+    <li>Report metadata service fetches HTML from <code>https://www.federalreserve.gov/apps/reportingforms/Report/Index/{REPORT}</code>.</li>
+    <li>Service extracts full report name and description using multiple regex fallback strategies and caches results in DB.</li>
+    <li>Fetch failures return HTTP 502 semantics via Spring <code>ResponseStatusException</code>.</li>
+  </ul>
+
+  <h2>12. Scheduling and Operations</h2>
+  <ul>
+    <li>Scheduled job <code>@Scheduled(cron = ${mdrm.cron})</code> runs full migration load periodically.</li>
+    <li>Default cron in configuration: <code>0 0 1 * * *</code> (daily 01:00 server time).</li>
+    <li>Startup schema initialization ensures all required tables/indexes/functions and performs backfills for missing summary artifacts.</li>
+  </ul>
+
+  <h2>13. Error Handling and Validation</h2>
+  <ul>
+    <li>Validation and business-rule failures raise typed HTTP errors via <code>ResponseStatusException</code>.</li>
+    <li>Common statuses:
+      <ul>
+        <li>400: invalid input (missing fields, unsupported bucket/change type, invalid group ID).</li>
+        <li>401: authentication required / invalid credentials.</li>
+        <li>403: invalid CSRF token / admin required.</li>
+        <li>404: not found (bookmark/user cases).</li>
+        <li>409: duplicates (email, group, bookmark in same scope).</li>
+        <li>500/502: backend and upstream fetch issues.</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h2>14. Non-Functional Requirements (Implemented/Implied)</h2>
+  <ul>
+    <li>NFR-001: Performance support via summary tables and indexes for run/reporting-form queries.</li>
+    <li>NFR-002: Session cookie hardening configured (httpOnly, sameSite strict, configurable secure flag).</li>
+    <li>NFR-003: Passwords stored as bcrypt hashes.</li>
+    <li>NFR-004: Frontend responsive behavior for desktop and smaller viewports.</li>
+    <li>NFR-005: Data consistency for recent upserts through DB-level upsert constraints.</li>
+  </ul>
+
+  <h2>15. Configuration Parameters</h2>
+  <table>
+    <tr><th>Key</th><th>Purpose</th><th>Default/Configured Value</th></tr>
+    <tr><td><code>server.port</code></td><td>HTTP server port</td><td>8080</td></tr>
+    <tr><td><code>spring.datasource.*</code></td><td>PostgreSQL connectivity</td><td>Configured in <code>application.properties</code></td></tr>
+    <tr><td><code>mdrm.local-file-path</code></td><td>Single file source path</td><td><code>FedFiles/MDRM_0226.csv</code></td></tr>
+    <tr><td><code>mdrm.migration-file-pattern</code></td><td>Migration scan pattern</td><td><code>FedFiles/MDRM_*.csv</code></td></tr>
+    <tr><td><code>mdrm.staging-table</code></td><td>Staging table name</td><td><code>mdrm_staging</code></td></tr>
+    <tr><td><code>mdrm.cron</code></td><td>Scheduled load cron</td><td><code>0 0 1 * * *</code></td></tr>
+    <tr><td><code>SESSION_COOKIE_SECURE</code></td><td>Secure cookie toggle</td><td><code>false</code> default</td></tr>
+  </table>
+
+  <h2>16. Assumptions and Constraints</h2>
+  <ul>
+    <li>System assumes PostgreSQL for MDRM promotion function; non-PostgreSQL execution is rejected for promotion path.</li>
+    <li>MDRM source content must provide expected date and key columns (<code>start_date</code>, <code>end_date</code>, <code>mnemonic</code>, <code>item_code</code>, <code>reporting_form</code>).</li>
+    <li>Role elevation to ADMIN is email-based for the primary admin email constant.</li>
+    <li>Frontend is static-file served and tightly coupled to current API response shapes.</li>
+  </ul>
+
+  <h2>17. Out of Scope (Current Implementation)</h2>
+  <ul>
+    <li>OAuth/SSO or enterprise identity providers.</li>
+    <li>Fine-grained RBAC beyond USER vs ADMIN.</li>
+    <li>Distributed/session-store clustering behavior details.</li>
+    <li>Formal API versioning and backward-compatibility policy.</li>
+    <li>Automated migration tooling (Flyway/Liquibase) for DB schema governance.</li>
+  </ul>
+
+  <h2>18. Traceability to Key Source Areas</h2>
+  <ul>
+    <li>Controllers: <code>auth/*Controller</code>, <code>bookmarks/BookmarkController</code>, <code>recent/RecentController</code>, <code>mdrm/MdrmController</code>.</li>
+    <li>Core logic: <code>mdrm/MdrmLoadService</code>, <code>mdrm/ReportMetadataService</code>.</li>
+    <li>UI behavior: <code>src/main/resources/static/index.html</code>, <code>src/main/resources/static/mdrm.html</code>.</li>
+    <li>Styling/layout: <code>src/main/resources/static/css/mdrm-console.css</code>.</li>
+    <li>Configuration: <code>src/main/resources/application.properties</code>, <code>mdrm/MdrmProperties</code>.</li>
+    <li>Scheduling: <code>mdrm/MdrmScheduler</code>.</li>
+  </ul>
+
+  <h2>19. Acceptance Criteria Summary</h2>
+  <ul>
+    <li>AC-001: Admin can execute full and uploaded MDRM loads with resulting summaries and history available.</li>
+    <li>AC-002: Discovery and report workflows return data scoped to selected run context.</li>
+    <li>AC-003: Profile page provides timeline, association, and related graph from profile API.</li>
+    <li>AC-004: Authenticated users can persist bookmarks and recent items by run context.</li>
+    <li>AC-005: CSRF token is required for all protected state-changing endpoints.</li>
+    <li>AC-006: Scheduled job performs periodic full migration run as configured.</li>
+  </ul>
+
+  <p class="small">End of Document</p>
+</body>
+</html>
