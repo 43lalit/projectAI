@@ -234,7 +234,6 @@ Current ingestion flow (`POST /api/mdrm/load`):
 - Static UI: `src/main/resources/static`
 - Tests: `src/test/java`
 - Prompt transcripts: `src/main/resources/prompts`
-- Session prompt logs: `prompts`
 
 ## Configuration
 Set in `application.properties`:
