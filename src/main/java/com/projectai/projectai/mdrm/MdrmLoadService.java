@@ -621,6 +621,353 @@ public class MdrmLoadService {
     }
 
     /**
+     * Builds an ontology-style graph for Report -> MDRM -> MDRM Type in one run context.
+     */
+    public MdrmOntologyGraphResponse getOntologyGraph(
+            Long runId,
+            List<String> reportingForms,
+            List<String> mdrmCodes,
+            boolean summaryOnly
+    ) {
+        Long effectiveRunId = resolveEffectiveRunId(runId);
+        if (effectiveRunId == null) {
+            return new MdrmOntologyGraphResponse(0L, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
+        }
+
+        List<String> availableColumns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
+        ensureRequiredColumnExists(availableColumns, MdrmConstants.COLUMN_REPORTING_FORM, MdrmConstants.DEFAULT_MASTER_TABLE);
+        ensureRequiredColumnExists(availableColumns, "mdrm_code", MdrmConstants.DEFAULT_MASTER_TABLE);
+
+        List<String> normalizedReportingForms = normalizeFilterValues(reportingForms, true);
+        List<String> normalizedMdrmCodes = normalizeFilterValues(mdrmCodes, true);
+        String itemTypeExpr = itemTypeRawExpression("m", availableColumns);
+        String normalizedTypeExpr = itemTypeExpr == null
+                ? "'Unknown'"
+                : "COALESCE(NULLIF(BTRIM(" + itemTypeValueExpression(itemTypeExpr) + "), ''), 'Unknown')";
+
+        StringBuilder whereSql = new StringBuilder("""
+                m.run_id = ?
+                AND m.reporting_form IS NOT NULL
+                AND BTRIM(m.reporting_form) <> ''
+                AND m.mdrm_code IS NOT NULL
+                AND BTRIM(m.mdrm_code) <> ''
+                """);
+        List<Object> params = new ArrayList<>();
+        params.add(effectiveRunId);
+
+        if (!normalizedReportingForms.isEmpty()) {
+            whereSql.append(" AND UPPER(BTRIM(m.reporting_form)) IN (")
+                    .append(sqlPlaceholders(normalizedReportingForms.size()))
+                    .append(")");
+            params.addAll(normalizedReportingForms);
+        }
+        if (!normalizedMdrmCodes.isEmpty()) {
+            whereSql.append(" AND UPPER(BTRIM(m.mdrm_code)) IN (")
+                    .append(sqlPlaceholders(normalizedMdrmCodes.size()))
+                    .append(")");
+            params.addAll(normalizedMdrmCodes);
+        }
+
+        String countsSql = """
+                SELECT
+                    COUNT(DISTINCT m.reporting_form) AS report_count,
+                    COUNT(DISTINCT UPPER(BTRIM(m.mdrm_code))) AS mdrm_count,
+                    COUNT(DISTINCT __TYPE_EXPR__) AS mdrm_type_count
+                FROM __MASTER_TABLE__ m
+                WHERE __WHERE__
+                """
+                .replace("__TYPE_EXPR__", normalizedTypeExpr)
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__WHERE__", whereSql);
+
+        CountsRow counts = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(countsSql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                },
+                rs -> rs.next()
+                        ? new CountsRow(rs.getInt("report_count"), rs.getInt("mdrm_count"), rs.getInt("mdrm_type_count"))
+                        : new CountsRow(0, 0, 0)
+        );
+
+        String statusCountsSql = """
+                WITH code_status AS (
+                    SELECT
+                        UPPER(BTRIM(m.mdrm_code)) AS mdrm_code,
+                        MAX(CASE WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'Y' THEN 1 ELSE 0 END) AS has_active,
+                        MAX(CASE WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'N' THEN 1 ELSE 0 END) AS has_inactive
+                    FROM __MASTER_TABLE__ m
+                    WHERE __WHERE__
+                    GROUP BY 1
+                )
+                SELECT
+                    COUNT(*) FILTER (WHERE has_active = 1) AS active_count,
+                    COUNT(*) FILTER (WHERE has_active = 0 AND has_inactive = 1) AS inactive_count
+                FROM code_status
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__WHERE__", whereSql);
+
+        StatusCountsRow statusCounts = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(statusCountsSql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                },
+                rs -> rs.next()
+                        ? new StatusCountsRow(rs.getInt("active_count"), rs.getInt("inactive_count"))
+                        : new StatusCountsRow(0, 0)
+        );
+
+        String typeCountsSql = """
+                SELECT
+                    __TYPE_EXPR__ AS mdrm_type,
+                    COUNT(DISTINCT UPPER(BTRIM(m.mdrm_code))) AS type_count
+                FROM __MASTER_TABLE__ m
+                WHERE __WHERE__
+                GROUP BY 1
+                HAVING COUNT(DISTINCT UPPER(BTRIM(m.mdrm_code))) > 0
+                ORDER BY 1
+                """
+                .replace("__TYPE_EXPR__", normalizedTypeExpr)
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__WHERE__", whereSql);
+
+        List<MdrmOntologyGraphResponse.TypeCount> typeBreakdown = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(typeCountsSql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                },
+                (rs, rowNum) -> new MdrmOntologyGraphResponse.TypeCount(
+                        rs.getString("mdrm_type"),
+                        rs.getInt("type_count")
+                )
+        );
+
+        String statusTypeCountsSql = """
+                SELECT
+                    CASE
+                        WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'Y' THEN 'ACTIVE'
+                        WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'N' THEN 'INACTIVE'
+                        ELSE NULL
+                    END AS mdrm_status,
+                    __TYPE_EXPR__ AS mdrm_type,
+                    COUNT(DISTINCT UPPER(BTRIM(m.mdrm_code))) AS type_count
+                FROM __MASTER_TABLE__ m
+                WHERE __WHERE__
+                GROUP BY 1, 2
+                HAVING
+                    CASE
+                        WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'Y' THEN 'ACTIVE'
+                        WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'N' THEN 'INACTIVE'
+                        ELSE NULL
+                    END IS NOT NULL
+                    AND COUNT(DISTINCT UPPER(BTRIM(m.mdrm_code))) > 0
+                ORDER BY 1, 2
+                """
+                .replace("__TYPE_EXPR__", normalizedTypeExpr)
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__WHERE__", whereSql);
+
+        List<MdrmOntologyGraphResponse.StatusTypeCount> statusTypeBreakdown = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(statusTypeCountsSql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                },
+                (rs, rowNum) -> new MdrmOntologyGraphResponse.StatusTypeCount(
+                        rs.getString("mdrm_status"),
+                        rs.getString("mdrm_type"),
+                        rs.getInt("type_count")
+                )
+        );
+
+        if (summaryOnly || counts.reportCount() == 0 || counts.mdrmCount() == 0) {
+            return new MdrmOntologyGraphResponse(
+                    effectiveRunId,
+                    counts.reportCount(),
+                    counts.mdrmCount(),
+                    counts.mdrmTypeCount(),
+                    statusCounts.activeCount(),
+                    statusCounts.inactiveCount(),
+                    typeBreakdown,
+                    statusTypeBreakdown,
+                    List.of(),
+                    List.of()
+            );
+        }
+
+        String rowSql = """
+                SELECT
+                    m.reporting_form AS reporting_form,
+                    UPPER(BTRIM(m.mdrm_code)) AS mdrm_code,
+                    __TYPE_EXPR__ AS mdrm_type,
+                    MAX(CASE WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'Y' THEN 1 ELSE 0 END) AS has_active
+                FROM __MASTER_TABLE__ m
+                WHERE __WHERE__
+                GROUP BY 1, 2, 3
+                ORDER BY 1, 2, 3
+                """
+                .replace("__TYPE_EXPR__", normalizedTypeExpr)
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__WHERE__", whereSql);
+
+        List<OntologyRow> rows = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(rowSql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                },
+                (rs, rowNum) -> new OntologyRow(
+                        rs.getString("reporting_form"),
+                        rs.getString("mdrm_code"),
+                        rs.getString("mdrm_type"),
+                        rs.getInt("has_active")
+                )
+        );
+
+        if (rows.isEmpty()) {
+            return new MdrmOntologyGraphResponse(
+                    effectiveRunId,
+                    counts.reportCount(),
+                    counts.mdrmCount(),
+                    counts.mdrmTypeCount(),
+                    statusCounts.activeCount(),
+                    statusCounts.inactiveCount(),
+                    typeBreakdown,
+                    statusTypeBreakdown,
+                    List.of(),
+                    List.of()
+            );
+        }
+
+        Map<String, MdrmOntologyGraphResponse.Node> reportNodes = new LinkedHashMap<>();
+        Map<String, MdrmOntologyGraphResponse.Node> mdrmNodes = new LinkedHashMap<>();
+        Map<String, MdrmOntologyGraphResponse.Node> typeNodes = new LinkedHashMap<>();
+        Map<String, Integer> mdrmStatusPriority = new LinkedHashMap<>();
+        List<MdrmOntologyGraphResponse.Edge> edges = new ArrayList<>();
+        Set<String> edgeKeys = new HashSet<>();
+
+        for (OntologyRow row : rows) {
+            String reportLabel = row.reportingForm() == null ? "" : row.reportingForm().trim();
+            String mdrmCode = row.mdrmCode() == null ? "" : row.mdrmCode().trim();
+            String mdrmType = row.mdrmType() == null || row.mdrmType().trim().isEmpty()
+                    ? "Unknown"
+                    : row.mdrmType().trim();
+            if (reportLabel.isEmpty() || mdrmCode.isEmpty()) {
+                continue;
+            }
+
+            String reportNodeId = "report:" + reportLabel;
+            String mdrmNodeId = "mdrm:" + mdrmCode;
+            String typeNodeId = "type:" + mdrmType;
+
+            reportNodes.putIfAbsent(reportNodeId, new MdrmOntologyGraphResponse.Node(reportNodeId, reportLabel, "REPORT", null));
+            typeNodes.putIfAbsent(typeNodeId, new MdrmOntologyGraphResponse.Node(typeNodeId, mdrmType, "MDRM_TYPE", null));
+
+            int statusPriority = row.hasActive() > 0 ? 2 : 1;
+            int previousPriority = mdrmStatusPriority.getOrDefault(mdrmNodeId, 0);
+            if (!mdrmNodes.containsKey(mdrmNodeId) || statusPriority > previousPriority) {
+                mdrmNodes.put(mdrmNodeId, new MdrmOntologyGraphResponse.Node(
+                        mdrmNodeId,
+                        mdrmCode,
+                        "MDRM",
+                        statusPriority == 2 ? "Active" : "Inactive"
+                ));
+                mdrmStatusPriority.put(mdrmNodeId, statusPriority);
+            }
+
+            String reportEdgeKey = reportNodeId + "->" + mdrmNodeId + "|REPORT_HAS_MDRM";
+            if (edgeKeys.add(reportEdgeKey)) {
+                edges.add(new MdrmOntologyGraphResponse.Edge(reportNodeId, mdrmNodeId, "REPORT_HAS_MDRM"));
+            }
+            String typeEdgeKey = mdrmNodeId + "->" + typeNodeId + "|MDRM_IS_TYPE";
+            if (edgeKeys.add(typeEdgeKey)) {
+                edges.add(new MdrmOntologyGraphResponse.Edge(mdrmNodeId, typeNodeId, "MDRM_IS_TYPE"));
+            }
+        }
+
+        List<MdrmOntologyGraphResponse.Node> allNodes = new ArrayList<>(reportNodes.size() + mdrmNodes.size() + typeNodes.size());
+        allNodes.addAll(reportNodes.values());
+        allNodes.addAll(mdrmNodes.values());
+        allNodes.addAll(typeNodes.values());
+        allNodes.sort((a, b) -> {
+            int categoryCompare = a.category().compareToIgnoreCase(b.category());
+            return categoryCompare != 0 ? categoryCompare : a.label().compareToIgnoreCase(b.label());
+        });
+
+        return new MdrmOntologyGraphResponse(
+                effectiveRunId,
+                counts.reportCount(),
+                counts.mdrmCount(),
+                counts.mdrmTypeCount(),
+                statusCounts.activeCount(),
+                statusCounts.inactiveCount(),
+                typeBreakdown,
+                statusTypeBreakdown,
+                allNodes,
+                edges
+        );
+    }
+
+    public MdrmOntologyOptionsResponse getOntologyOptions(Long runId, List<String> reportingForms) {
+        Long effectiveRunId = resolveEffectiveRunId(runId);
+        if (effectiveRunId == null) {
+            return new MdrmOntologyOptionsResponse(0L, List.of(), List.of());
+        }
+
+        List<String> selectedReports = normalizeFilterValues(reportingForms, true);
+
+        String reportSql = """
+                SELECT DISTINCT m.reporting_form
+                FROM __MASTER_TABLE__ m
+                WHERE m.run_id = ?
+                  AND m.reporting_form IS NOT NULL
+                  AND BTRIM(m.reporting_form) <> ''
+                ORDER BY m.reporting_form
+                """
+                .replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE);
+        List<String> reports = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(reportSql);
+                    ps.setLong(1, effectiveRunId);
+                    return ps;
+                },
+                (rs, rowNum) -> rs.getString("reporting_form")
+        );
+
+        StringBuilder mdrmSql = new StringBuilder("""
+                SELECT DISTINCT UPPER(BTRIM(m.mdrm_code)) AS mdrm_code
+                FROM __MASTER_TABLE__ m
+                WHERE m.run_id = ?
+                  AND m.mdrm_code IS NOT NULL
+                  AND BTRIM(m.mdrm_code) <> ''
+                """.replace("__MASTER_TABLE__", MdrmConstants.DEFAULT_MASTER_TABLE));
+        List<Object> params = new ArrayList<>();
+        params.add(effectiveRunId);
+        if (!selectedReports.isEmpty()) {
+            mdrmSql.append(" AND UPPER(BTRIM(m.reporting_form)) IN (")
+                    .append(sqlPlaceholders(selectedReports.size()))
+                    .append(")");
+            params.addAll(selectedReports);
+        }
+        mdrmSql.append(" ORDER BY mdrm_code LIMIT 3000");
+
+        List<String> mdrms = jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(mdrmSql.toString());
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                },
+                (rs, rowNum) -> rs.getString("mdrm_code")
+        );
+
+        return new MdrmOntologyOptionsResponse(effectiveRunId, reports, mdrms);
+    }
+
+    /**
      * Returns one MDRM-centric profile with timeline, associations, and related entities.
      */
     public MdrmProfileResponse getMdrmProfile(String mdrmCode) {
@@ -2451,6 +2798,49 @@ public class MdrmLoadService {
         return runId > 0 ? runId : null;
     }
 
+    private Long resolveEffectiveRunId(Long runId) {
+        Long normalizedRunId = normalizeRunContext(runId);
+        if (normalizedRunId != null) {
+            return normalizedRunId;
+        }
+        return jdbcTemplate.queryForObject(
+                "SELECT MAX(run_id) FROM " + MdrmConstants.DEFAULT_MASTER_TABLE,
+                Long.class
+        );
+    }
+
+    private List<String> normalizeFilterValues(List<String> values, boolean upperCase) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (String value : values) {
+            String raw = value == null ? "" : value.trim();
+            if (raw.isEmpty()) {
+                continue;
+            }
+            String next = upperCase ? raw.toUpperCase(Locale.ROOT) : raw;
+            if (seen.add(next)) {
+                normalized.add(next);
+            }
+        }
+        return normalized;
+    }
+
+    private String sqlPlaceholders(int count) {
+        if (count <= 0) {
+            return "";
+        }
+        return String.join(", ", Collections.nCopies(count, "?"));
+    }
+
+    private void setPreparedStatementParams(PreparedStatement ps, List<Object> params) throws SQLException {
+        for (int i = 0; i < params.size(); i++) {
+            ps.setObject(i + 1, params.get(i));
+        }
+    }
+
     private String bucketConditionSql(String bucket) {
         return switch (bucket) {
             case "TOTAL" -> "1 = 1";
@@ -2640,6 +3030,27 @@ public class MdrmLoadService {
             int changedFieldCount,
             String changedFields,
             List<MdrmProfileTimelineFieldChange> fieldChanges
+    ) {
+    }
+
+    private record OntologyRow(
+            String reportingForm,
+            String mdrmCode,
+            String mdrmType,
+            int hasActive
+    ) {
+    }
+
+    private record CountsRow(
+            int reportCount,
+            int mdrmCount,
+            int mdrmTypeCount
+    ) {
+    }
+
+    private record StatusCountsRow(
+            int activeCount,
+            int inactiveCount
     ) {
     }
 }

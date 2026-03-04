@@ -163,6 +163,25 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - `docs/ProjectAI_Functional_Specification.html`
   - `docs/ProjectAI_Functional_Specification.txt`
 
+## Latest Updates (2026-03-04)
+- Ontology graph experience introduced and refined:
+  - Interactive node-based flow now supports `Reports -> MDRM -> Active/Inactive -> Type`.
+  - Relationship edges are labeled for readability (e.g., `comprises of`, `can be of`).
+  - Nodes with zero count are hidden from view.
+  - Type nodes are derived from active/inactive branches and edges render only for valid relationships.
+- Ontology filtering and controls:
+  - Node visibility controls with multi-select checkboxes.
+  - `Reset Filter` and `Clear View` actions moved into the ontology filter widget.
+  - Summary header text/boxes removed to maximize graph real estate.
+- Ontology reference support:
+  - Report and MDRM reference widgets retained as table-style helpers while working from the graph.
+  - MDRM and Financial/Reported Item Type nodes include info hints (`i`) with business definitions.
+- Run-context consistency:
+  - KPI MDRM count aligned to ontology summary context behavior for selected run month.
+- Quick Tour updates:
+  - Added ontology-focused onboarding steps for opening ontology, interacting with graph nodes, and filtering node visibility.
+  - Onboarding version key incremented so returning users receive the updated guide.
+
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
 2. Discover files by pattern `mdrm.migration-file-pattern` and keep only `MDRM_mmyy.csv`

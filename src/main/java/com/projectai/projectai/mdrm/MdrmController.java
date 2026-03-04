@@ -149,6 +149,24 @@ public class MdrmController {
         return ResponseEntity.ok(mdrmLoadService.semanticSearch(query, runId));
     }
 
+    @GetMapping("/ontology-graph")
+    public ResponseEntity<MdrmOntologyGraphResponse> ontologyGraph(
+            @RequestParam(required = false) Long runId,
+            @RequestParam(name = "reportingForm", required = false) List<String> reportingForms,
+            @RequestParam(name = "mdrm", required = false) List<String> mdrmCodes,
+            @RequestParam(defaultValue = "false") boolean summaryOnly
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getOntologyGraph(runId, reportingForms, mdrmCodes, summaryOnly));
+    }
+
+    @GetMapping("/ontology-options")
+    public ResponseEntity<MdrmOntologyOptionsResponse> ontologyOptions(
+            @RequestParam(required = false) Long runId,
+            @RequestParam(name = "reportingForm", required = false) List<String> reportingForms
+    ) {
+        return ResponseEntity.ok(mdrmLoadService.getOntologyOptions(runId, reportingForms));
+    }
+
     @GetMapping("/profile")
     public ResponseEntity<MdrmProfileResponse> getMdrmProfile(
             @RequestParam("mdrm") String mdrmCode,

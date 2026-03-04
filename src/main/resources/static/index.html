@@ -65,6 +65,17 @@
           </span>
           <span class="menu-link-label">Reports</span>
         </a>
+        <a id="menu-ontology" class="menu-link !px-4 !py-2 !text-xs !font-semibold" data-view="view-ontology" href="#">
+          <span class="menu-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="6" r="2.5" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="6" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12 8.5v4m0 0l-4 3m4-3l4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="menu-link-label">Ontology</span>
+        </a>
         <a id="menu-load" class="menu-link !px-4 !py-2 !text-xs !font-semibold" data-view="view-load" href="#">
           <span class="menu-link-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l4-4m-4 4l-4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -425,7 +436,52 @@
         </section>
       </div>
     </section>
+
+    <section id="view-ontology" class="panel view">
+      <div class="card-shell p-3">
+        <div class="ontology-layout">
+          <div id="ontologyGraphHost" class="ontology-graph-host"></div>
+          <aside id="ontologyNodeFilterPanel" class="ontology-filter-panel">
+            <div class="ontology-filter-title">Node Visibility</div>
+            <input id="ontologyQuickFilterInput" class="form-control form-control-sm" type="text" placeholder="Filter node text...">
+            <label class="ontology-filter-row"><input id="ontologyFilterReport" type="checkbox" checked> <span>Reports</span></label>
+            <label class="ontology-filter-row"><input id="ontologyFilterMdrm" type="checkbox" checked> <span>MDRM</span></label>
+            <label class="ontology-filter-row"><input id="ontologyFilterActive" type="checkbox" checked> <span>Active</span></label>
+            <label class="ontology-filter-row"><input id="ontologyFilterInactive" type="checkbox" checked> <span>Inactive</span></label>
+            <label class="ontology-filter-row"><input id="ontologyFilterType" type="checkbox" checked> <span>Types</span></label>
+            <div class="d-grid gap-2 mt-1">
+              <button id="ontologyResetViewBtn" class="btn btn-sm btn-outline-secondary" type="button">Reset Filter</button>
+              <button id="ontologyClearViewBtn" class="btn btn-sm btn-outline-danger" type="button">Clear View</button>
+            </div>
+          </aside>
+        </div>
+        <div class="ontology-reference-widget mt-3">
+          <div class="ontology-reference-column">
+            <div class="ontology-selection-title">Selected Reports On Graph</div>
+            <div id="ontologyReportsTable" class="ontology-reference-table"></div>
+          </div>
+          <div class="ontology-reference-column">
+            <div class="ontology-selection-title">Selected MDRMs On Graph</div>
+            <div id="ontologyMdrmsTable" class="ontology-reference-table"></div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div id="ontologySelectorOverlay" class="command-palette-overlay" hidden>
+    <div class="command-palette-shell ontology-selector-shell" role="dialog" aria-modal="true" aria-label="Ontology selector">
+      <div class="command-palette-input-wrap">
+        <input id="ontologySelectorSearch" class="command-palette-input" type="text" placeholder="Search options...">
+      </div>
+      <div id="ontologySelectorMeta" class="command-palette-meta">Select items</div>
+      <div id="ontologySelectorList" class="command-palette-list ontology-selector-list"></div>
+      <div class="d-flex justify-content-end gap-2 mt-2">
+        <button id="ontologySelectorCancelBtn" class="btn btn-sm btn-outline-secondary" type="button">Cancel</button>
+        <button id="ontologySelectorApplyBtn" class="btn btn-sm btn-primary" type="button">Apply Selection</button>
+      </div>
+    </div>
+  </div>
 
   <div id="commandPaletteOverlay" class="command-palette-overlay" hidden>
     <div class="command-palette-shell" role="dialog" aria-modal="true" aria-label="Command palette">
@@ -486,6 +542,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
   <script>
     const menuButtons = Array.from(document.querySelectorAll('.menu-link'));
@@ -506,6 +563,8 @@
       if (kpiActiveView) {
         if (targetViewId === 'view-reporting') {
           kpiActiveView.textContent = 'Reports';
+        } else if (targetViewId === 'view-ontology') {
+          kpiActiveView.textContent = 'Ontology';
         } else if (targetViewId === 'view-bookmarks') {
           kpiActiveView.textContent = 'Bookmarks';
         } else if (targetViewId === 'view-load') {
@@ -520,12 +579,15 @@
       if (targetViewId === 'view-bookmarks' && currentUser) {
         refreshBookmarks();
       }
+      if (targetViewId === 'view-ontology') {
+        loadOntologyGraph();
+      }
     }
 
     function getInitialViewFromUrl() {
       const params = new URLSearchParams(window.location.search);
       const fromQuery = params.get('view');
-      const allowed = new Set(['view-discovery', 'view-bookmarks', 'view-reporting', 'view-load']);
+      const allowed = new Set(['view-discovery', 'view-bookmarks', 'view-reporting', 'view-ontology', 'view-load']);
       if (fromQuery && allowed.has(fromQuery)) {
         return fromQuery;
       }
@@ -697,6 +759,13 @@
           hint: 'Open reporting viewer',
           keywords: 'reports reporting run history',
           run: () => switchView('view-reporting')
+        },
+        {
+          id: 'view-ontology',
+          label: 'Go to Ontology',
+          hint: 'Open Report -> MDRM -> Type graph',
+          keywords: 'ontology graph relationship mindmap',
+          run: () => switchView('view-ontology')
         },
         {
           id: 'focus-discovery',
@@ -1030,6 +1099,25 @@
     const reportKpiActive = document.getElementById('reportKpiActive');
     const reportKpiNetChange = document.getElementById('reportKpiNetChange');
     const reportKpiNetChangeTile = document.getElementById('reportKpiNetChangeTile');
+    const ontologyStatus = document.getElementById('ontologyStatus');
+    const ontologyGraphHost = document.getElementById('ontologyGraphHost');
+    const ontologyDetailPanel = document.getElementById('ontologyDetailPanel');
+    const ontologyClearViewBtn = document.getElementById('ontologyClearViewBtn');
+    const ontologyReportsTable = document.getElementById('ontologyReportsTable');
+    const ontologyMdrmsTable = document.getElementById('ontologyMdrmsTable');
+    const ontologyFilterReport = document.getElementById('ontologyFilterReport');
+    const ontologyFilterMdrm = document.getElementById('ontologyFilterMdrm');
+    const ontologyFilterActive = document.getElementById('ontologyFilterActive');
+    const ontologyFilterInactive = document.getElementById('ontologyFilterInactive');
+    const ontologyFilterType = document.getElementById('ontologyFilterType');
+    const ontologyQuickFilterInput = document.getElementById('ontologyQuickFilterInput');
+    const ontologyResetViewBtn = document.getElementById('ontologyResetViewBtn');
+    const ontologySelectorOverlay = document.getElementById('ontologySelectorOverlay');
+    const ontologySelectorSearch = document.getElementById('ontologySelectorSearch');
+    const ontologySelectorMeta = document.getElementById('ontologySelectorMeta');
+    const ontologySelectorList = document.getElementById('ontologySelectorList');
+    const ontologySelectorCancelBtn = document.getElementById('ontologySelectorCancelBtn');
+    const ontologySelectorApplyBtn = document.getElementById('ontologySelectorApplyBtn');
     const activeMdrmQuickFilterInput = document.getElementById('activeMdrmQuickFilterInput');
     const activeMdrmGrid = document.getElementById('activeMdrmGrid');
     const netChangeInfoLabel = document.getElementById('netChangeInfoLabel');
@@ -1136,7 +1224,7 @@
     const LOCAL_RECENT_ITEMS_KEY = 'mdrm-recent-items-v1';
     const RECENT_SEARCHES_KEY = 'mdrm-recent-searches-v1';
     const SAVED_SEARCHES_KEY = 'mdrm-saved-searches-v1';
-    const GUIDE_SEEN_KEY = 'mdrm-onboarding-guide-seen-v1';
+    const GUIDE_SEEN_KEY = 'mdrm-onboarding-guide-seen-v2';
     const RECENT_ITEMS_MAX = 10;
     const RECENT_SEARCHES_MAX = 12;
     const SAVED_SEARCHES_MAX = 20;
@@ -1151,6 +1239,7 @@
     let netChangeGridApi = null;
     let pendingBookmarkPayload = null;
     let saveBookmarkModal = null;
+    let ontologyInfoNoteEl = null;
     let authMode = '';
     let recentItems = [];
     let guideStepIndex = 0;
@@ -1167,6 +1256,22 @@
     let commandPaletteActions = [];
     let commandPaletteSelectionIndex = 0;
     let commandPaletteCloseTimer = null;
+    let ontologyGraphPayload = null;
+    let ontologyBaseSummaryPayload = null;
+    let ontologyGraphSimulation = null;
+    let ontologyGraphSvg = null;
+    let ontologyGraphNodeSelection = null;
+    let ontologyGraphLinkSelection = null;
+    let ontologyGraphLinkLabelSelection = null;
+    let ontologySelectedNodeId = null;
+    let ontologyNeighborMap = new Map();
+    let ontologyNodeById = new Map();
+    let ontologyLoadedContextRunId = null;
+    let ontologySelectedReportsState = [];
+    let ontologySelectedMdrmsState = [];
+    let ontologySelectorMode = null;
+    let ontologySelectorOptions = [];
+    let ontologySelectorWorkingSet = new Set();
     const guideAvatarMap = {
       intro: '/guide/mentor-custom.webp',
       explain: '/guide/mentor-custom.webp',
@@ -1178,7 +1283,7 @@
         view: 'view-discovery',
         selector: null,
         title: 'Welcome To FedMDRM',
-        body: 'FedMDRM is your single workspace for MDRM discovery, bookmark organization, report timeline review, and file load operations. This quick guide will show the key places to navigate first.',
+        body: 'FedMDRM is your single workspace for MDRM discovery, bookmark organization, report timeline review, ontology graph exploration, and file load operations. This quick guide will show the key places to navigate first.',
         intro: true,
         avatar: 'intro'
       },
@@ -1216,6 +1321,27 @@
         title: 'Open Reports',
         body: 'Review report history and drill into timeline changes.',
         avatar: 'focus'
+      },
+      {
+        view: 'view-ontology',
+        selector: '#menu-ontology',
+        title: 'Open Ontology Graph',
+        body: 'Use this tab to explore how Reports, MDRM, activity status, and item types relate to each other.',
+        avatar: 'explain'
+      },
+      {
+        view: 'view-ontology',
+        selector: '#ontologyGraphHost',
+        title: 'Work Directly From The Graph',
+        body: 'Click nodes to scope selections and refresh summarized counts while detailed report and MDRM tables stay visible below.',
+        avatar: 'focus'
+      },
+      {
+        view: 'view-ontology',
+        selector: '#ontologyNodeFilterPanel',
+        title: 'Filter Visible Nodes',
+        body: 'Use checkboxes to hide or show node groups, then use Reset Filter or Clear View when needed.',
+        avatar: 'smile'
       },
       {
         view: 'view-load',
@@ -1967,8 +2093,886 @@
       if (currentUser) {
         await refreshBookmarks();
       }
+      if (document.querySelector('#view-ontology.view.active')) {
+        ontologySelectedReportsState = [];
+        ontologySelectedMdrmsState = [];
+        renderOntologyReferenceTables();
+        await loadOntologyGraph(true);
+      }
       await loadRecentItems();
       syncCopyLinkButtons();
+    }
+
+    function setOntologyStatus(message, tone = 'neutral') {
+      if (!ontologyStatus) {
+        return;
+      }
+      const cssTone = tone === 'err' ? 'err' : tone === 'ok' ? 'ok' : 'neutral';
+      ontologyStatus.className = `status ${cssTone} mt-2`;
+      ontologyStatus.textContent = message;
+    }
+
+    function normalizeOntologyCategory(value) {
+      const raw = String(value || '').toUpperCase();
+      if (raw === 'REPORT' || raw === 'MDRM' || raw === 'MDRM_TYPE') {
+        return raw;
+      }
+      return 'UNKNOWN';
+    }
+
+    function ontologyNodeRadius(node) {
+      const category = normalizeOntologyCategory(node && node.category);
+      if (category === 'REPORT') return 19;
+      if (category === 'MDRM') return 12;
+      if (category === 'MDRM_TYPE') return 16;
+      return 11;
+    }
+
+    function shortenOntologyLabel(label, category) {
+      const text = String(label || '').trim();
+      if (!text) return '-';
+      const normalized = normalizeOntologyCategory(category);
+      if (normalized === 'MDRM') return text.toUpperCase();
+      if (normalized === 'MDRM_TYPE') return text.length > 14 ? `${text.slice(0, 14)}…` : text;
+      return text.length > 10 ? `${text.slice(0, 10)}…` : text;
+    }
+
+    function ontologyNodeClass(node) {
+      const category = normalizeOntologyCategory(node && node.category).toLowerCase();
+      const status = String(node && node.status ? node.status : '').toLowerCase();
+      const statusClass = status === 'active' ? 'is-active' : status === 'inactive' ? 'is-inactive' : '';
+      return `ontology-node ontology-node-${category} ${statusClass}`.trim();
+    }
+
+    function buildOntologyUrl(path, { summaryOnly = false, includeReportFilters = true, includeMdrmFilters = true } = {}) {
+      const params = new URLSearchParams();
+      const runId = getRunContextId();
+      if (runId) {
+        params.set('runId', String(runId));
+      }
+      if (summaryOnly) {
+        params.set('summaryOnly', 'true');
+      }
+      if (includeReportFilters) {
+        (ontologySelectedReportsState || []).forEach(report => params.append('reportingForm', report));
+      }
+      if (includeMdrmFilters) {
+        (ontologySelectedMdrmsState || []).forEach(mdrm => params.append('mdrm', mdrm));
+      }
+      const query = params.toString();
+      return query ? `${path}?${query}` : path;
+    }
+
+    function buildOntologyBaseSummaryUrl() {
+      const params = new URLSearchParams();
+      const runId = getRunContextId();
+      if (runId) {
+        params.set('runId', String(runId));
+      }
+      params.set('summaryOnly', 'true');
+      const query = params.toString();
+      return query ? `/api/mdrm/ontology-graph?${query}` : '/api/mdrm/ontology-graph?summaryOnly=true';
+    }
+
+    function renderOntologyReferenceTables() {
+      const selectedReports = (ontologySelectedReportsState || []).map(v => String(v)).filter(Boolean);
+      const selectedMdrms = (ontologySelectedMdrmsState || []).map(v => String(v)).filter(Boolean);
+
+      if (ontologyReportsTable) {
+        if (!selectedReports.length) {
+          ontologyReportsTable.innerHTML = '<div class="text-muted small">No report selected on graph.</div>';
+        } else {
+          const rows = selectedReports.slice(0, 300).map(report => `
+            <tr class="is-selected">
+              <td>${escapeHtml(report)}</td>
+            </tr>
+          `).join('');
+          ontologyReportsTable.innerHTML = `
+            <div class="ontology-reference-meta small text-muted mb-1">${formatCount(selectedReports.length)} selected</div>
+            <table class="table table-sm table-striped mb-0">
+              <thead><tr><th>Report</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          `;
+        }
+      }
+
+      if (ontologyMdrmsTable) {
+        if (!selectedMdrms.length) {
+          ontologyMdrmsTable.innerHTML = '<div class="text-muted small">No MDRM selected on graph scope.</div>';
+        } else {
+          const rows = selectedMdrms.slice(0, 500).map(mdrm => `
+            <tr class="is-selected">
+              <td class="mono">${escapeHtml(mdrm)}</td>
+            </tr>
+          `).join('');
+          ontologyMdrmsTable.innerHTML = `
+            <div class="ontology-reference-meta small text-muted mb-1">${formatCount(selectedMdrms.length)} selected</div>
+            <table class="table table-sm table-striped mb-0">
+              <thead><tr><th>MDRM</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          `;
+        }
+      }
+    }
+
+    function clearOntologyGraph(message = 'Select one or more reports to build ontology graph.') {
+      removeOntologyInfoNote();
+      if (ontologyGraphSimulation) {
+        ontologyGraphSimulation.stop();
+        ontologyGraphSimulation = null;
+      }
+      if (ontologyGraphHost) {
+        ontologyGraphHost.innerHTML = `<div class="text-muted small p-3">${escapeHtml(message)}</div>`;
+      }
+      ontologyGraphPayload = null;
+      ontologyGraphNodeSelection = null;
+      ontologyGraphLinkSelection = null;
+      ontologyNeighborMap = new Map();
+      ontologyNodeById = new Map();
+      renderOntologyDetail(null);
+    }
+
+    function removeOntologyInfoNote() {
+      if (ontologyInfoNoteEl && ontologyInfoNoteEl.parentNode) {
+        ontologyInfoNoteEl.parentNode.removeChild(ontologyInfoNoteEl);
+      }
+      ontologyInfoNoteEl = null;
+    }
+
+    function toggleOntologyInfoNote(message, anchorX, anchorY, hostWidth, hostHeight) {
+      if (!ontologyGraphHost) {
+        return;
+      }
+      if (ontologyInfoNoteEl) {
+        removeOntologyInfoNote();
+        return;
+      }
+      const note = document.createElement('div');
+      note.className = 'ontology-info-note';
+      note.textContent = String(message || '').trim();
+      ontologyGraphHost.appendChild(note);
+      const noteRect = note.getBoundingClientRect();
+      const left = Math.max(8, Math.min((hostWidth || 900) - noteRect.width - 8, anchorX + 14));
+      const top = Math.max(8, Math.min((hostHeight || 500) - noteRect.height - 8, anchorY - 10));
+      note.style.left = `${left}px`;
+      note.style.top = `${top}px`;
+      ontologyInfoNoteEl = note;
+    }
+
+    function splitOntologyNodeLabel(label) {
+      const raw = String(label || '').trim();
+      const match = raw.match(/^(.*)\s\(([^()]*)\)$/);
+      if (!match) {
+        return { title: raw, count: '' };
+      }
+      return {
+        title: String(match[1] || '').trim(),
+        count: `(${String(match[2] || '').trim()})`
+      };
+    }
+
+    function wrapOntologyText(text, maxCharsPerLine, maxLines) {
+      const words = String(text || '').split(/\s+/).filter(Boolean);
+      if (!words.length) {
+        return [];
+      }
+      const lines = [];
+      let current = '';
+      words.forEach(word => {
+        const next = current ? `${current} ${word}` : word;
+        if (next.length <= maxCharsPerLine || !current) {
+          current = next;
+        } else {
+          lines.push(current);
+          current = word;
+        }
+      });
+      if (current) {
+        lines.push(current);
+      }
+      if (lines.length <= maxLines) {
+        return lines;
+      }
+      const clipped = lines.slice(0, maxLines);
+      const lastIndex = clipped.length - 1;
+      clipped[lastIndex] = `${clipped[lastIndex].slice(0, Math.max(1, maxCharsPerLine - 1)).trimEnd()}…`;
+      return clipped;
+    }
+
+    function appendOntologyNodeLabels(selection) {
+      selection.each(function(d) {
+        const group = d3.select(this);
+        const radius = (function() {
+          if (d.id === 'summary:report' || d.id === 'summary:mdrm') return 42;
+          if (d.id === 'summary:mdrm-active' || d.id === 'summary:mdrm-inactive') return 40;
+          return 32;
+        })();
+        const parts = splitOntologyNodeLabel(d.label || '');
+        const maxChars = radius >= 42 ? 14 : radius >= 40 ? 12 : 11;
+        const titleLines = wrapOntologyText(parts.title, maxChars, parts.count ? 2 : 3);
+        const lines = parts.count ? [...titleLines, parts.count] : titleLines;
+        const text = group.append('text')
+          .attr('class', 'ontology-node-label')
+          .attr('text-anchor', 'middle')
+          .attr('y', 0);
+
+        const dynamicFontPx = radius >= 42 ? 10 : radius >= 40 ? 9.4 : 8.5;
+        const lineHeight = dynamicFontPx + 1.6;
+        const firstDy = -((Math.max(1, lines.length) - 1) * lineHeight) / 2;
+        text.style('font-size', `${dynamicFontPx}px`);
+
+        lines.forEach((line, index) => {
+          text.append('tspan')
+            .attr('x', 0)
+            .attr('dy', index === 0 ? `${firstDy}px` : `${lineHeight}px`)
+            .text(line);
+        });
+      });
+    }
+
+    function renderOntologySummaryGraph(payload) {
+      if (!ontologyGraphHost) return;
+      removeOntologyInfoNote();
+      if (!window.d3) {
+        setOntologyStatus('D3 library is unavailable.', 'err');
+        return;
+      }
+      if (ontologyGraphSimulation) {
+        ontologyGraphSimulation.stop();
+        ontologyGraphSimulation = null;
+      }
+      ontologyGraphHost.innerHTML = '';
+      ontologyNeighborMap = new Map();
+      ontologyNodeById = new Map();
+      ontologyGraphNodeSelection = null;
+      ontologyGraphLinkSelection = null;
+      ontologyGraphLinkLabelSelection = null;
+      ontologySelectedNodeId = null;
+
+      const reportCount = Number(payload?.reportCount || 0);
+      const mdrmCount = Number(payload?.mdrmCount || 0);
+      const activeCount = Number(payload?.activeMdrmCount || 0);
+      const inactiveCount = Number(payload?.inactiveMdrmCount || 0);
+      const typeBreakdown = Array.isArray(payload?.typeBreakdown)
+        ? payload.typeBreakdown
+            .map(row => ({ type: String(row?.type || '').trim() || 'Unknown', count: Number(row?.count || 0) }))
+            .filter(row => row.count > 0)
+        : [];
+      const statusTypeBreakdown = Array.isArray(payload?.statusTypeBreakdown)
+        ? payload.statusTypeBreakdown
+            .map(row => ({
+              status: String(row?.status || '').trim().toUpperCase(),
+              type: String(row?.type || '').trim() || 'Unknown',
+              count: Number(row?.count || 0)
+            }))
+            .filter(row => (row.status === 'ACTIVE' || row.status === 'INACTIVE') && row.count > 0)
+        : [];
+      const statusTypeKeySet = new Set(statusTypeBreakdown.map(row => `${row.status}||${row.type}`));
+
+      const nodes = [];
+      const links = [];
+      if (reportCount > 0) {
+        nodes.push({ id: 'summary:report', label: `Reports (${formatCount(reportCount)})`, category: 'REPORT' });
+      }
+      if (mdrmCount > 0) {
+        nodes.push({ id: 'summary:mdrm', label: `MDRMs (${formatCount(mdrmCount)})`, category: 'MDRM' });
+      }
+      if (activeCount > 0) {
+        nodes.push({ id: 'summary:mdrm-active', label: `Active (${formatCount(activeCount)})`, category: 'MDRM', status: 'Active' });
+      }
+      if (inactiveCount > 0) {
+        nodes.push({ id: 'summary:mdrm-inactive', label: `Inactive (${formatCount(inactiveCount)})`, category: 'MDRM', status: 'Inactive' });
+      }
+
+      typeBreakdown.forEach((row, idx) => {
+        const hasActiveLink = statusTypeKeySet.has(`ACTIVE||${row.type}`);
+        const hasInactiveLink = statusTypeKeySet.has(`INACTIVE||${row.type}`);
+        if (!hasActiveLink && !hasInactiveLink) {
+          return;
+        }
+        const typeId = `summary:type:${idx}`;
+        nodes.push({
+          id: typeId,
+          label: `${row.type} (${formatCount(row.count)})`,
+          category: 'MDRM_TYPE'
+        });
+        if (hasActiveLink && activeCount > 0) {
+          links.push({ source: 'summary:mdrm-active', target: typeId, relation: 'MDRM_IS_TYPE' });
+        }
+        if (hasInactiveLink && inactiveCount > 0) {
+          links.push({ source: 'summary:mdrm-inactive', target: typeId, relation: 'MDRM_IS_TYPE' });
+        }
+      });
+
+      const nodeIdSet = new Set(nodes.map(node => node.id));
+      if (nodeIdSet.has('summary:report') && nodeIdSet.has('summary:mdrm')) {
+        links.push({ source: 'summary:report', target: 'summary:mdrm', relation: 'REPORT_HAS_MDRM' });
+      }
+      if (nodeIdSet.has('summary:mdrm') && nodeIdSet.has('summary:mdrm-active')) {
+        links.push({ source: 'summary:mdrm', target: 'summary:mdrm-active', relation: 'MDRM_STATUS_SPLIT' });
+      }
+      if (nodeIdSet.has('summary:mdrm') && nodeIdSet.has('summary:mdrm-inactive')) {
+        links.push({ source: 'summary:mdrm', target: 'summary:mdrm-inactive', relation: 'MDRM_STATUS_SPLIT' });
+      }
+
+      if (!nodes.length) {
+        ontologyGraphHost.innerHTML = '<div class="text-muted small p-3">No nodes to display for current selection.</div>';
+        return;
+      }
+
+      const width = Math.max(880, ontologyGraphHost.clientWidth || 880);
+      const typeNodeCount = Math.max(1, nodes.filter(node => String(node.id).startsWith('summary:type:')).length);
+      const height = Math.max(380, 260 + (typeNodeCount * 56));
+      const centerY = Math.round(height / 2);
+      const x1 = Math.round(width * 0.2);
+      const x2 = Math.round(width * 0.4);
+      const x3 = Math.round(width * 0.6);
+      const x4 = Math.round(width * 0.82);
+      const positions = new Map();
+      positions.set('summary:report', { x: x1, y: centerY });
+      positions.set('summary:mdrm', { x: x2, y: centerY });
+      positions.set('summary:mdrm-active', { x: x3, y: centerY - 64 });
+      positions.set('summary:mdrm-inactive', { x: x3, y: centerY + 64 });
+
+      const typeSpacing = typeNodeCount > 1 ? Math.min(78, Math.floor((height - 80) / (typeNodeCount - 1))) : 0;
+      const firstTypeY = typeNodeCount > 1
+        ? Math.round(centerY - ((typeNodeCount - 1) * typeSpacing) / 2)
+        : centerY;
+      nodes
+        .filter(node => String(node.id).startsWith('summary:type:'))
+        .forEach((node, idx) => {
+          positions.set(node.id, { x: x4, y: firstTypeY + (idx * typeSpacing) });
+        });
+
+      nodes.forEach(node => {
+        const pos = positions.get(node.id);
+        if (!pos) {
+          return;
+        }
+        node.x = pos.x;
+        node.y = pos.y;
+        ontologyNodeById.set(node.id, node);
+      });
+      links.forEach(link => {
+        if (!ontologyNeighborMap.has(link.source)) ontologyNeighborMap.set(link.source, new Set());
+        if (!ontologyNeighborMap.has(link.target)) ontologyNeighborMap.set(link.target, new Set());
+        ontologyNeighborMap.get(link.source).add(link.target);
+        ontologyNeighborMap.get(link.target).add(link.source);
+      });
+
+      const svg = d3.select(ontologyGraphHost)
+        .append('svg')
+        .attr('class', 'ontology-graph')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('role', 'img')
+        .attr('aria-label', 'Summary ontology graph');
+
+      ontologyGraphSvg = svg;
+      ontologyGraphLinkSelection = svg.append('g')
+        .attr('class', 'ontology-links')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('class', 'ontology-link summary-flow')
+        .attr('x1', d => positions.get(d.source).x)
+        .attr('y1', d => positions.get(d.source).y)
+        .attr('x2', d => positions.get(d.target).x)
+        .attr('y2', d => positions.get(d.target).y);
+
+      ontologyGraphLinkLabelSelection = svg.append('g')
+        .attr('class', 'ontology-link-labels')
+        .selectAll('text')
+        .data(links)
+        .join('text')
+        .attr('class', 'ontology-link-label')
+        .attr('text-anchor', 'middle')
+        .attr('x', d => (positions.get(d.source).x + positions.get(d.target).x) / 2)
+        .attr('y', d => ((positions.get(d.source).y + positions.get(d.target).y) / 2) - 8)
+        .text(d => {
+          if (d.relation === 'REPORT_HAS_MDRM') return 'comprises of';
+          if (d.relation === 'MDRM_STATUS_SPLIT') return 'split by';
+          return 'can be of';
+        });
+
+      ontologyGraphNodeSelection = svg.append('g')
+        .attr('class', 'ontology-nodes')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .attr('class', d => `${ontologyNodeClass(d)} ontology-summary-node`)
+        .attr('transform', d => `translate(${d.x}, ${d.y})`)
+        .on('click', (_, d) => {
+          if (d.id === 'summary:report') {
+            openOntologySelector('report');
+            return;
+          }
+          if (d.id === 'summary:mdrm' || d.id === 'summary:mdrm-active' || d.id === 'summary:mdrm-inactive') {
+            openOntologySelector('mdrm');
+            return;
+          }
+          if (String(d.id).startsWith('summary:type:')) {
+            setOntologyStatus('Type nodes reflect selected scope; pick reports/MDRMs to update counts.', 'neutral');
+          }
+        });
+
+      ontologyGraphNodeSelection.append('circle')
+        .attr('r', d => {
+          if (d.id === 'summary:report') return 42;
+          if (d.id === 'summary:mdrm') return 42;
+          if (d.id === 'summary:mdrm-active' || d.id === 'summary:mdrm-inactive') return 40;
+          return 32;
+        });
+
+      appendOntologyNodeLabels(ontologyGraphNodeSelection);
+
+      ontologyGraphNodeSelection.append('title')
+        .text(d => d.label);
+
+      const mdrmInfoIcon = ontologyGraphNodeSelection
+        .filter(d => d.id === 'summary:mdrm')
+        .append('g')
+        .attr('class', 'ontology-node-info')
+        .attr('transform', 'translate(27,-27)')
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          toggleOntologyInfoNote(
+            'Each data series is given a four-letter mnemonic, which is used for data transmission and storage. Each variable, within a data series, is assigned a number (usually 4 digits).Combining the series mnemonic and number references a specific data item on a specific series and is known as the MDRM number',
+            (d.x || 0) + 27,
+            (d.y || 0) - 27,
+            width,
+            height
+          );
+        });
+
+      mdrmInfoIcon.append('circle').attr('r', 9);
+      mdrmInfoIcon.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 3.4)
+        .text('i');
+
+      const typeInfoIcon = ontologyGraphNodeSelection
+        .filter(d => String(d.id || '').startsWith('summary:type:') && String(d.label || '').toLowerCase().startsWith('financial/reported'))
+        .append('g')
+        .attr('class', 'ontology-node-info')
+        .attr('transform', 'translate(22,-22)')
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          toggleOntologyInfoNote(
+            'Item is submitted by the reporter',
+            (d.x || 0) + 22,
+            (d.y || 0) - 22,
+            width,
+            height
+          );
+        });
+
+      typeInfoIcon.append('circle').attr('r', 8);
+      typeInfoIcon.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 3.2)
+        .text('i');
+
+      refreshOntologyHighlight();
+    }
+
+    function renderOntologyDetail(node) {
+      if (!ontologyDetailPanel) return;
+      if (!node) {
+        ontologyDetailPanel.innerHTML = '<div class="text-muted small">Click a node to inspect details.</div>';
+        return;
+      }
+      const neighborIds = Array.from(ontologyNeighborMap.get(node.id) || []);
+      const neighbors = neighborIds.map(id => ontologyNodeById.get(id)).filter(Boolean);
+      const category = normalizeOntologyCategory(node.category);
+      if (category === 'REPORT') {
+        const mdrms = neighbors.filter(item => normalizeOntologyCategory(item.category) === 'MDRM');
+        ontologyDetailPanel.innerHTML = `
+          <div class="ontology-detail-card">
+            <div class="ontology-detail-title">Report Node</div>
+            <div class="ontology-detail-row"><span class="k">Report</span><span>${escapeHtml(node.label || '-')}</span></div>
+            <div class="ontology-detail-row"><span class="k">Connected MDRMs</span><span>${escapeHtml(mdrms.length)}</span></div>
+            <button id="ontologyOpenReportBtn" class="btn btn-sm btn-outline-primary mt-2" type="button">Open report view</button>
+          </div>
+        `;
+        document.getElementById('ontologyOpenReportBtn')?.addEventListener('click', () => openReportFromPalette(node.label || ''));
+        return;
+      }
+      if (category === 'MDRM') {
+        const reports = neighbors.filter(item => normalizeOntologyCategory(item.category) === 'REPORT');
+        const types = neighbors.filter(item => normalizeOntologyCategory(item.category) === 'MDRM_TYPE');
+        ontologyDetailPanel.innerHTML = `
+          <div class="ontology-detail-card">
+            <div class="ontology-detail-title">MDRM Node</div>
+            <div class="ontology-detail-row"><span class="k">MDRM</span><span>${escapeHtml(node.label || '-')}</span></div>
+            <div class="ontology-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
+            <div class="ontology-detail-row"><span class="k">Reports</span><span>${escapeHtml(reports.length)}</span></div>
+            <div class="ontology-detail-row"><span class="k">Type</span><span>${escapeHtml(types[0]?.label || '-')}</span></div>
+            <a class="btn btn-sm btn-outline-primary mt-2" href="${escapeHtml(buildMdrmProfileUrl(node.label || ''))}">Open MDRM profile</a>
+            <button id="ontologyRefineMdrmBtn" class="btn btn-sm btn-outline-secondary mt-2" type="button">Refine MDRM selection</button>
+          </div>
+        `;
+        document.getElementById('ontologyRefineMdrmBtn')?.addEventListener('click', () => openOntologySelector('mdrm'));
+        return;
+      }
+      if (category === 'MDRM_TYPE') {
+        const members = neighbors.filter(item => normalizeOntologyCategory(item.category) === 'MDRM').slice(0, 25);
+        ontologyDetailPanel.innerHTML = `
+          <div class="ontology-detail-card">
+            <div class="ontology-detail-title">MDRM Type Node</div>
+            <div class="ontology-detail-row"><span class="k">Type</span><span>${escapeHtml(node.label || '-')}</span></div>
+            <div class="ontology-detail-row"><span class="k">MDRMs</span><span>${escapeHtml(neighbors.length)}</span></div>
+            <div class="ontology-member-list">
+              ${members.length ? members.map(item => `<div class="ontology-member-item">${escapeHtml(item.label || '-')}</div>`).join('') : '<div class="text-muted small">No MDRMs connected.</div>'}
+            </div>
+          </div>
+        `;
+        return;
+      }
+      ontologyDetailPanel.innerHTML = `<div class="text-muted small">Node: ${escapeHtml(node.label || '-')}</div>`;
+    }
+
+    function refreshOntologyHighlight() {
+      if (!ontologyGraphNodeSelection || !ontologyGraphLinkSelection) return;
+      const filterValue = String(ontologyQuickFilterInput?.value || '').trim().toLowerCase();
+      const selectedModes = [];
+      if (ontologyFilterReport?.checked) selectedModes.push('report');
+      if (ontologyFilterMdrm?.checked) selectedModes.push('mdrm');
+      if (ontologyFilterActive?.checked) selectedModes.push('active');
+      if (ontologyFilterInactive?.checked) selectedModes.push('inactive');
+      if (ontologyFilterType?.checked) selectedModes.push('type');
+      const modeSet = new Set(selectedModes);
+      const selectedId = ontologySelectedNodeId;
+      const selectedNeighbors = selectedId ? (ontologyNeighborMap.get(selectedId) || new Set()) : new Set();
+      const visibleById = new Map();
+
+      function matchesMode(node) {
+        if (!modeSet.size) {
+          return true;
+        }
+        const category = normalizeOntologyCategory(node?.category);
+        const status = String(node?.status || '').toLowerCase();
+        if (category === 'REPORT') {
+          return modeSet.has('report');
+        }
+        if (category === 'MDRM_TYPE') {
+          return modeSet.has('type');
+        }
+        if (category === 'MDRM') {
+          if (status === 'active') {
+            return modeSet.has('active');
+          }
+          if (status === 'inactive') {
+            return modeSet.has('inactive');
+          }
+          return modeSet.has('mdrm');
+        }
+        return false;
+      }
+
+      ontologyGraphNodeSelection
+        .classed('is-hidden', d => {
+          const matchesText = !filterValue || String(d.label || '').toLowerCase().includes(filterValue);
+          const visible = matchesText && matchesMode(d);
+          visibleById.set(d.id, visible);
+          return !visible;
+        })
+        .classed('is-dim', false)
+        .classed('is-selected', d => selectedId && visibleById.get(d.id) && d.id === selectedId);
+
+      ontologyGraphLinkSelection
+        .classed('is-hidden', d => {
+          const sourceId = String(d.source?.id || d.source || '');
+          const targetId = String(d.target?.id || d.target || '');
+          return !(visibleById.get(sourceId) && visibleById.get(targetId));
+        })
+        .classed('is-dim', false);
+
+      if (ontologyGraphLinkLabelSelection) {
+        ontologyGraphLinkLabelSelection.classed('is-hidden', d => {
+          const sourceId = String(d.source?.id || d.source || '');
+          const targetId = String(d.target?.id || d.target || '');
+          return !(visibleById.get(sourceId) && visibleById.get(targetId));
+        });
+      }
+    }
+
+    function resetOntologyView() {
+      ontologySelectedNodeId = null;
+      if (ontologyQuickFilterInput) ontologyQuickFilterInput.value = '';
+      if (ontologyFilterReport) ontologyFilterReport.checked = true;
+      if (ontologyFilterMdrm) ontologyFilterMdrm.checked = true;
+      if (ontologyFilterActive) ontologyFilterActive.checked = true;
+      if (ontologyFilterInactive) ontologyFilterInactive.checked = true;
+      if (ontologyFilterType) ontologyFilterType.checked = true;
+      refreshOntologyHighlight();
+    }
+
+    async function clearOntologyView() {
+      ontologySelectedReportsState = [];
+      ontologySelectedMdrmsState = [];
+      resetOntologyView();
+      closeOntologySelector();
+      await loadOntologyGraph(true);
+      setOntologyStatus('View cleared to base summary.', 'ok');
+    }
+
+    function renderOntologyGraph(payload) {
+      if (!ontologyGraphHost) return;
+      if (!window.d3) {
+        setOntologyStatus('D3 library is unavailable.', 'err');
+        return;
+      }
+      if (ontologyGraphSimulation) {
+        ontologyGraphSimulation.stop();
+        ontologyGraphSimulation = null;
+      }
+      ontologyGraphHost.innerHTML = '';
+      ontologyNeighborMap = new Map();
+      ontologyNodeById = new Map();
+      ontologyGraphNodeSelection = null;
+      ontologyGraphLinkSelection = null;
+
+      const nodes = Array.isArray(payload?.nodes) ? payload.nodes.map(node => ({ ...node })) : [];
+      const links = (Array.isArray(payload?.edges) ? payload.edges : [])
+        .map(edge => ({ source: edge.source, target: edge.target, relation: edge.relation || '' }));
+      nodes.forEach(node => ontologyNodeById.set(node.id, node));
+      const resolvedLinks = links.filter(edge => ontologyNodeById.has(edge.source) && ontologyNodeById.has(edge.target));
+
+      resolvedLinks.forEach(edge => {
+        if (!ontologyNeighborMap.has(edge.source)) ontologyNeighborMap.set(edge.source, new Set());
+        if (!ontologyNeighborMap.has(edge.target)) ontologyNeighborMap.set(edge.target, new Set());
+        ontologyNeighborMap.get(edge.source).add(edge.target);
+        ontologyNeighborMap.get(edge.target).add(edge.source);
+      });
+
+      if (!nodes.length || !resolvedLinks.length) {
+        clearOntologyGraph('No graph relationships for the current selection.');
+        return;
+      }
+
+      const width = Math.max(880, ontologyGraphHost.clientWidth || 880);
+      const height = 640;
+      const svg = d3.select(ontologyGraphHost)
+        .append('svg')
+        .attr('class', 'ontology-graph')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('role', 'img')
+        .attr('aria-label', 'Ontology graph of Report to MDRM to MDRM Type');
+
+      ontologyGraphSvg = svg;
+      ontologyGraphLinkSelection = svg.append('g')
+        .attr('class', 'ontology-links')
+        .selectAll('line')
+        .data(resolvedLinks)
+        .join('line')
+        .attr('class', d => `ontology-link ${String(d.relation || '').toLowerCase()}`);
+
+      const ontologyLinkLabelSelection = svg.append('g')
+        .attr('class', 'ontology-link-labels')
+        .selectAll('text')
+        .data(resolvedLinks)
+        .join('text')
+        .attr('class', 'ontology-link-label')
+        .attr('text-anchor', 'middle')
+        .text(d => String(d.relation || '').toUpperCase() === 'REPORT_HAS_MDRM' ? 'comprises of' : 'can be of');
+
+      ontologyGraphNodeSelection = svg.append('g')
+        .attr('class', 'ontology-nodes')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .attr('class', d => ontologyNodeClass(d))
+        .on('click', (_, d) => {
+          ontologySelectedNodeId = d.id;
+          renderOntologyDetail(d);
+          refreshOntologyHighlight();
+        });
+
+      ontologyGraphNodeSelection.append('circle').attr('r', d => ontologyNodeRadius(d));
+      ontologyGraphNodeSelection.append('text')
+        .attr('dy', d => normalizeOntologyCategory(d.category) === 'MDRM' ? 3 : 4)
+        .attr('text-anchor', 'middle')
+        .text(d => shortenOntologyLabel(d.label, d.category));
+      ontologyGraphNodeSelection.append('title')
+        .text(d => `${d.label || '-'} | ${d.category || '-'}` + (d.status ? ` | ${d.status}` : ''));
+
+      const drag = d3.drag()
+        .on('start', (event, d) => {
+          if (!event.active) ontologyGraphSimulation.alphaTarget(0.2).restart();
+          d.fx = d.x; d.fy = d.y;
+        })
+        .on('drag', (event, d) => {
+          d.fx = event.x; d.fy = event.y;
+        })
+        .on('end', (event, d) => {
+          if (!event.active) ontologyGraphSimulation.alphaTarget(0);
+          d.fx = null; d.fy = null;
+        });
+      ontologyGraphNodeSelection.call(drag);
+
+      ontologyGraphSimulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(resolvedLinks).id(d => d.id).distance(d => String(d.relation || '').includes('TYPE') ? 85 : 130))
+        .force('charge', d3.forceManyBody().strength(-280))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => ontologyNodeRadius(d) + 10))
+        .on('tick', () => {
+          ontologyGraphLinkSelection
+            .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+          ontologyLinkLabelSelection
+            .attr('x', d => (d.source.x + d.target.x) / 2)
+            .attr('y', d => ((d.source.y + d.target.y) / 2) - 8);
+          ontologyGraphNodeSelection.attr('transform', d => `translate(${d.x}, ${d.y})`);
+        });
+      renderOntologyDetail(null);
+      refreshOntologyHighlight();
+    }
+
+    function closeOntologySelector() {
+      if (!ontologySelectorOverlay) return;
+      ontologySelectorOverlay.classList.remove('is-open');
+      ontologySelectorOverlay.hidden = true;
+      ontologySelectorMode = null;
+      ontologySelectorOptions = [];
+      ontologySelectorWorkingSet = new Set();
+    }
+
+    function renderOntologySelectorOptions() {
+      if (!ontologySelectorList) return;
+      const q = String(ontologySelectorSearch?.value || '').trim().toLowerCase();
+      const filtered = (ontologySelectorOptions || []).filter(item => !q || String(item).toLowerCase().includes(q));
+      if (!filtered.length) {
+        ontologySelectorList.innerHTML = '<div class="command-palette-empty">No matching options</div>';
+        return;
+      }
+      ontologySelectorList.innerHTML = filtered.map(item => `
+        <label class="ontology-option-row">
+          <input type="checkbox" data-value="${escapeHtml(item)}" ${ontologySelectorWorkingSet.has(item) ? 'checked' : ''}>
+          <span>${escapeHtml(item)}</span>
+        </label>
+      `).join('');
+      ontologySelectorList.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', () => {
+          const value = String(input.getAttribute('data-value') || '');
+          if (!value) return;
+          if (input.checked) ontologySelectorWorkingSet.add(value);
+          else ontologySelectorWorkingSet.delete(value);
+          if (ontologySelectorMeta) {
+            ontologySelectorMeta.textContent = `${ontologySelectorWorkingSet.size} selected`;
+          }
+        });
+      });
+    }
+
+    async function openOntologySelector(mode) {
+      if (!ontologySelectorOverlay) return;
+      const normalizedMode = mode === 'mdrm' ? 'mdrm' : 'report';
+      if (normalizedMode === 'mdrm' && !(ontologySelectedReportsState || []).length) {
+        setOntologyStatus('Select reports first, then choose MDRMs.', 'err');
+        return;
+      }
+      setOntologyStatus(`Loading ${normalizedMode === 'report' ? 'report' : 'MDRM'} options...`, 'neutral');
+      try {
+        const optionsUrl = normalizedMode === 'report'
+          ? buildOntologyUrl('/api/mdrm/ontology-options', { includeReportFilters: false, includeMdrmFilters: false })
+          : buildOntologyUrl('/api/mdrm/ontology-options', { includeMdrmFilters: false });
+        const response = await fetch(optionsUrl);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.message || `HTTP ${response.status}`);
+        }
+        ontologySelectorMode = normalizedMode;
+        ontologySelectorOptions = normalizedMode === 'report'
+          ? (Array.isArray(payload?.reports) ? payload.reports : [])
+          : (Array.isArray(payload?.mdrms) ? payload.mdrms : []);
+        ontologySelectorWorkingSet = new Set(
+          normalizedMode === 'report' ? (ontologySelectedReportsState || []) : (ontologySelectedMdrmsState || [])
+        );
+        ontologySelectorOverlay.hidden = false;
+        window.requestAnimationFrame(() => ontologySelectorOverlay.classList.add('is-open'));
+        if (ontologySelectorSearch) {
+          ontologySelectorSearch.value = '';
+          ontologySelectorSearch.focus();
+        }
+        if (ontologySelectorMeta) {
+          ontologySelectorMeta.textContent = `${ontologySelectorWorkingSet.size} selected`;
+        }
+        renderOntologySelectorOptions();
+        setOntologyStatus(
+          normalizedMode === 'report'
+            ? 'Select reports and apply to build graph.'
+            : 'Select MDRMs and apply to refine graph.',
+          'ok'
+        );
+      } catch (error) {
+        setOntologyStatus(`Unable to load selector options: ${error.message || error}`, 'err');
+      }
+    }
+
+    async function applyOntologySelectorSelection() {
+      if (!ontologySelectorMode) return;
+      const selected = Array.from(ontologySelectorWorkingSet).sort((a, b) => a.localeCompare(b));
+      if (ontologySelectorMode === 'report') {
+        ontologySelectedReportsState = selected;
+        ontologySelectedMdrmsState = [];
+      } else {
+        ontologySelectedMdrmsState = selected;
+      }
+      closeOntologySelector();
+      await loadOntologyGraph(true);
+    }
+
+    async function loadOntologyGraph(force = false) {
+      if (!ontologyGraphHost) return;
+      const signature = [
+        Number(getRunContextId() || 0),
+        (ontologySelectedReportsState || []).join('|'),
+        (ontologySelectedMdrmsState || []).join('|')
+      ].join('::');
+      if (!force && ontologyLoadedContextRunId === signature && ontologyGraphPayload) return;
+
+      setOntologyStatus('Loading ontology summary...', 'neutral');
+      try {
+        const baseResponse = await fetch(buildOntologyBaseSummaryUrl());
+        const basePayload = await baseResponse.json();
+        if (!baseResponse.ok) {
+          throw new Error(basePayload?.message || `HTTP ${baseResponse.status}`);
+        }
+        ontologyBaseSummaryPayload = basePayload || null;
+        ontologyLoadedContextRunId = signature;
+
+        let scopedPayload = null;
+        if ((ontologySelectedReportsState || []).length) {
+          const scopeResponse = await fetch(buildOntologyUrl('/api/mdrm/ontology-graph', { summaryOnly: true }));
+          scopedPayload = await scopeResponse.json();
+          if (!scopeResponse.ok) {
+            throw new Error(scopedPayload?.message || `HTTP ${scopeResponse.status}`);
+          }
+        }
+
+        const displayPayload = scopedPayload || basePayload;
+        ontologyGraphPayload = displayPayload || null;
+        renderOntologySummaryGraph(displayPayload);
+        renderOntologyReferenceTables();
+
+        if (!scopedPayload) {
+          setOntologyStatus('Summary loaded. Select reports to continue.', 'ok');
+        } else {
+          setOntologyStatus(
+            `Selection updated | reports=${formatCount(scopedPayload?.reportCount || 0)} | MDRMs=${formatCount(scopedPayload?.mdrmCount || 0)} | types=${formatCount(scopedPayload?.mdrmTypeCount || 0)}`,
+            'ok'
+          );
+        }
+      } catch (error) {
+        ontologyGraphPayload = null;
+        ontologyBaseSummaryPayload = null;
+        ontologyLoadedContextRunId = null;
+        clearOntologyGraph('Unable to load ontology graph.');
+        renderOntologyReferenceTables();
+        setOntologyStatus(`Unable to load ontology graph: ${error.message || error}`, 'err');
+      }
     }
 
     function setDiscoveryMeta(text) {
@@ -4396,14 +5400,27 @@
         renderFileMetrics(visibleRuns);
         loadRunContextOptions().catch(() => {});
         if (kpiMdrmCount) {
-          if (!visibleRuns.length) {
-            kpiMdrmCount.textContent = formatCount(0);
-          } else {
-            const latestRun = visibleRuns.reduce((latest, run) => {
-              if (!latest) return run;
-              return Number(run.runDatetime || 0) > Number(latest.runDatetime || 0) ? run : latest;
-            }, null);
-            kpiMdrmCount.textContent = formatCount((latestRun && latestRun.totalUniqueMdrms) ?? 0);
+          kpiMdrmCount.textContent = formatCount(0);
+          try {
+            const kpiResponse = await fetch(appendRunContext('/api/mdrm/ontology-graph?summaryOnly=true'));
+            const kpiPayload = await kpiResponse.json();
+            if (kpiResponse.ok) {
+              kpiMdrmCount.textContent = formatCount(kpiPayload?.mdrmCount || 0);
+            } else if (visibleRuns.length) {
+              const latestRun = visibleRuns.reduce((latest, run) => {
+                if (!latest) return run;
+                return Number(run.runDatetime || 0) > Number(latest.runDatetime || 0) ? run : latest;
+              }, null);
+              kpiMdrmCount.textContent = formatCount((latestRun && latestRun.totalUniqueMdrms) ?? 0);
+            }
+          } catch {
+            if (visibleRuns.length) {
+              const latestRun = visibleRuns.reduce((latest, run) => {
+                if (!latest) return run;
+                return Number(run.runDatetime || 0) > Number(latest.runDatetime || 0) ? run : latest;
+              }, null);
+              kpiMdrmCount.textContent = formatCount((latestRun && latestRun.totalUniqueMdrms) ?? 0);
+            }
           }
         }
       } catch (error) {
@@ -4678,6 +5695,74 @@
         applyRunContextChange().catch(() => {});
       });
     }
+    if (ontologyQuickFilterInput) {
+      ontologyQuickFilterInput.addEventListener('input', () => {
+        refreshOntologyHighlight();
+      });
+    }
+    [ontologyFilterReport, ontologyFilterMdrm, ontologyFilterActive, ontologyFilterInactive, ontologyFilterType]
+      .filter(Boolean)
+      .forEach(input => {
+        input.addEventListener('change', () => {
+          refreshOntologyHighlight();
+        });
+      });
+    if (ontologyResetViewBtn) {
+      ontologyResetViewBtn.addEventListener('click', () => {
+        resetOntologyView();
+      });
+    }
+    if (ontologyClearViewBtn) {
+      ontologyClearViewBtn.addEventListener('click', () => {
+        clearOntologyView().catch(() => {});
+      });
+    }
+    if (ontologySelectorSearch) {
+      ontologySelectorSearch.addEventListener('input', () => {
+        renderOntologySelectorOptions();
+      });
+    }
+    if (ontologySelectorCancelBtn) {
+      ontologySelectorCancelBtn.addEventListener('click', () => {
+        closeOntologySelector();
+      });
+    }
+    if (ontologySelectorApplyBtn) {
+      ontologySelectorApplyBtn.addEventListener('click', () => {
+        applyOntologySelectorSelection().catch(() => {});
+      });
+    }
+    if (ontologySelectorOverlay) {
+      ontologySelectorOverlay.addEventListener('click', event => {
+        if (event.target === ontologySelectorOverlay) {
+          closeOntologySelector();
+        }
+      });
+    }
+    window.addEventListener('resize', () => {
+      if (document.querySelector('#view-ontology.view.active') && (ontologyBaseSummaryPayload || ontologyGraphPayload)) {
+        renderOntologySummaryGraph(ontologyGraphPayload || ontologyBaseSummaryPayload);
+      }
+    });
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && ontologySelectorOverlay && !ontologySelectorOverlay.hidden) {
+        closeOntologySelector();
+      }
+      if (event.key === 'Escape') {
+        removeOntologyInfoNote();
+      }
+    });
+    window.addEventListener('pointerdown', event => {
+      if (!ontologyInfoNoteEl) {
+        return;
+      }
+      const target = event.target;
+      const clickedInfoIcon = target && typeof target.closest === 'function' && target.closest('.ontology-node-info');
+      const clickedNote = target && typeof target.closest === 'function' && target.closest('.ontology-info-note');
+      if (!clickedInfoIcon && !clickedNote) {
+        removeOntologyInfoNote();
+      }
+    });
 
     if (reportMetadataRefreshBtn) {
       reportMetadataRefreshBtn.addEventListener('click', refreshSelectedReportMetadata);
