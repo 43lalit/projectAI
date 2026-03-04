@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -181,5 +182,47 @@ public class MdrmController {
             @RequestParam long runId,
             @RequestParam String changeType) {
         return ResponseEntity.ok(mdrmLoadService.getIncrementalCodesForRun(reportingForm, runId, changeType));
+    }
+
+    @PostMapping("/manage/add")
+    public ResponseEntity<MdrmManageModels.MutationResponse> addMdrm(
+            @RequestBody MdrmManageModels.AddRequest requestBody,
+            HttpServletRequest request
+    ) {
+        csrfService.requireValidToken(request, request.getSession());
+        authService.requireAdmin(request.getSession());
+        try {
+            return ResponseEntity.ok(mdrmLoadService.addMdrmForReport(requestBody));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/manage/edit")
+    public ResponseEntity<MdrmManageModels.MutationResponse> editMdrm(
+            @RequestBody MdrmManageModels.EditRequest requestBody,
+            HttpServletRequest request
+    ) {
+        csrfService.requireValidToken(request, request.getSession());
+        authService.requireAdmin(request.getSession());
+        try {
+            return ResponseEntity.ok(mdrmLoadService.editMdrmForReport(requestBody));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/manage/delete")
+    public ResponseEntity<MdrmManageModels.MutationResponse> deleteMdrm(
+            @RequestBody MdrmManageModels.DeleteRequest requestBody,
+            HttpServletRequest request
+    ) {
+        csrfService.requireValidToken(request, request.getSession());
+        authService.requireAdmin(request.getSession());
+        try {
+            return ResponseEntity.ok(mdrmLoadService.softDeleteMdrmForReport(requestBody));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 }

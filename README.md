@@ -181,6 +181,33 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
 - Quick Tour updates:
   - Added ontology-focused onboarding steps for opening ontology, interacting with graph nodes, and filtering node visibility.
   - Onboarding version key incremented so returning users receive the updated guide.
+- MDRM management from ontology:
+  - Added admin-only MDRM management APIs:
+    - `POST /api/mdrm/manage/add`
+    - `POST /api/mdrm/manage/edit`
+    - `POST /api/mdrm/manage/delete` (soft delete -> inactive)
+  - Ontology MDRM nodes now expose an admin-only pen icon that opens a management modal.
+  - Modal supports add/edit/delete with confirmation before execution.
+  - Edit flow constrained to description updates (MDRM code locked).
+  - Edit/Delete use searchable MDRM dropdown; if MDRMs are selected in ontology scope, dropdown is limited to that selected set.
+  - Mutation operations are limited to latest run context.
+- Ontology interaction/UI updates:
+  - Removed bottom Node Details section from ontology page.
+  - Ontology status/errors now render as top-left in-graph overlay messages.
+  - Selected Reports and MDRMs tables are clickable and open a right-side slide-in detail drawer (no forced navigation).
+  - Drawer includes "View Full Details" actions to open dedicated report/MDRM pages when needed.
+- Cross-screen in-place detail navigation:
+  - Discovery grid now opens drawer for MDRM/report clicks.
+  - Recent items for report/MDRM open drawer instead of immediate redirect.
+  - Reporting page MDRM lists/tables open drawer for MDRM/report drilldown.
+- Branding refresh:
+  - Added logo set in `src/main/resources/static/brand/`:
+    - `logo-networked-ledger.svg` (active)
+    - `logo-federal-compass.svg`
+    - `logo-shield-nodes.svg`
+  - Header logo switched from gradient square to SVG brand mark and resized for better visibility.
+- Reporting header action polish:
+  - Replaced text-based `Refresh Metadata` button with icon-based refresh control while preserving tooltip/ARIA labeling.
 
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="FedMDRM Shield Nodes Logo">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1f74dd"/>
+      <stop offset="1" stop-color="#14a185"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#bg)"/>
+  <path d="M32 13 L46 18 V30 C46 39 40 46 32 50 C24 46 18 39 18 30 V18 Z" fill="#ffffff" opacity="0.95"/>
+  <circle cx="27" cy="27" r="3.5" fill="#1f74dd"/>
+  <circle cx="37" cy="24" r="3.5" fill="#1f74dd"/>
+  <circle cx="38" cy="36" r="3.5" fill="#1f74dd"/>
+  <circle cx="27" cy="37" r="3.5" fill="#1f74dd"/>
+  <path d="M27 27 L37 24 M37 24 L38 36 M38 36 L27 37 M27 37 L27 27 M27 27 L38 36" stroke="#1f74dd" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

@@ -352,7 +352,7 @@
                 <button id="reportDescriptionToggleBtn" class="report-description-toggle" type="button" style="display:none;">Read more</button>
               </div>
               <div class="d-flex gap-2 align-items-start">
-                <button id="reportMetadataRefreshBtn" class="btn btn-sm btn-outline-primary" type="button" style="display:none;" disabled>Refresh Metadata</button>
+                <button id="reportMetadataRefreshBtn" class="btn btn-sm btn-outline-primary" type="button" style="display:none;" disabled aria-label="Refresh Metadata" title="Refresh Metadata">↻</button>
                 <button id="bookmarkReportBtn" class="btn btn-sm btn-outline-warning link-action-btn" type="button" disabled aria-label="Bookmark report" title="Bookmark report">
                   <span id="bookmarkReportBtnIcon" aria-hidden="true">☆</span>
                   <span>Bookmark</span>
@@ -483,6 +483,15 @@
     </div>
   </div>
 
+  <div id="ontologyInsightBackdrop" class="ontology-insight-backdrop" hidden></div>
+  <aside id="ontologyInsightDrawer" class="ontology-insight-drawer" aria-hidden="true">
+    <div class="ontology-insight-head">
+      <div id="ontologyInsightTitle" class="ontology-insight-title">Details</div>
+      <button id="ontologyInsightCloseBtn" class="btn btn-sm btn-outline-secondary" type="button">Close</button>
+    </div>
+    <div id="ontologyInsightBody" class="ontology-insight-body"></div>
+  </aside>
+
   <div id="commandPaletteOverlay" class="command-palette-overlay" hidden>
     <div class="command-palette-shell" role="dialog" aria-modal="true" aria-label="Command palette">
       <div class="command-palette-input-wrap">
@@ -542,6 +551,49 @@
     </div>
   </div>
 
+  <div class="modal fade" id="ontologyManageModal" tabindex="-1" aria-labelledby="ontologyManageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="ontologyManageModalLabel">Manage MDRM</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label small mb-1" for="ontologyManageOperation">Operation</label>
+            <select id="ontologyManageOperation" class="form-select form-select-sm">
+              <option value="ADD">Add</option>
+              <option value="EDIT">Edit</option>
+              <option value="DELETE">Delete (Inactive)</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-1" for="ontologyManageReportInput">Reporting Form</label>
+            <input id="ontologyManageReportInput" class="form-control form-control-sm" type="text" placeholder="e.g. FFIEC 101">
+          </div>
+          <div id="ontologyManageMdrmAddWrap" class="mb-2">
+            <label class="form-label small mb-1" for="ontologyManageMdrmAddInput">MDRM Code</label>
+            <input id="ontologyManageMdrmAddInput" class="form-control form-control-sm" type="text" placeholder="e.g. RCFN1415">
+          </div>
+          <div id="ontologyManageMdrmSelectWrap" class="mb-2" style="display:none;">
+            <label class="form-label small mb-1" for="ontologyManageMdrmSelectInput">Select MDRM (searchable)</label>
+            <input id="ontologyManageMdrmSelectInput" class="form-control form-control-sm" type="text" list="ontologyManageMdrmOptions" placeholder="Type to search MDRM...">
+            <datalist id="ontologyManageMdrmOptions"></datalist>
+          </div>
+          <div id="ontologyManageDescriptionWrap" class="mb-2">
+            <label class="form-label small mb-1" for="ontologyManageDescriptionInput">Description (optional)</label>
+            <input id="ontologyManageDescriptionInput" class="form-control form-control-sm" type="text">
+          </div>
+          <div id="ontologyManageModalHint" class="small text-muted mt-2">Operation from ontology node</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" id="ontologyManageSubmitBtn" class="btn btn-primary">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
   <script>
@@ -581,6 +633,8 @@
       }
       if (targetViewId === 'view-ontology') {
         loadOntologyGraph();
+      } else {
+        closeOntologyInsight();
       }
     }
 
@@ -1099,7 +1153,6 @@
     const reportKpiActive = document.getElementById('reportKpiActive');
     const reportKpiNetChange = document.getElementById('reportKpiNetChange');
     const reportKpiNetChangeTile = document.getElementById('reportKpiNetChangeTile');
-    const ontologyStatus = document.getElementById('ontologyStatus');
     const ontologyGraphHost = document.getElementById('ontologyGraphHost');
     const ontologyDetailPanel = document.getElementById('ontologyDetailPanel');
     const ontologyClearViewBtn = document.getElementById('ontologyClearViewBtn');
@@ -1118,6 +1171,23 @@
     const ontologySelectorList = document.getElementById('ontologySelectorList');
     const ontologySelectorCancelBtn = document.getElementById('ontologySelectorCancelBtn');
     const ontologySelectorApplyBtn = document.getElementById('ontologySelectorApplyBtn');
+    const ontologyInsightBackdrop = document.getElementById('ontologyInsightBackdrop');
+    const ontologyInsightDrawer = document.getElementById('ontologyInsightDrawer');
+    const ontologyInsightTitle = document.getElementById('ontologyInsightTitle');
+    const ontologyInsightBody = document.getElementById('ontologyInsightBody');
+    const ontologyInsightCloseBtn = document.getElementById('ontologyInsightCloseBtn');
+    const ontologyManageModalEl = document.getElementById('ontologyManageModal');
+    const ontologyManageOperation = document.getElementById('ontologyManageOperation');
+    const ontologyManageReportInput = document.getElementById('ontologyManageReportInput');
+    const ontologyManageMdrmAddWrap = document.getElementById('ontologyManageMdrmAddWrap');
+    const ontologyManageMdrmAddInput = document.getElementById('ontologyManageMdrmAddInput');
+    const ontologyManageMdrmSelectWrap = document.getElementById('ontologyManageMdrmSelectWrap');
+    const ontologyManageMdrmSelectInput = document.getElementById('ontologyManageMdrmSelectInput');
+    const ontologyManageMdrmOptions = document.getElementById('ontologyManageMdrmOptions');
+    const ontologyManageDescriptionWrap = document.getElementById('ontologyManageDescriptionWrap');
+    const ontologyManageDescriptionInput = document.getElementById('ontologyManageDescriptionInput');
+    const ontologyManageModalHint = document.getElementById('ontologyManageModalHint');
+    const ontologyManageSubmitBtn = document.getElementById('ontologyManageSubmitBtn');
     const activeMdrmQuickFilterInput = document.getElementById('activeMdrmQuickFilterInput');
     const activeMdrmGrid = document.getElementById('activeMdrmGrid');
     const netChangeInfoLabel = document.getElementById('netChangeInfoLabel');
@@ -1272,6 +1342,11 @@
     let ontologySelectorMode = null;
     let ontologySelectorOptions = [];
     let ontologySelectorWorkingSet = new Set();
+    let ontologyFocusedReport = '';
+    let ontologyFocusedMdrm = '';
+    let latestAvailableRunId = null;
+    let ontologyManageModal = null;
+    let ontologyManageMdrmOptionList = [];
     const guideAvatarMap = {
       intro: '/guide/mentor-custom.webp',
       explain: '/guide/mentor-custom.webp',
@@ -1576,6 +1651,7 @@
         setLoadStatus('Admin access required to load MDRM files.', 'neutral');
       }
       updateLoadButtonStates();
+      syncOntologyManageActions();
     }
 
     function syncReportMetadataRefreshAccess() {
@@ -1585,7 +1661,9 @@
       }
       const loggedIn = !!currentUser;
       reportMetadataRefreshBtn.style.display = loggedIn ? '' : 'none';
-      reportMetadataRefreshBtn.textContent = admin ? 'Refresh Metadata' : 'Refresh Metadata (Admin only)';
+      reportMetadataRefreshBtn.textContent = '↻';
+      reportMetadataRefreshBtn.title = admin ? 'Refresh Metadata' : 'Refresh Metadata (Admin only)';
+      reportMetadataRefreshBtn.setAttribute('aria-label', reportMetadataRefreshBtn.title);
       reportMetadataRefreshBtn.disabled = !admin || !selectedReportingForm;
     }
 
@@ -2043,6 +2121,7 @@
           return Number(run.runDatetime || 0) > Number(latest.runDatetime || 0) ? run : latest;
         }, null);
         const latestRunId = Number(latestRun && latestRun.runId ? latestRun.runId : 0) || null;
+        latestAvailableRunId = latestRunId;
         const options = runs.map(run => {
           const id = Number(run.runId || 0);
           const label = formatRunContextOptionLabel(run, latestRunId !== null && id === latestRunId);
@@ -2060,9 +2139,12 @@
           selectedRunContextId = null;
         }
         runContextSelect.value = selectedRunContextId ? String(selectedRunContextId) : '';
+        syncOntologyManageActions();
       } catch (error) {
         runContextSelect.innerHTML = '<option value="" disabled selected>Unable to load runs</option>';
         selectedRunContextId = null;
+        latestAvailableRunId = null;
+        syncOntologyManageActions();
       }
     }
 
@@ -2096,20 +2178,30 @@
       if (document.querySelector('#view-ontology.view.active')) {
         ontologySelectedReportsState = [];
         ontologySelectedMdrmsState = [];
+        ontologyFocusedReport = '';
+        ontologyFocusedMdrm = '';
         renderOntologyReferenceTables();
         await loadOntologyGraph(true);
       }
+      syncOntologyManageActions();
       await loadRecentItems();
       syncCopyLinkButtons();
     }
 
     function setOntologyStatus(message, tone = 'neutral') {
-      if (!ontologyStatus) {
+      if (!ontologyGraphHost) {
         return;
       }
       const cssTone = tone === 'err' ? 'err' : tone === 'ok' ? 'ok' : 'neutral';
-      ontologyStatus.className = `status ${cssTone} mt-2`;
-      ontologyStatus.textContent = message;
+      let statusEl = document.getElementById('ontologyGraphStatus');
+      if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'ontologyGraphStatus';
+        statusEl.className = 'ontology-graph-status neutral';
+        ontologyGraphHost.appendChild(statusEl);
+      }
+      statusEl.className = `ontology-graph-status ${cssTone}`;
+      statusEl.textContent = String(message || '').trim();
     }
 
     function normalizeOntologyCategory(value) {
@@ -2184,7 +2276,9 @@
         } else {
           const rows = selectedReports.slice(0, 300).map(report => `
             <tr class="is-selected">
-              <td>${escapeHtml(report)}</td>
+              <td>
+                <button class="ontology-ref-link" type="button" data-ontology-item-type="report" data-ontology-item-value="${escapeHtml(report)}">${escapeHtml(report)}</button>
+              </td>
             </tr>
           `).join('');
           ontologyReportsTable.innerHTML = `
@@ -2203,7 +2297,9 @@
         } else {
           const rows = selectedMdrms.slice(0, 500).map(mdrm => `
             <tr class="is-selected">
-              <td class="mono">${escapeHtml(mdrm)}</td>
+              <td class="mono">
+                <button class="ontology-ref-link mono" type="button" data-ontology-item-type="mdrm" data-ontology-item-value="${escapeHtml(mdrm)}">${escapeHtml(mdrm)}</button>
+              </td>
             </tr>
           `).join('');
           ontologyMdrmsTable.innerHTML = `
@@ -2214,6 +2310,334 @@
             </table>
           `;
         }
+      }
+      syncOntologyManageActions();
+    }
+
+    function openOntologyInsightShell(title, bodyHtml) {
+      if (ontologyInsightTitle) ontologyInsightTitle.textContent = title;
+      if (ontologyInsightBody) ontologyInsightBody.innerHTML = bodyHtml || '';
+      if (ontologyInsightBackdrop) ontologyInsightBackdrop.hidden = false;
+      if (ontologyInsightDrawer) {
+        ontologyInsightDrawer.classList.add('open');
+        ontologyInsightDrawer.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    function closeOntologyInsight() {
+      if (ontologyInsightBackdrop) ontologyInsightBackdrop.hidden = true;
+      if (ontologyInsightDrawer) {
+        ontologyInsightDrawer.classList.remove('open');
+        ontologyInsightDrawer.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    async function openOntologyInsight(type, value) {
+      const normalizedType = String(type || '').trim().toLowerCase();
+      const rawValue = String(value || '').trim();
+      if (!normalizedType || !rawValue) {
+        return;
+      }
+      openOntologyInsightShell('Loading...', '<div class="small text-muted">Loading details...</div>');
+      try {
+        if (normalizedType === 'report') {
+          await loadOntologyReportInsight(rawValue);
+          return;
+        }
+        if (normalizedType === 'mdrm') {
+          await loadOntologyMdrmInsight(rawValue.toUpperCase());
+          return;
+        }
+      } catch (error) {
+        openOntologyInsightShell(
+          'Details',
+          `<div class="ontology-insight-card"><div class="small text-danger">Unable to load details: ${escapeHtml(error.message || error)}</div></div>`
+        );
+      }
+    }
+
+    async function loadOntologyReportInsight(reportingForm) {
+      const encoded = encodeURIComponent(reportingForm);
+      const [historyRes, metadataRes] = await Promise.all([
+        fetch(appendRunContext(`/api/mdrm/run-history?reportingForm=${encoded}`)),
+        fetch(`/api/mdrm/report-metadata?reportingForm=${encoded}`)
+      ]);
+      const historyPayload = await historyRes.json().catch(() => ({}));
+      const metadataPayload = await metadataRes.json().catch(() => ({}));
+      if (!historyRes.ok) {
+        throw new Error(historyPayload?.message || `HTTP ${historyRes.status}`);
+      }
+      const runs = Array.isArray(historyPayload?.runs) ? historyPayload.runs : [];
+      const latest = runs.length ? runs[0] : null;
+      const html = `
+        <div class="ontology-insight-card">
+          <div class="ontology-insight-row"><span class="k">Report</span><span>${escapeHtml(reportingForm)}</span></div>
+          <div class="ontology-insight-row"><span class="k">Full Name</span><span>${escapeHtml(metadataPayload?.fullName || '-')}</span></div>
+          <div class="ontology-insight-row"><span class="k">Runs</span><span>${escapeHtml(formatCount(runs.length))}</span></div>
+          <div class="ontology-insight-row"><span class="k">Latest Run ID</span><span>${escapeHtml(latest?.runId || '-')}</span></div>
+          <div class="ontology-insight-row"><span class="k">Active MDRMs</span><span>${escapeHtml(formatCount(latest?.activeMdrms || 0))}</span></div>
+          <div class="ontology-insight-row"><span class="k">Inactive MDRMs</span><span>${escapeHtml(formatCount(latest?.inactiveMdrms || 0))}</span></div>
+          <div class="small text-muted mt-1">${escapeHtml((metadataPayload?.description || '').slice(0, 650) || 'No description available.')}</div>
+          <div class="mt-2">
+            <a class="btn btn-sm btn-outline-primary" href="${escapeHtml(buildReportDeepLink(reportingForm))}">View Full Details</a>
+          </div>
+        </div>
+      `;
+      openOntologyInsightShell(`Report: ${reportingForm}`, html);
+    }
+
+    async function loadOntologyMdrmInsight(mdrmCode) {
+      const encoded = encodeURIComponent(mdrmCode);
+      const response = await fetch(appendRunContext(`/api/mdrm/profile?mdrm=${encoded}`));
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || `HTTP ${response.status}`);
+      }
+      const timeline = Array.isArray(payload?.timeline) ? payload.timeline : [];
+      const previewTimeline = timeline.slice(0, 4).map(entry => `
+        <div class="ontology-insight-row">
+          <span class="k">Run ${escapeHtml(entry?.runId || '-')}</span>
+          <span>${escapeHtml(entry?.status || '-')}${entry?.reportingForms ? ` | ${escapeHtml(entry.reportingForms)}` : ''}</span>
+        </div>
+      `).join('');
+      const html = `
+        <div class="ontology-insight-card">
+          <div class="ontology-insight-row"><span class="k">MDRM</span><span class="mono">${escapeHtml(payload?.mdrmCode || mdrmCode)}</span></div>
+          <div class="ontology-insight-row"><span class="k">Status</span><span>${escapeHtml(payload?.status || '-')}</span></div>
+          <div class="ontology-insight-row"><span class="k">Type</span><span>${escapeHtml(payload?.itemType || '-')}</span></div>
+          <div class="ontology-insight-row"><span class="k">Associations</span><span>${escapeHtml(formatCount(payload?.associationsCount || 0))}</span></div>
+          <div class="ontology-insight-row"><span class="k">Related Reports</span><span>${escapeHtml(formatCount(payload?.relatedReportsCount || 0))}</span></div>
+          <div class="small text-muted mt-1">${escapeHtml(payload?.description || payload?.definition || 'No description available.')}</div>
+          <div class="mt-2">
+            <a class="btn btn-sm btn-outline-primary" href="${escapeHtml(buildMdrmProfileUrl(mdrmCode))}">View Full Details</a>
+          </div>
+        </div>
+        <div class="ontology-insight-card">
+          <div class="small fw-semibold mb-1">Recent Timeline</div>
+          ${previewTimeline || '<div class="small text-muted">No timeline entries.</div>'}
+        </div>
+      `;
+      openOntologyInsightShell(`MDRM: ${mdrmCode}`, html);
+    }
+
+    function selectedOntologyReportForManage() {
+      if (ontologyFocusedReport) {
+        return String(ontologyFocusedReport).trim();
+      }
+      const selectedReports = (ontologySelectedReportsState || []).map(v => String(v).trim()).filter(Boolean);
+      if (selectedReports.length === 1) {
+        return selectedReports[0];
+      }
+      return '';
+    }
+
+    function selectedOntologyMdrmForManage() {
+      if (ontologyFocusedMdrm) {
+        return String(ontologyFocusedMdrm).trim().toUpperCase();
+      }
+      const selectedMdrms = (ontologySelectedMdrmsState || []).map(v => String(v).trim()).filter(Boolean);
+      if (selectedMdrms.length === 1) {
+        return selectedMdrms[0].toUpperCase();
+      }
+      return '';
+    }
+
+    function isLatestRunSelectedForManage() {
+      const selected = Number(getRunContextId() || 0);
+      const latest = Number(latestAvailableRunId || 0);
+      return selected > 0 && latest > 0 && selected === latest;
+    }
+
+    function syncOntologyManageActions() {
+      // Node edit affordance is always visible; validation is enforced when modal opens/submits.
+    }
+
+    function syncOntologyManageModalFields() {
+      if (!ontologyManageOperation) return;
+      const op = String(ontologyManageOperation.value || 'ADD').toUpperCase();
+      const isAdd = op === 'ADD';
+      const isEdit = op === 'EDIT';
+      const isDelete = op === 'DELETE';
+      if (ontologyManageMdrmAddWrap) {
+        ontologyManageMdrmAddWrap.style.display = isAdd ? '' : 'none';
+      }
+      if (ontologyManageMdrmSelectWrap) {
+        ontologyManageMdrmSelectWrap.style.display = isAdd ? 'none' : '';
+      }
+      if (ontologyManageDescriptionWrap) {
+        ontologyManageDescriptionWrap.style.display = isEdit || isAdd ? '' : 'none';
+      }
+      if (ontologyManageModalHint) {
+        ontologyManageModalHint.textContent = isAdd
+          ? 'Add a new MDRM for selected report.'
+          : isEdit
+            ? 'Update description for selected MDRM.'
+            : 'Delete performs soft delete (marks inactive).';
+      }
+    }
+
+    async function loadOntologyManageMdrmOptions() {
+      const report = String(ontologyManageReportInput?.value || '').trim();
+      ontologyManageMdrmOptionList = [];
+      if (!ontologyManageMdrmOptions) {
+        return;
+      }
+      ontologyManageMdrmOptions.innerHTML = '';
+      const selectedScopedMdrms = (ontologySelectedMdrmsState || [])
+        .map(value => String(value || '').trim().toUpperCase())
+        .filter(Boolean);
+      if (selectedScopedMdrms.length > 0) {
+        const deduped = Array.from(new Set(selectedScopedMdrms)).sort((a, b) => a.localeCompare(b));
+        ontologyManageMdrmOptionList = deduped;
+        ontologyManageMdrmOptions.innerHTML = deduped
+          .map(code => `<option value="${escapeHtml(code)}"></option>`)
+          .join('');
+        return;
+      }
+      try {
+        const params = new URLSearchParams();
+        const runId = getRunContextId();
+        if (runId) {
+          params.set('runId', String(runId));
+        }
+        if (report) {
+          params.append('reportingForm', report);
+        } else {
+          (ontologySelectedReportsState || []).forEach(value => {
+            const next = String(value || '').trim();
+            if (next) params.append('reportingForm', next);
+          });
+        }
+        const query = params.toString();
+        const url = query ? `/api/mdrm/ontology-options?${query}` : '/api/mdrm/ontology-options';
+        const response = await fetch(url);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || `HTTP ${response.status}`);
+        }
+        const mdrms = Array.isArray(payload?.mdrms) ? payload.mdrms : [];
+        ontologyManageMdrmOptionList = mdrms.map(v => String(v || '').trim().toUpperCase()).filter(Boolean);
+        ontologyManageMdrmOptions.innerHTML = ontologyManageMdrmOptionList
+          .map(code => `<option value="${escapeHtml(code)}"></option>`)
+          .join('');
+      } catch (_) {
+        ontologyManageMdrmOptionList = [];
+        ontologyManageMdrmOptions.innerHTML = '';
+      }
+    }
+
+    function openOntologyManageModal({ operation = 'ADD', report = '', mdrm = '' } = {}) {
+      if (!isAdminUser()) {
+        setOntologyStatus('Admin access required for MDRM add/edit/delete.', 'err');
+        return;
+      }
+      if (!isLatestRunSelectedForManage()) {
+        setOntologyStatus('Select latest run context before managing MDRM.', 'err');
+        return;
+      }
+      if (!ontologyManageModal && ontologyManageModalEl && window.bootstrap) {
+        ontologyManageModal = new bootstrap.Modal(ontologyManageModalEl);
+      }
+      if (!ontologyManageModal || !ontologyManageOperation) {
+        setOntologyStatus('Manage modal is unavailable.', 'err');
+        return;
+      }
+      const chosenReport = String(report || selectedOntologyReportForManage() || '').trim();
+      const chosenMdrm = String(mdrm || selectedOntologyMdrmForManage() || '').trim().toUpperCase();
+      ontologyManageOperation.value = String(operation || 'ADD').toUpperCase();
+      if (ontologyManageReportInput) ontologyManageReportInput.value = chosenReport;
+      if (ontologyManageMdrmAddInput) ontologyManageMdrmAddInput.value = chosenMdrm;
+      if (ontologyManageMdrmSelectInput) ontologyManageMdrmSelectInput.value = chosenMdrm;
+      if (ontologyManageDescriptionInput) ontologyManageDescriptionInput.value = '';
+      syncOntologyManageModalFields();
+      if (ontologyManageOperation.value !== 'ADD') {
+        loadOntologyManageMdrmOptions().catch(() => {});
+      }
+      ontologyManageModal.show();
+      if (ontologyManageReportInput) {
+        window.setTimeout(() => ontologyManageReportInput.focus(), 80);
+      }
+    }
+
+    async function submitOntologyManageModal() {
+      const operation = String(ontologyManageOperation?.value || 'ADD').toUpperCase();
+      const report = String(ontologyManageReportInput?.value || '').trim();
+      const mdrm = operation === 'ADD'
+        ? String(ontologyManageMdrmAddInput?.value || '').trim().toUpperCase()
+        : String(ontologyManageMdrmSelectInput?.value || '').trim().toUpperCase();
+      const description = String(ontologyManageDescriptionInput?.value || '').trim();
+
+      if (!report) {
+        setOntologyStatus('Reporting form is required.', 'err');
+        return;
+      }
+      if (!mdrm) {
+        setOntologyStatus('MDRM code is required.', 'err');
+        return;
+      }
+      if (operation !== 'ADD') {
+        const allowed = new Set((ontologyManageMdrmOptionList || []).map(v => String(v).toUpperCase()));
+        if (!allowed.has(mdrm)) {
+          setOntologyStatus('Choose MDRM from dropdown options.', 'err');
+          return;
+        }
+      }
+      if (operation === 'EDIT' && !description) {
+        setOntologyStatus('Description is required for edit.', 'err');
+        return;
+      }
+      const confirm = window.confirm(
+        `Confirm ${operation}?\nRun: ${getRunContextId()}\nReport: ${report}\nMDRM: ${mdrm}`
+      );
+      if (!confirm) return;
+
+      try {
+        let endpoint = '';
+        let body = null;
+        if (operation === 'ADD') {
+          endpoint = '/api/mdrm/manage/add';
+          body = {
+            runId: getRunContextId(),
+            reportingForm: report,
+            mdrmCode: mdrm,
+            description: description || null
+          };
+        } else if (operation === 'EDIT') {
+          endpoint = '/api/mdrm/manage/edit';
+          body = {
+            runId: getRunContextId(),
+            reportingForm: report,
+            mdrmCode: mdrm,
+            newMdrmCode: mdrm,
+            description
+          };
+        } else {
+          endpoint = '/api/mdrm/manage/delete';
+          body = {
+            runId: getRunContextId(),
+            reportingForm: report,
+            mdrmCode: mdrm
+          };
+        }
+        const response = await apiFetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || `HTTP ${response.status}`);
+        }
+        ontologyFocusedReport = report;
+        ontologyFocusedMdrm = mdrm;
+        if (ontologyManageModal) {
+          ontologyManageModal.hide();
+        }
+        setOntologyStatus(payload?.message || 'MDRM operation completed.', 'ok');
+        await refreshForms();
+        await loadOntologyGraph(true);
+      } catch (error) {
+        setOntologyStatus(`${operation} failed: ${error.message || error}`, 'err');
       }
     }
 
@@ -2232,6 +2656,7 @@
       ontologyNeighborMap = new Map();
       ontologyNodeById = new Map();
       renderOntologyDetail(null);
+      syncOntologyManageActions();
     }
 
     function removeOntologyInfoNote() {
@@ -2574,6 +2999,33 @@
         .attr('dy', 3.2)
         .text('i');
 
+      if (isAdminUser()) {
+        const manageIcon = ontologyGraphNodeSelection
+          .filter(d => normalizeOntologyCategory(d.category) === 'MDRM')
+          .append('g')
+          .attr('class', 'ontology-node-info ontology-node-edit')
+          .attr('transform', 'translate(-27,-27)')
+          .on('click', (event, d) => {
+            event.stopPropagation();
+            const selectedReport = selectedOntologyReportForManage();
+            const selectedMdrm = ontologySelectedMdrmsState.includes(String(d.label || '').trim().toUpperCase())
+              ? String(d.label || '').trim().toUpperCase()
+              : selectedOntologyMdrmForManage();
+            const hasExactMdrm = !!selectedMdrm;
+            openOntologyManageModal({
+              operation: hasExactMdrm ? 'EDIT' : 'ADD',
+              report: selectedReport,
+              mdrm: hasExactMdrm ? selectedMdrm : ''
+            });
+          });
+
+        manageIcon.append('circle').attr('r', 8);
+        manageIcon.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dy', 3.2)
+          .text('✎');
+      }
+
       refreshOntologyHighlight();
     }
 
@@ -2707,11 +3159,14 @@
       if (ontologyFilterInactive) ontologyFilterInactive.checked = true;
       if (ontologyFilterType) ontologyFilterType.checked = true;
       refreshOntologyHighlight();
+      syncOntologyManageActions();
     }
 
     async function clearOntologyView() {
       ontologySelectedReportsState = [];
       ontologySelectedMdrmsState = [];
+      ontologyFocusedReport = '';
+      ontologyFocusedMdrm = '';
       resetOntologyView();
       closeOntologySelector();
       await loadOntologyGraph(true);
@@ -2786,8 +3241,16 @@
         .attr('class', d => ontologyNodeClass(d))
         .on('click', (_, d) => {
           ontologySelectedNodeId = d.id;
+          const category = normalizeOntologyCategory(d.category);
+          if (category === 'REPORT') {
+            ontologyFocusedReport = String(d.label || '').trim();
+            ontologyFocusedMdrm = '';
+          } else if (category === 'MDRM') {
+            ontologyFocusedMdrm = String(d.label || '').trim().toUpperCase();
+          }
           renderOntologyDetail(d);
           refreshOntologyHighlight();
+          syncOntologyManageActions();
         });
 
       ontologyGraphNodeSelection.append('circle').attr('r', d => ontologyNodeRadius(d));
@@ -2797,6 +3260,36 @@
         .text(d => shortenOntologyLabel(d.label, d.category));
       ontologyGraphNodeSelection.append('title')
         .text(d => `${d.label || '-'} | ${d.category || '-'}` + (d.status ? ` | ${d.status}` : ''));
+
+      if (isAdminUser()) {
+        const graphManageIcon = ontologyGraphNodeSelection
+          .filter(d => normalizeOntologyCategory(d.category) === 'MDRM')
+          .append('g')
+          .attr('class', 'ontology-node-info ontology-node-edit')
+          .attr('transform', 'translate(-20,-20)')
+          .on('click', (event, d) => {
+            event.stopPropagation();
+            const connectedReports = Array.from(ontologyNeighborMap.get(d.id) || [])
+              .map(id => ontologyNodeById.get(id))
+              .filter(Boolean)
+              .filter(node => normalizeOntologyCategory(node.category) === 'REPORT');
+            const report = connectedReports.length === 1
+              ? String(connectedReports[0].label || '').trim()
+              : selectedOntologyReportForManage();
+            const mdrmCode = String(d.label || '').trim().toUpperCase();
+            openOntologyManageModal({
+              operation: 'EDIT',
+              report,
+              mdrm: mdrmCode
+            });
+          });
+
+        graphManageIcon.append('circle').attr('r', 7);
+        graphManageIcon.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dy', 3)
+          .text('✎');
+      }
 
       const drag = d3.drag()
         .on('start', (event, d) => {
@@ -2935,6 +3428,14 @@
 
       setOntologyStatus('Loading ontology summary...', 'neutral');
       try {
+        const selectedReports = (ontologySelectedReportsState || []).map(v => String(v).trim()).filter(Boolean);
+        if (selectedReports.length === 1) {
+          ontologyFocusedReport = selectedReports[0];
+        }
+        const selectedMdrms = (ontologySelectedMdrmsState || []).map(v => String(v).trim()).filter(Boolean);
+        if (selectedMdrms.length === 1) {
+          ontologyFocusedMdrm = selectedMdrms[0].toUpperCase();
+        }
         const baseResponse = await fetch(buildOntologyBaseSummaryUrl());
         const basePayload = await baseResponse.json();
         if (!baseResponse.ok) {
@@ -2956,6 +3457,7 @@
         ontologyGraphPayload = displayPayload || null;
         renderOntologySummaryGraph(displayPayload);
         renderOntologyReferenceTables();
+        syncOntologyManageActions();
 
         if (!scopedPayload) {
           setOntologyStatus('Summary loaded. Select reports to continue.', 'ok');
@@ -2971,6 +3473,7 @@
         ontologyLoadedContextRunId = null;
         clearOntologyGraph('Unable to load ontology graph.');
         renderOntologyReferenceTables();
+        syncOntologyManageActions();
         setOntologyStatus(`Unable to load ontology graph: ${error.message || error}`, 'err');
       }
     }
@@ -3522,12 +4025,11 @@
         return;
       }
       if (item.type === 'report') {
-        switchView('view-reporting');
-        leftNavMode.value = 'reports';
-        reportSearchInput.disabled = false;
-        selectedReportingForm = item.key;
-        filterAndRenderReportList();
-        loadTable(selectedReportingForm);
+        openOntologyInsight('report', item.key).catch(() => {});
+        return;
+      }
+      if (item.type === 'mdrm') {
+        openOntologyInsight('mdrm', item.key).catch(() => {});
         return;
       }
       if (item.url) {
@@ -3682,7 +4184,25 @@
         headerHeight: 34,
         animateRows: true,
         onCellClicked: async params => {
-          if (!params || !params.column || params.column.getColId() !== 'bookmarkAction') {
+          if (!params || !params.column) {
+            return;
+          }
+          const columnId = params.column.getColId();
+          if (columnId === 'mdrmCode') {
+            const code = String(params.data && params.data.mdrmCode ? params.data.mdrmCode : '').trim();
+            if (code) {
+              recordRecentItem({
+                type: 'mdrm',
+                key: code,
+                label: code,
+                subtitle: selectedReportingForm ? `Reporting form: ${selectedReportingForm}` : '',
+                url: buildMdrmProfileUrl(code)
+              });
+              openOntologyInsight('mdrm', code).catch(() => {});
+            }
+            return;
+          }
+          if (columnId !== 'bookmarkAction') {
             return;
           }
           const row = params.data || {};
@@ -3725,7 +4245,7 @@
             maxWidth: 240,
             cellRenderer: params => {
               const code = String(params.value || '').trim();
-              return code ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a>` : '-';
+              return code ? `<button class="ontology-ref-link mono" type="button">${escapeHtml(code)}</button>` : '-';
             }
           },
           {
@@ -3783,7 +4303,25 @@
         headerHeight: 34,
         animateRows: true,
         onCellClicked: async params => {
-          if (!params || !params.column || params.column.getColId() !== 'bookmarkAction') {
+          if (!params || !params.column) {
+            return;
+          }
+          const columnId = params.column.getColId();
+          if (columnId === 'mdrmCode') {
+            const code = String(params.data && params.data.mdrmCode ? params.data.mdrmCode : '').trim();
+            if (code) {
+              recordRecentItem({
+                type: 'mdrm',
+                key: code,
+                label: code,
+                subtitle: selectedReportingForm ? `Reporting form: ${selectedReportingForm}` : '',
+                url: buildMdrmProfileUrl(code)
+              });
+              openOntologyInsight('mdrm', code).catch(() => {});
+            }
+            return;
+          }
+          if (columnId !== 'bookmarkAction') {
             return;
           }
           const row = params.data || {};
@@ -3826,7 +4364,7 @@
             maxWidth: 240,
             cellRenderer: params => {
               const code = String(params.value || '').trim();
-              return code ? `<a href="/mdrm.html?mdrm=${encodeURIComponent(code)}">${escapeHtml(code)}</a>` : '-';
+              return code ? `<button class="ontology-ref-link mono" type="button">${escapeHtml(code)}</button>` : '-';
             }
           },
           {
@@ -4071,7 +4609,40 @@
         tooltipMouseTrack: true,
         onFilterChanged: () => updateDiscoveryMetaCounts(),
         onCellClicked: async params => {
-          if (!params || !params.column || params.column.getColId() !== 'bookmarkAction') {
+          if (!params || !params.column) {
+            return;
+          }
+          const columnId = params.column.getColId();
+          if (columnId === 'code') {
+            const code = String(params.data && params.data.code ? params.data.code : '').trim();
+            if (code) {
+              const reportingForm = String(params.data && params.data.reportingForm ? params.data.reportingForm : '').trim();
+              recordRecentItem({
+                type: 'mdrm',
+                key: code,
+                label: code,
+                subtitle: reportingForm ? `Reporting form: ${reportingForm}` : '',
+                url: buildMdrmProfileUrl(code)
+              });
+              openOntologyInsight('mdrm', code).catch(() => {});
+            }
+            return;
+          }
+          if (columnId === 'reportingForm') {
+            const report = String(params.data && params.data.reportingForm ? params.data.reportingForm : '').trim();
+            if (report) {
+              recordRecentItem({
+                type: 'report',
+                key: report,
+                label: report,
+                subtitle: 'Reporting form',
+                url: buildReportDeepLink(report)
+              });
+              openOntologyInsight('report', report).catch(() => {});
+            }
+            return;
+          }
+          if (columnId !== 'bookmarkAction') {
             return;
           }
           const row = params.data || {};
@@ -4114,11 +4685,7 @@
             maxWidth: 220,
             cellRenderer: params => {
               const value = String(params.value || '').trim();
-              const reportingForm = String(params.data && params.data.reportingForm ? params.data.reportingForm : '').trim();
-              const href = buildMdrmProfileUrl(value);
-              return value
-                ? `<a href="${escapeHtml(href)}" data-reporting-form="${escapeHtml(reportingForm)}">${escapeHtml(value)}</a>`
-                : '-';
+              return value ? `<button class="ontology-ref-link mono" type="button">${escapeHtml(value)}</button>` : '-';
             }
           },
           {
@@ -4140,7 +4707,10 @@
             field: 'reportingForm',
             minWidth: 170,
             maxWidth: 240,
-            valueFormatter: params => String(params.value || '-')
+            cellRenderer: params => {
+              const value = String(params.value || '').trim();
+              return value ? `<button class="ontology-ref-link" type="button">${escapeHtml(value)}</button>` : '-';
+            }
           },
           {
             headerName: 'MDRM Type',
@@ -4434,6 +5004,9 @@
       deleteGroupBtn.disabled = !isLoggedIn || !bookmarkFilterGroupSelect.value;
       syncAdminLoadAccess();
       syncReportMetadataRefreshAccess();
+      if (document.querySelector('#view-ontology.view.active')) {
+        loadOntologyGraph(true).catch(() => {});
+      }
     }
 
     async function refreshAuthState() {
@@ -4832,6 +5405,14 @@
           const value = row[c];
           if (lower === 'is_active' || lower === 'status') {
             return `<td>${statusCapsule(value)}</td>`;
+          }
+          if (lower === 'mdrm_code') {
+            const code = String(value || '').trim();
+            return `<td>${code ? `<button class="ontology-ref-link mono" type="button" data-inline-insight-type="mdrm" data-inline-insight-value="${escapeHtml(code)}">${escapeHtml(code)}</button>` : '-'}</td>`;
+          }
+          if (lower === 'reporting_form') {
+            const report = String(value || '').trim();
+            return `<td>${report ? `<button class="ontology-ref-link" type="button" data-inline-insight-type="report" data-inline-insight-value="${escapeHtml(report)}">${escapeHtml(report)}</button>` : '-'}</td>`;
           }
           return `<td>${escapeHtml(value)}</td>`;
         }).join('');
@@ -5739,6 +6320,57 @@
         }
       });
     }
+    if (ontologyReportsTable) {
+      ontologyReportsTable.addEventListener('click', event => {
+        const button = event.target.closest('[data-ontology-item-type="report"]');
+        if (!button) return;
+        const value = String(button.getAttribute('data-ontology-item-value') || '').trim();
+        if (!value) return;
+        openOntologyInsight('report', value).catch(() => {});
+      });
+    }
+    if (ontologyMdrmsTable) {
+      ontologyMdrmsTable.addEventListener('click', event => {
+        const button = event.target.closest('[data-ontology-item-type="mdrm"]');
+        if (!button) return;
+        const value = String(button.getAttribute('data-ontology-item-value') || '').trim();
+        if (!value) return;
+        openOntologyInsight('mdrm', value).catch(() => {});
+      });
+    }
+    if (ontologyInsightCloseBtn) {
+      ontologyInsightCloseBtn.addEventListener('click', closeOntologyInsight);
+    }
+    if (ontologyInsightBackdrop) {
+      ontologyInsightBackdrop.addEventListener('click', closeOntologyInsight);
+    }
+    if (ontologyManageOperation) {
+      ontologyManageOperation.addEventListener('change', () => {
+        syncOntologyManageModalFields();
+        if (String(ontologyManageOperation.value || '').toUpperCase() !== 'ADD') {
+          loadOntologyManageMdrmOptions().catch(() => {});
+        }
+      });
+    }
+    if (ontologyManageReportInput) {
+      ontologyManageReportInput.addEventListener('change', () => {
+        if (String(ontologyManageOperation?.value || '').toUpperCase() !== 'ADD') {
+          loadOntologyManageMdrmOptions().catch(() => {});
+        }
+      });
+    }
+    if (ontologyManageSubmitBtn) {
+      ontologyManageSubmitBtn.addEventListener('click', () => {
+        submitOntologyManageModal().catch(() => {});
+      });
+    }
+    if (ontologyManageModalEl) {
+      ontologyManageModalEl.addEventListener('hidden.bs.modal', () => {
+        if (ontologyManageDescriptionInput) ontologyManageDescriptionInput.value = '';
+        if (ontologyManageMdrmAddInput) ontologyManageMdrmAddInput.value = '';
+        if (ontologyManageMdrmSelectInput) ontologyManageMdrmSelectInput.value = '';
+      });
+    }
     window.addEventListener('resize', () => {
       if (document.querySelector('#view-ontology.view.active') && (ontologyBaseSummaryPayload || ontologyGraphPayload)) {
         renderOntologySummaryGraph(ontologyGraphPayload || ontologyBaseSummaryPayload);
@@ -5852,6 +6484,19 @@
       selectedReportingForm = button.dataset.report || '';
       filterAndRenderReportList();
       loadTable(selectedReportingForm);
+    });
+
+    tableContainer.addEventListener('click', event => {
+      const button = event.target.closest('[data-inline-insight-type]');
+      if (!button) {
+        return;
+      }
+      const type = String(button.getAttribute('data-inline-insight-type') || '').trim();
+      const value = String(button.getAttribute('data-inline-insight-value') || '').trim();
+      if (!type || !value) {
+        return;
+      }
+      openOntologyInsight(type, value).catch(() => {});
     });
 
     fileMetricsContainer.addEventListener('click', event => {
@@ -6105,25 +6750,6 @@
     discoverySearchResults.addEventListener('click', event => {
       const button = event.target.closest('.bookmark-item-btn');
       if (!button) {
-        const mdrmLink = event.target.closest('a[href*=\"/mdrm.html?mdrm=\"]');
-        if (mdrmLink) {
-          try {
-            const url = new URL(mdrmLink.getAttribute('href'), window.location.origin);
-            const mdrm = url.searchParams.get('mdrm');
-            const reportingForm = String(mdrmLink.dataset.reportingForm || selectedReportingForm || '').trim();
-            if (mdrm) {
-              recordRecentItem({
-                type: 'mdrm',
-                key: mdrm,
-                label: mdrm,
-                subtitle: reportingForm ? `Reporting form: ${reportingForm}` : '',
-                url: buildMdrmProfileUrl(mdrm)
-              });
-            }
-          } catch (error) {
-            // noop
-          }
-        }
         return;
       }
       event.preventDefault();
@@ -6310,8 +6936,10 @@
       await applyReportingStateFromUrl().catch(() => {});
       await refreshFileMetrics();
       syncCopyLinkButtons();
+      syncOntologyManageActions();
     });
     updateLoadButtonStates();
+    syncOntologyManageActions();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

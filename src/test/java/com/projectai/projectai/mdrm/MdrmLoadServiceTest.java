@@ -22,6 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,6 +50,10 @@ class MdrmLoadServiceTest {
         jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_staging");
         jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_error");
         jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_master");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_summary");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_run_incremental");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_file_summary");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS mdrm_report_status");
     }
 
     @Test
@@ -146,6 +151,110 @@ class MdrmLoadServiceTest {
         Integer errors = jdbcTemplate.queryForObject("SELECT num_records_error FROM mdrm_run_master LIMIT 1", Integer.class);
         assertEquals(0, ingested);
         assertEquals(0, errors);
+    }
+
+    @Test
+    void shouldAddEditAndSoftDeleteMdrmForReport() throws IOException {
+        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
+                "FILE_DATE,2026-02-24",
+                "mnemonic,item code,reporting form,description,item_type,start date,end date",
+                "AAA,111,FFIEC 101,Alpha,F,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM"
+        ))));
+        mdrmLoadService.loadLatestMdrm();
+        Long latestRunId = jdbcTemplate.queryForObject("SELECT MAX(run_id) FROM mdrm_master", Long.class);
+        assertNotNull(latestRunId);
+
+        MdrmManageModels.MutationResponse addResponse = mdrmLoadService.addMdrmForReport(
+                new MdrmManageModels.AddRequest(
+                        latestRunId,
+                        "FFIEC 101",
+                        "BBB222",
+                        "Beta",
+                        "D",
+                        "BBB",
+                        "222",
+                        true
+                )
+        );
+        assertEquals("ADD", addResponse.operation());
+        assertEquals(1, addResponse.affectedRows());
+
+        String addedStatus = jdbcTemplate.queryForObject(
+                "SELECT is_active FROM mdrm_master WHERE run_id = ? AND reporting_form = ? AND mdrm_code = ?",
+                String.class,
+                latestRunId,
+                "FFIEC 101",
+                "BBB222"
+        );
+        assertEquals("Y", addedStatus);
+
+        MdrmManageModels.MutationResponse editResponse = mdrmLoadService.editMdrmForReport(
+                new MdrmManageModels.EditRequest(
+                        latestRunId,
+                        "FFIEC 101",
+                        "BBB222",
+                        "BBC222",
+                        "Beta updated",
+                        "F",
+                        false
+                )
+        );
+        assertEquals("EDIT", editResponse.operation());
+        assertEquals(1, editResponse.affectedRows());
+
+        Map<String, Object> edited = jdbcTemplate.queryForMap(
+                "SELECT mdrm_code, is_active, description FROM mdrm_master WHERE run_id = ? AND reporting_form = ? AND mdrm_code = ?",
+                latestRunId,
+                "FFIEC 101",
+                "BBC222"
+        );
+        assertEquals("BBC222", edited.get("mdrm_code"));
+        assertEquals("N", edited.get("is_active"));
+        assertEquals("Beta updated", edited.get("description"));
+
+        MdrmManageModels.MutationResponse deleteResponse = mdrmLoadService.softDeleteMdrmForReport(
+                new MdrmManageModels.DeleteRequest(latestRunId, "FFIEC 101", "AAA111")
+        );
+        assertEquals("DELETE", deleteResponse.operation());
+        assertEquals(1, deleteResponse.affectedRows());
+
+        String deletedStatus = jdbcTemplate.queryForObject(
+                "SELECT is_active FROM mdrm_master WHERE run_id = ? AND reporting_form = ? AND mdrm_code = ?",
+                String.class,
+                latestRunId,
+                "FFIEC 101",
+                "AAA111"
+        );
+        assertEquals("N", deletedStatus);
+    }
+
+    @Test
+    void shouldRejectMutationOnNonLatestRun() throws IOException {
+        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
+                "FILE_DATE,2026-02-24",
+                "mnemonic,item code,reporting form,description,start date,end date",
+                "AAA,111,FFIEC 101,Alpha,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM"
+        ))));
+        mdrmDownloader.enqueue(new DownloadedMdrm("MDRM.zip", zip("MDRM.csv", List.of(
+                "FILE_DATE,2026-02-25",
+                "mnemonic,item code,reporting form,description,start date,end date",
+                "AAA,111,FFIEC 101,Alpha next,01/01/2020 12:00:00 AM,12/31/9999 12:00:00 AM"
+        ))));
+        mdrmLoadService.loadLatestMdrm();
+        Long firstRunId = jdbcTemplate.queryForObject("SELECT MIN(run_id) FROM mdrm_master", Long.class);
+        mdrmLoadService.loadLatestMdrm();
+        Long latestRunId = jdbcTemplate.queryForObject("SELECT MAX(run_id) FROM mdrm_master", Long.class);
+        assertNotNull(firstRunId);
+        assertNotNull(latestRunId);
+        assertTrue(latestRunId > firstRunId);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> mdrmLoadService.softDeleteMdrmForReport(
+                        new MdrmManageModels.DeleteRequest(firstRunId, "FFIEC 101", "AAA111")
+                )
+        );
+        assertTrue(ex.getMessage().contains("latest run"));
     }
 
     private byte[] zip(String fileName, List<String> lines) throws IOException {

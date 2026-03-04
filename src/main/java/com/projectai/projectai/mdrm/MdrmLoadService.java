@@ -6,6 +6,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -17,7 +18,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -965,6 +968,188 @@ public class MdrmLoadService {
         );
 
         return new MdrmOntologyOptionsResponse(effectiveRunId, reports, mdrms);
+    }
+
+    @Transactional
+    public MdrmManageModels.MutationResponse addMdrmForReport(MdrmManageModels.AddRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
+        long runId = resolveEditableRunId(request.runId());
+        String reportingForm = normalizeRequiredValue(request.reportingForm(), "reportingForm");
+        String mdrmCode = normalizeRequiredMdrmCode(request.mdrmCode());
+        String description = normalizeOptionalValue(request.description());
+        String itemType = normalizeOptionalValue(request.itemType());
+        String itemCode = firstNonBlank(normalizeOptionalValue(request.itemCode()), deriveItemCode(mdrmCode));
+        String mnemonic = firstNonBlank(normalizeOptionalValue(request.mnemonic()), deriveMnemonic(mdrmCode, itemCode));
+        String activeFlag = Boolean.FALSE.equals(request.active()) ? "N" : "Y";
+
+        if (countRowsForCode(runId, reportingForm, mdrmCode) > 0) {
+            throw new IllegalArgumentException("MDRM already exists for selected report in this run");
+        }
+
+        List<String> columns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
+        boolean hasDescription = columns.contains("description");
+        boolean hasItemType = columns.contains("item_type");
+        boolean hasItemCode = columns.contains("item_code");
+        boolean hasMnemonic = columns.contains("mnemonic");
+
+        StringBuilder insertColumns = new StringBuilder(
+                "run_id, reporting_form, mdrm_code, is_active, start_date_utc, end_date_utc");
+        StringBuilder valuesSql = new StringBuilder("?, ?, ?, ?, ?, ?");
+        List<Object> params = new ArrayList<>();
+        params.add(runId);
+        params.add(reportingForm);
+        params.add(mdrmCode);
+        params.add(activeFlag);
+        params.add(Timestamp.from(Instant.now()));
+        params.add(defaultEndDateForStatus(activeFlag));
+
+        if (hasDescription) {
+            insertColumns.append(", description");
+            valuesSql.append(", ?");
+            params.add(description);
+        }
+        if (hasItemType) {
+            insertColumns.append(", item_type");
+            valuesSql.append(", ?");
+            params.add(normalizeItemTypeInput(itemType));
+        }
+        if (hasItemCode) {
+            insertColumns.append(", item_code");
+            valuesSql.append(", ?");
+            params.add(itemCode);
+        }
+        if (hasMnemonic) {
+            insertColumns.append(", mnemonic");
+            valuesSql.append(", ?");
+            params.add(mnemonic);
+        }
+
+        String sql = "INSERT INTO " + MdrmConstants.DEFAULT_MASTER_TABLE
+                + " (" + insertColumns + ") VALUES (" + valuesSql + ")";
+        int inserted = jdbcTemplate.update(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                }
+        );
+        refreshDerivedRunState(runId);
+
+        return new MdrmManageModels.MutationResponse(
+                "ADD",
+                runId,
+                reportingForm,
+                mdrmCode,
+                inserted,
+                "MDRM added successfully"
+        );
+    }
+
+    @Transactional
+    public MdrmManageModels.MutationResponse editMdrmForReport(MdrmManageModels.EditRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
+        long runId = resolveEditableRunId(request.runId());
+        String reportingForm = normalizeRequiredValue(request.reportingForm(), "reportingForm");
+        String sourceCode = normalizeRequiredMdrmCode(request.mdrmCode());
+        String targetCodeRaw = normalizeOptionalValue(request.newMdrmCode());
+        String targetCode = targetCodeRaw == null ? sourceCode : normalizeRequiredMdrmCode(targetCodeRaw);
+        String description = normalizeOptionalValue(request.description());
+        String itemType = normalizeOptionalValue(request.itemType());
+
+        int existing = countRowsForCode(runId, reportingForm, sourceCode);
+        if (existing <= 0) {
+            throw new IllegalArgumentException("MDRM not found for selected report in this run");
+        }
+        if (!targetCode.equals(sourceCode) && countRowsForCode(runId, reportingForm, targetCode) > 0) {
+            throw new IllegalArgumentException("Target MDRM code already exists for selected report in this run");
+        }
+
+        List<String> columns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
+        StringBuilder setClause = new StringBuilder("mdrm_code = ?");
+        List<Object> params = new ArrayList<>();
+        params.add(targetCode);
+
+        if (columns.contains("mnemonic")) {
+            String itemCodeForMnemonic = deriveItemCode(targetCode);
+            setClause.append(", mnemonic = ?");
+            params.add(deriveMnemonic(targetCode, itemCodeForMnemonic));
+        }
+        if (columns.contains("item_code")) {
+            setClause.append(", item_code = ?");
+            params.add(deriveItemCode(targetCode));
+        }
+        if (columns.contains("description") && description != null) {
+            setClause.append(", description = ?");
+            params.add(description);
+        }
+        if (columns.contains("item_type") && itemType != null) {
+            setClause.append(", item_type = ?");
+            params.add(normalizeItemTypeInput(itemType));
+        }
+        if (request.active() != null) {
+            String activeFlag = Boolean.TRUE.equals(request.active()) ? "Y" : "N";
+            setClause.append(", is_active = ?");
+            params.add(activeFlag);
+            setClause.append(", end_date_utc = ?");
+            params.add(defaultEndDateForStatus(activeFlag));
+        }
+
+        String sql = "UPDATE " + MdrmConstants.DEFAULT_MASTER_TABLE
+                + " SET " + setClause
+                + " WHERE run_id = ? AND reporting_form = ? AND UPPER(BTRIM(mdrm_code)) = UPPER(BTRIM(?))";
+        params.add(runId);
+        params.add(reportingForm);
+        params.add(sourceCode);
+
+        int updated = jdbcTemplate.update(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    setPreparedStatementParams(ps, params);
+                    return ps;
+                }
+        );
+        refreshDerivedRunState(runId);
+
+        return new MdrmManageModels.MutationResponse(
+                "EDIT",
+                runId,
+                reportingForm,
+                targetCode,
+                updated,
+                "MDRM updated successfully"
+        );
+    }
+
+    @Transactional
+    public MdrmManageModels.MutationResponse softDeleteMdrmForReport(MdrmManageModels.DeleteRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
+        long runId = resolveEditableRunId(request.runId());
+        String reportingForm = normalizeRequiredValue(request.reportingForm(), "reportingForm");
+        String mdrmCode = normalizeRequiredMdrmCode(request.mdrmCode());
+        if (countRowsForCode(runId, reportingForm, mdrmCode) <= 0) {
+            throw new IllegalArgumentException("MDRM not found for selected report in this run");
+        }
+
+        String sql = "UPDATE " + MdrmConstants.DEFAULT_MASTER_TABLE
+                + " SET is_active = 'N', end_date_utc = ?"
+                + " WHERE run_id = ? AND reporting_form = ? AND UPPER(BTRIM(mdrm_code)) = UPPER(BTRIM(?))";
+        int updated = jdbcTemplate.update(sql, defaultEndDateForStatus("N"), runId, reportingForm, mdrmCode);
+        refreshDerivedRunState(runId);
+
+        return new MdrmManageModels.MutationResponse(
+                "DELETE",
+                runId,
+                reportingForm,
+                mdrmCode,
+                updated,
+                "MDRM marked inactive successfully"
+        );
     }
 
     /**
@@ -2577,6 +2762,89 @@ public class MdrmLoadService {
             row.put(name, valueAsString(rs.getObject(i)));
         }
         return row;
+    }
+
+    private long resolveEditableRunId(Long requestedRunId) {
+        Long latestRunId = resolveEffectiveRunId(null);
+        if (latestRunId == null || latestRunId <= 0) {
+            throw new IllegalStateException("No MDRM run available for edit");
+        }
+        Long normalized = normalizeRunContext(requestedRunId);
+        if (normalized != null && !latestRunId.equals(normalized)) {
+            throw new IllegalArgumentException("MDRM edits are only allowed on latest run: " + latestRunId);
+        }
+        return latestRunId;
+    }
+
+    private String normalizeRequiredValue(String value, String fieldName) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " is required");
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeRequiredMdrmCode(String mdrmCode) {
+        String normalized = normalizeMdrmCode(mdrmCode);
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("mdrmCode is required");
+        }
+        return normalized;
+    }
+
+    private int countRowsForCode(long runId, String reportingForm, String mdrmCode) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + MdrmConstants.DEFAULT_MASTER_TABLE
+                        + " WHERE run_id = ? AND reporting_form = ? AND UPPER(BTRIM(mdrm_code)) = UPPER(BTRIM(?))",
+                Integer.class,
+                runId,
+                reportingForm,
+                mdrmCode
+        );
+        return count == null ? 0 : count;
+    }
+
+    private void refreshDerivedRunState(long runId) {
+        refreshRunSummary(runId);
+        refreshRunIncremental(runId);
+        refreshFileSummary(runId);
+        refreshReportStatusesForRun(runId);
+    }
+
+    private Timestamp defaultEndDateForStatus(String activeFlag) {
+        if ("Y".equalsIgnoreCase(activeFlag)) {
+            return Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 0, 0, 0));
+        }
+        return Timestamp.from(Instant.now());
+    }
+
+    private String normalizeItemTypeInput(String itemType) {
+        if (itemType == null) {
+            return null;
+        }
+        String normalized = itemType.trim();
+        if (normalized.isBlank()) {
+            return null;
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        return switch (upper) {
+            case "PROJECTED" -> "J";
+            case "DERIVED" -> "D";
+            case "FINANCIAL/REPORTED", "FINANCIAL", "REPORTED" -> "F";
+            case "RATE" -> "R";
+            case "STRUCTURE" -> "S";
+            case "EXAMINATION/SUPERVISION", "EXAMINATION", "SUPERVISION" -> "E";
+            case "PERCENTAGE" -> "P";
+            default -> normalized.length() == 1 ? upper : normalized;
+        };
     }
 
     private String normalizeMdrmCode(String mdrmCode) {
