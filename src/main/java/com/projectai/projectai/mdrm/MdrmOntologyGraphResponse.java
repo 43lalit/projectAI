@@ -9,6 +9,8 @@ public record MdrmOntologyGraphResponse(
         Long runId,
         int reportCount,
         int mdrmCount,
+        int ruleCount,
+        int ruleDiscrepancyCount,
         int mdrmTypeCount,
         int activeMdrmCount,
         int inactiveMdrmCount,

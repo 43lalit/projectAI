@@ -14,13 +14,16 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -634,7 +637,7 @@ public class MdrmLoadService {
     ) {
         Long effectiveRunId = resolveEffectiveRunId(runId);
         if (effectiveRunId == null) {
-            return new MdrmOntologyGraphResponse(0L, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
+            return new MdrmOntologyGraphResponse(0L, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
         }
 
         List<String> availableColumns = getTableColumns(MdrmConstants.DEFAULT_MASTER_TABLE);
@@ -643,6 +646,11 @@ public class MdrmLoadService {
 
         List<String> normalizedReportingForms = normalizeFilterValues(reportingForms, true);
         List<String> normalizedMdrmCodes = normalizeFilterValues(mdrmCodes, true);
+        LocalDate ontologyAsOfDate = resolveRunAsOfDate(effectiveRunId);
+        List<String> normalizedRuleReportKeys = normalizedReportingForms.stream()
+                .map(this::normalizeRuleReportKey)
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
         String itemTypeExpr = itemTypeRawExpression("m", availableColumns);
         String normalizedTypeExpr = itemTypeExpr == null
                 ? "'Unknown'"
@@ -722,6 +730,7 @@ public class MdrmLoadService {
                         ? new StatusCountsRow(rs.getInt("active_count"), rs.getInt("inactive_count"))
                         : new StatusCountsRow(0, 0)
         );
+        RuleCountsRow ruleCounts = loadOntologyRuleCounts(effectiveRunId, ontologyAsOfDate, normalizedRuleReportKeys, normalizedMdrmCodes);
 
         String typeCountsSql = """
                 SELECT
@@ -792,6 +801,8 @@ public class MdrmLoadService {
                     effectiveRunId,
                     counts.reportCount(),
                     counts.mdrmCount(),
+                    ruleCounts.ruleCount(),
+                    ruleCounts.ruleDiscrepancyCount(),
                     counts.mdrmTypeCount(),
                     statusCounts.activeCount(),
                     statusCounts.inactiveCount(),
@@ -836,6 +847,8 @@ public class MdrmLoadService {
                     effectiveRunId,
                     counts.reportCount(),
                     counts.mdrmCount(),
+                    ruleCounts.ruleCount(),
+                    ruleCounts.ruleDiscrepancyCount(),
                     counts.mdrmTypeCount(),
                     statusCounts.activeCount(),
                     statusCounts.inactiveCount(),
@@ -905,6 +918,8 @@ public class MdrmLoadService {
                 effectiveRunId,
                 counts.reportCount(),
                 counts.mdrmCount(),
+                ruleCounts.ruleCount(),
+                ruleCounts.ruleDiscrepancyCount(),
                 counts.mdrmTypeCount(),
                 statusCounts.activeCount(),
                 statusCounts.inactiveCount(),
@@ -913,6 +928,118 @@ public class MdrmLoadService {
                 allNodes,
                 edges
         );
+    }
+
+    private RuleCountsRow loadOntologyRuleCounts(
+            Long runId,
+            LocalDate asOfDate,
+            List<String> normalizedReportKeys,
+            List<String> mdrmCodes
+    ) {
+        List<String> ruleColumns = getTableColumns(MdrmConstants.DEFAULT_RULES_TABLE);
+        if (ruleColumns.isEmpty()) {
+            return new RuleCountsRow(0, 0);
+        }
+
+        StringBuilder ruleWhereSql = new StringBuilder("1=1");
+        List<Object> params = new ArrayList<>();
+        if (!normalizedReportKeys.isEmpty()) {
+            ruleWhereSql.append(" AND UPPER(REGEXP_REPLACE(COALESCE(r.reporting_form, r.report_series, ''), '[^A-Za-z0-9]', '', 'g')) IN (")
+                    .append(sqlPlaceholders(normalizedReportKeys.size()))
+                    .append(")");
+            params.addAll(normalizedReportKeys);
+        }
+        if (!mdrmCodes.isEmpty()) {
+            ruleWhereSql.append(" AND UPPER(BTRIM(r.primary_mdrm_code)) IN (")
+                    .append(sqlPlaceholders(mdrmCodes.size()))
+                    .append(")");
+            params.addAll(mdrmCodes);
+        }
+        if (asOfDate != null) {
+            ruleWhereSql.append("""
+                     AND COALESCE(r.effective_start_date, DATE '1900-01-01') <= ?
+                     AND COALESCE(r.effective_end_date, DATE '9999-12-31') >= ?
+                    """);
+            params.add(Date.valueOf(asOfDate));
+            params.add(Date.valueOf(asOfDate));
+        }
+
+        String sql = """
+                WITH filtered_rules AS (
+                    SELECT
+                        r.rule_id,
+                        r.primary_mdrm_code
+                    FROM __RULES__ r
+                    WHERE __RULE_WHERE__
+                ),
+                mdrm_status AS (
+                    SELECT
+                        UPPER(BTRIM(m.mdrm_code)) AS mdrm_code,
+                        MAX(CASE WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'Y' THEN 1 ELSE 0 END) AS has_active,
+                        MAX(CASE WHEN UPPER(BTRIM(COALESCE(m.is_active, ''))) = 'N' THEN 1 ELSE 0 END) AS has_inactive
+                    FROM __MASTER__ m
+                    WHERE m.run_id = ?
+                      AND m.mdrm_code IS NOT NULL
+                      AND BTRIM(m.mdrm_code) <> ''
+                    GROUP BY 1
+                )
+                SELECT
+                    COUNT(DISTINCT fr.rule_id) AS rule_count,
+                    COUNT(DISTINCT CASE
+                        WHEN ms_primary.mdrm_code IS NULL THEN fr.rule_id
+                        WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL THEN fr.rule_id
+                        WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.has_active = 0 AND ms_secondary.has_inactive = 1 THEN fr.rule_id
+                        WHEN d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN fr.rule_id
+                        ELSE NULL
+                    END) AS discrepancy_count
+                FROM filtered_rules fr
+                LEFT JOIN __RULE_DEPS__ d ON d.rule_id = fr.rule_id
+                LEFT JOIN mdrm_status ms_primary ON ms_primary.mdrm_code = UPPER(BTRIM(fr.primary_mdrm_code))
+                LEFT JOIN mdrm_status ms_secondary ON ms_secondary.mdrm_code = UPPER(BTRIM(d.secondary_mdrm_code))
+                """
+                .replace("__RULES__", MdrmConstants.DEFAULT_RULES_TABLE)
+                .replace("__RULE_DEPS__", MdrmConstants.DEFAULT_RULE_DEPENDENCIES_TABLE)
+                .replace("__MASTER__", MdrmConstants.DEFAULT_MASTER_TABLE)
+                .replace("__RULE_WHERE__", ruleWhereSql);
+
+        List<Object> finalParams = new ArrayList<>(params);
+        finalParams.add(runId);
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    setPreparedStatementParams(ps, finalParams);
+                    return ps;
+                },
+                rs -> rs.next()
+                        ? new RuleCountsRow(rs.getInt("rule_count"), rs.getInt("discrepancy_count"))
+                        : new RuleCountsRow(0, 0)
+        );
+    }
+
+    private LocalDate resolveRunAsOfDate(Long runId) {
+        if (runId == null || runId <= 0) {
+            return LocalDate.now(ZoneOffset.UTC);
+        }
+        return jdbcTemplate.query(
+                connection -> {
+                    PreparedStatement ps = connection.prepareStatement(
+                            "SELECT run_datetime FROM " + MdrmConstants.DEFAULT_RUN_MASTER_TABLE + " WHERE run_id = ?"
+                    );
+                    ps.setLong(1, runId);
+                    return ps;
+                },
+                rs -> rs.next()
+                        ? Instant.ofEpochMilli(rs.getLong("run_datetime")).atZone(ZoneOffset.UTC).toLocalDate()
+                        : LocalDate.now(ZoneOffset.UTC)
+        );
+    }
+
+    private String normalizeRuleReportKey(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+        return normalized.isBlank() ? null : normalized;
     }
 
     public MdrmOntologyOptionsResponse getOntologyOptions(Long runId, List<String> reportingForms) {
@@ -3313,6 +3440,12 @@ public class MdrmLoadService {
             int reportCount,
             int mdrmCount,
             int mdrmTypeCount
+    ) {
+    }
+
+    private record RuleCountsRow(
+            int ruleCount,
+            int ruleDiscrepancyCount
     ) {
     }
 

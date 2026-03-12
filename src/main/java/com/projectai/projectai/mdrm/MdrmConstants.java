@@ -11,6 +11,10 @@ public final class MdrmConstants {
     public static final String DEFAULT_LOCAL_FILE_PATH = "FedFiles/MDRM_0226.csv";
     public static final String DEFAULT_MIGRATION_FILE_PATTERN = "FedFiles/MDRM_*.csv";
     public static final String DEFAULT_STAGING_TABLE = "mdrm_staging";
+    public static final String DEFAULT_RULES_FILE_PATH = "FedFiles/FRY9C_edits_extracted.xlsx";
+    public static final String DEFAULT_RULES_SOURCE_SYSTEM = "FED";
+    public static final String DEFAULT_RULES_CATEGORY = "REGULATORY";
+    public static final String DEFAULT_RULES_EXPRESSION_REGEX = "(?i)\\b([a-z]{4}[a-z0-9]{4})(?:-([a-z0-9]+))?\\b";
     public static final String DEFAULT_MASTER_TABLE = "mdrm_master";
     public static final String DEFAULT_RUN_MASTER_TABLE = "mdrm_run_master";
     public static final String DEFAULT_RUN_ERROR_TABLE = "mdrm_run_error";
@@ -18,6 +22,13 @@ public final class MdrmConstants {
     public static final String DEFAULT_RUN_INCREMENTAL_TABLE = "mdrm_run_incremental";
     public static final String DEFAULT_FILE_SUMMARY_TABLE = "mdrm_file_summary";
     public static final String DEFAULT_REPORT_STATUS_TABLE = "mdrm_report_status";
+    public static final String DEFAULT_RULE_LOADS_TABLE = "rule_loads";
+    public static final String DEFAULT_RULES_TABLE = "rules";
+    public static final String DEFAULT_RULE_DEPENDENCIES_TABLE = "rule_dependencies";
+    public static final String DEFAULT_RULE_WARNINGS_TABLE = "rule_import_warnings";
+    public static final String DEFAULT_RULE_SEARCH_FUNCTION = "search_rules";
+    public static final String DEFAULT_RULE_GRAPH_FUNCTION = "rules_lineage_graph";
+    public static final String DEFAULT_RULE_DISCREPANCY_FUNCTION = "rule_discrepancies";
     public static final String DEFAULT_PROMOTE_FUNCTION = "promote_mdrm_run";
     public static final String DEFAULT_CRON = "0 0 1 * * *";
     public static final String INPUT_DATE_TIME_PATTERN = "M/d/yyyy h:mm:ss a";

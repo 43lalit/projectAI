@@ -150,6 +150,7 @@
         <button class="tab-chip active" type="button" data-tab="tab-overview" role="tab" aria-selected="true">Overview</button>
         <button class="tab-chip" type="button" data-tab="tab-timeline" role="tab" aria-selected="false">Timeline</button>
         <button class="tab-chip" type="button" data-tab="tab-associations" role="tab" aria-selected="false">Report Association</button>
+        <button class="tab-chip" type="button" data-tab="tab-rules" role="tab" aria-selected="false">Rules</button>
         <button class="tab-chip" type="button" data-tab="tab-related-mdrm" role="tab" aria-selected="false">Related MDRM Graph</button>
       </div>
 
@@ -166,6 +167,10 @@
 
       <div id="tab-associations" class="tab-panel mt-3" role="tabpanel">
         <div id="associationsContainer" class="table-shell card-shell"></div>
+      </div>
+
+      <div id="tab-rules" class="tab-panel mt-3" role="tabpanel">
+        <div id="rulesContainer" class="table-shell card-shell"></div>
       </div>
 
       <div id="tab-related-mdrm" class="tab-panel mt-3" role="tabpanel">
@@ -185,6 +190,7 @@
     const overviewSummary = document.getElementById('overviewSummary');
     const timelineContainer = document.getElementById('timelineContainer');
     const associationsContainer = document.getElementById('associationsContainer');
+    const rulesContainer = document.getElementById('rulesContainer');
     const relatedMdrmContainer = document.getElementById('relatedMdrmContainer');
     const fieldChangesContainer = document.getElementById('fieldChangesContainer');
     const backToJourneyLink = document.getElementById('backToJourneyLink');
@@ -230,6 +236,24 @@
     let authMode = '';
     let includeInactiveGraphNodes = false;
     let currentProfileBookmarkId = null;
+    let currentProfilePayload = null;
+    let currentRulesPayload = null;
+    let currentRuleGraphPayload = null;
+    let currentLineageBaseMdrm = '';
+    let currentLineageRootMdrm = '';
+    let currentLineageDepth = 5;
+    let currentLineageSelectedNodeId = '';
+    let currentLineageNodeMap = new Map();
+    let currentLineageEdges = [];
+	    let currentLineageNodeSelection = null;
+	    let currentLineageSelectionRequestId = 0;
+	    let currentLineageExpandedMdrms = new Set();
+	    let currentLineageFocusHistory = [];
+	    let currentLineageZoomBehavior = null;
+	    let currentLineageZoomSvg = null;
+	    let currentLineageZoomTransform = null;
+	    const lineageRulePayloadCache = new Map();
+	    const lineageRuleDetailCache = new Map();
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -970,6 +994,635 @@
       `;
     }
 
+    function buildRuleGraphUrl(mdrmCode, depth) {
+      const params = new URLSearchParams();
+      const runId = resolveEffectiveRunContext();
+      if (runId) params.set('runId', String(runId));
+      params.set('mdrm', String(mdrmCode || '').trim().toUpperCase());
+      params.set('depth', String(Math.max(1, Math.min(Number(depth || 1), 5))));
+      return `/api/mdrm/rules/graph?${params.toString()}`;
+    }
+
+    function buildRulesByMdrmUrl(mdrmCode) {
+      const params = new URLSearchParams();
+      const runId = resolveEffectiveRunContext();
+      if (runId) params.set('runId', String(runId));
+      params.set('mdrm', String(mdrmCode || '').trim().toUpperCase());
+      return `/api/mdrm/rules/by-mdrm?${params.toString()}`;
+    }
+
+    function buildRulesByReportUrl(reportingForm) {
+      const params = new URLSearchParams();
+      const runId = resolveEffectiveRunContext();
+      if (runId) params.set('runId', String(runId));
+      params.set('reportingForm', String(reportingForm || '').trim());
+      return `/api/mdrm/rules/by-report?${params.toString()}`;
+    }
+
+    function buildRuleDetailUrl(ruleId) {
+      const params = new URLSearchParams();
+      const runId = resolveEffectiveRunContext();
+      if (runId) params.set('runId', String(runId));
+      const query = params.toString();
+      return query ? `/api/mdrm/rules/${encodeURIComponent(String(ruleId))}?${query}` : `/api/mdrm/rules/${encodeURIComponent(String(ruleId))}`;
+    }
+
+    function buildReportViewLink(reportingForm) {
+      return `/index.html?view=view-reporting&report=${encodeURIComponent(String(reportingForm || '').trim())}`;
+    }
+
+    function normalizeLineageNodeStatus(status) {
+      const raw = String(status || '').trim();
+      if (!raw) {
+        return 'VALID';
+      }
+      return raw.toUpperCase();
+    }
+
+    function lineageNodeStatusClass(status) {
+      const normalized = normalizeLineageNodeStatus(status);
+      if (normalized === 'ACTIVE' || normalized === 'VALID') {
+        return 'ok';
+      }
+      if (normalized === 'INACTIVE') {
+        return 'inactive';
+      }
+      return 'warn';
+    }
+
+    function shortenLineageLabel(label, category) {
+      const text = String(label || '').trim();
+      if (!text) return '-';
+      if (String(category || '').toUpperCase() === 'MDRM') {
+        return text.toUpperCase();
+      }
+      return text.length > 20 ? `${text.slice(0, 20)}…` : text;
+    }
+
+    function renderRuleRowsTable(rows, emptyMessage) {
+      const safeRows = Array.isArray(rows) ? rows : [];
+      if (!safeRows.length) {
+        return `<div class="text-muted small p-3">${escapeHtml(emptyMessage || 'No rules found.')}</div>`;
+      }
+      return `
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Report</th>
+              <th>Schedule</th>
+              <th>Type</th>
+              <th>Dependencies</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${safeRows.map(row => `
+              <tr>
+                <td>
+                  <div class="fw-semibold">${escapeHtml(row.ruleNumber || row.ruleId || '-')}</div>
+                  <div class="small text-muted">${escapeHtml((row.ruleText || row.ruleExpression || '-').slice(0, 180))}</div>
+                </td>
+                <td>${escapeHtml(row.reportingForm || row.reportSeries || '-')}</td>
+                <td>${escapeHtml(row.scheduleName || '-')}</td>
+                <td>${escapeHtml(row.ruleType || '-')}</td>
+                <td>${escapeHtml(row.dependencyCount || 0)}</td>
+                <td>${statusCapsule(row.lineageStatus || '-')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderLineageAssociatedRules(title, payload) {
+      const metaEl = document.getElementById('ruleLineageAssociatedRulesMeta');
+      const bodyEl = document.getElementById('ruleLineageAssociatedRulesContainer');
+      if (!metaEl || !bodyEl) {
+        return;
+      }
+      const rules = Array.isArray(payload?.rules) ? payload.rules : [];
+      metaEl.textContent = `${title} | rules=${rules.length} | discrepancies=${payload?.discrepancyCount || 0} | as of ${payload?.asOfDate || '-'}`;
+      bodyEl.innerHTML = renderRuleRowsTable(rules, 'No associated rules found for the selected lineage node.');
+    }
+
+    async function fetchLineageRulePayloadForNode(node) {
+      const mdrmCode = String(node?.label || '').trim().toUpperCase();
+      if (!mdrmCode) {
+        return { rules: [], discrepancyCount: 0, asOfDate: '-' };
+      }
+      const key = `mdrm:${mdrmCode}`;
+      if (!lineageRulePayloadCache.has(key)) {
+        lineageRulePayloadCache.set(key, fetch(buildRulesByMdrmUrl(mdrmCode))
+          .then(response => response.ok ? response.json() : { rules: [], discrepancyCount: 0, asOfDate: '-' }));
+      }
+      return lineageRulePayloadCache.get(key);
+    }
+
+    function buildLineageDependencyGraph(graphPayload) {
+      const rawNodes = Array.isArray(graphPayload?.nodes) ? graphPayload.nodes : [];
+      const rawEdges = Array.isArray(graphPayload?.edges) ? graphPayload.edges : [];
+      const nodeMap = new Map();
+      const ruleToPrimary = new Map();
+
+      rawNodes.forEach(node => {
+        if (String(node?.category || '').toUpperCase() !== 'MDRM') {
+          return;
+        }
+        nodeMap.set(String(node.id || ''), {
+          id: String(node.id || ''),
+          label: String(node.label || '').trim().toUpperCase(),
+          status: String(node.status || '').trim() || 'Active',
+          dependencies: new Map(),
+          dependents: new Set()
+        });
+      });
+
+      rawEdges.forEach(edge => {
+        if (String(edge?.relation || '').toUpperCase() === 'MDRM_HAS_RULE') {
+          ruleToPrimary.set(String(edge.target || ''), String(edge.source || ''));
+        }
+      });
+
+      rawEdges.forEach(edge => {
+        if (String(edge?.relation || '').toUpperCase() !== 'RULE_REQUIRES_MDRM') {
+          return;
+        }
+        const primaryId = ruleToPrimary.get(String(edge.source || ''));
+        const dependencyId = String(edge.target || '');
+        const primaryNode = nodeMap.get(primaryId);
+        const dependencyNode = nodeMap.get(dependencyId);
+        if (!primaryNode || !dependencyNode || primaryId === dependencyId) {
+          return;
+        }
+        const existing = primaryNode.dependencies.get(dependencyId) || {
+          nodeId: dependencyId,
+          ruleIds: new Set(),
+          statuses: new Set()
+        };
+        const ruleId = String(edge.source || '').split(':')[1] || '';
+        if (ruleId) {
+          existing.ruleIds.add(ruleId);
+        }
+        const edgeStatus = String(edge.status || '').trim();
+        if (edgeStatus) {
+          existing.statuses.add(edgeStatus);
+        }
+        primaryNode.dependencies.set(dependencyId, existing);
+        dependencyNode.dependents.add(primaryId);
+      });
+
+      return nodeMap;
+    }
+
+    function getLineageDependencyEntries(nodeId) {
+      const node = currentLineageNodeMap.get(nodeId);
+      if (!node) {
+        return [];
+      }
+      return Array.from(node.dependencies.values()).sort((left, right) => {
+        const leftNode = currentLineageNodeMap.get(left.nodeId);
+        const rightNode = currentLineageNodeMap.get(right.nodeId);
+        return String(leftNode?.label || left.nodeId).localeCompare(String(rightNode?.label || right.nodeId), undefined, { sensitivity: 'base' });
+      });
+    }
+
+    function lineageEdgeStatus(entry) {
+      const statuses = Array.from(entry?.statuses || []);
+      if (statuses.some(status => String(status || '').toUpperCase() !== 'VALID')) {
+        return statuses.find(status => String(status || '').toUpperCase() !== 'VALID') || 'WARN';
+      }
+      return 'VALID';
+    }
+
+    function buildLineageTreeNode(nodeId, path = new Set()) {
+      const node = currentLineageNodeMap.get(nodeId);
+      if (!node) {
+        return null;
+      }
+      const dependencyEntries = getLineageDependencyEntries(nodeId);
+      const canExpand = dependencyEntries.length > 0;
+      const isExpanded = currentLineageExpandedMdrms.has(nodeId);
+      const nextPath = new Set(path);
+      nextPath.add(nodeId);
+      const children = isExpanded
+        ? dependencyEntries
+            .filter(entry => !nextPath.has(entry.nodeId))
+            .map(entry => {
+              const child = buildLineageTreeNode(entry.nodeId, nextPath);
+              if (!child) {
+                return null;
+              }
+              child.incomingStatus = lineageEdgeStatus(entry);
+              child.supportingRuleCount = entry.ruleIds.size;
+              return child;
+            })
+            .filter(Boolean)
+        : [];
+      return {
+        id: node.id,
+        label: node.label,
+        status: node.status,
+        childCount: dependencyEntries.length,
+        canExpand,
+        isExpanded,
+        collapsedChildCount: canExpand && !isExpanded ? dependencyEntries.length : 0,
+        supportingRuleCount: 0,
+        incomingStatus: 'VALID',
+        children
+      };
+    }
+
+    function updateLineageNodeSelection() {
+      if (!currentLineageNodeSelection) {
+        return;
+      }
+      currentLineageNodeSelection.classed('is-selected', d => String(d.data?.id || '') === currentLineageSelectedNodeId);
+    }
+
+    function toggleLineageNodeExpansion(nodeId) {
+      if (!nodeId) {
+        return;
+      }
+      if (currentLineageExpandedMdrms.has(nodeId)) {
+        currentLineageExpandedMdrms.delete(nodeId);
+        currentLineageSelectedNodeId = nodeId;
+      } else {
+        currentLineageExpandedMdrms.add(nodeId);
+      }
+      renderRules(currentRulesPayload, currentRuleGraphPayload, currentProfilePayload);
+    }
+
+	    async function loadRuleLineageGraph(rootMdrm, options = {}) {
+	      const normalizedRoot = String(rootMdrm || '').trim().toUpperCase();
+	      if (!normalizedRoot) {
+	        return;
+      }
+      if (options.pushHistory && currentLineageRootMdrm && currentLineageRootMdrm !== normalizedRoot) {
+        currentLineageFocusHistory.push(currentLineageRootMdrm);
+      }
+      currentLineageRootMdrm = normalizedRoot;
+	      if (!options.keepSelection) {
+	        currentLineageSelectedNodeId = `mdrm:${normalizedRoot}`;
+	      }
+	      currentLineageExpandedMdrms = new Set([`mdrm:${normalizedRoot}`]);
+	      currentLineageZoomTransform = null;
+	      const host = document.getElementById('ruleLineageGraphHost');
+	      const detailPanel = document.getElementById('ruleLineageDetailPanel');
+      if (host) {
+        host.innerHTML = '<div class="text-muted small p-3">Loading dependency lineage...</div>';
+      }
+      if (detailPanel) {
+        detailPanel.innerHTML = '<div class="text-muted small">Loading selected dependency node...</div>';
+      }
+      try {
+        const response = await fetch(buildRuleGraphUrl(normalizedRoot, currentLineageDepth));
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || `HTTP ${response.status}`);
+        }
+        currentRuleGraphPayload = payload || null;
+        renderRules(currentRulesPayload, currentRuleGraphPayload, currentProfilePayload);
+      } catch (error) {
+        if (host) {
+          host.innerHTML = `<div class="text-danger small p-3">Unable to load lineage graph: ${escapeHtml(error.message || error)}</div>`;
+        }
+	      }
+	    }
+
+	    function zoomRuleLineageBy(factor) {
+	      if (!currentLineageZoomBehavior || !currentLineageZoomSvg || !window.d3 || !Number.isFinite(factor) || factor <= 0) {
+	        return;
+	      }
+	      currentLineageZoomSvg
+	        .transition()
+	        .duration(180)
+	        .call(currentLineageZoomBehavior.scaleBy, factor);
+	    }
+
+	    function resetRuleLineageZoom() {
+	      if (!currentLineageZoomBehavior || !currentLineageZoomSvg || !window.d3) {
+	        return;
+	      }
+	      const host = document.getElementById('ruleLineageGraphHost');
+	      const baseX = Number(host?.dataset?.baseTranslateX || 110);
+	      const baseY = Number(host?.dataset?.baseTranslateY || 80);
+	      currentLineageZoomSvg
+	        .transition()
+	        .duration(220)
+	        .call(currentLineageZoomBehavior.transform, d3.zoomIdentity.translate(baseX, baseY).scale(1));
+	    }
+
+	    function syncRuleLineageFullscreenButton() {
+	      const pane = document.getElementById('ruleLineageGraphPane');
+	      const button = document.getElementById('ruleLineageFullscreenBtn');
+	      if (!pane || !button) {
+	        return;
+	      }
+	      const isFullscreen = document.fullscreenElement === pane;
+	      button.textContent = isFullscreen ? 'Exit Full Screen' : 'Full Screen';
+	      button.setAttribute('aria-pressed', isFullscreen ? 'true' : 'false');
+	    }
+
+	    async function toggleRuleLineageFullscreen() {
+	      const pane = document.getElementById('ruleLineageGraphPane');
+	      if (!pane || typeof pane.requestFullscreen !== 'function') {
+	        return;
+	      }
+	      try {
+	        if (document.fullscreenElement === pane) {
+	          await document.exitFullscreen();
+	        } else {
+	          await pane.requestFullscreen();
+	        }
+	      } catch (_) {
+	        // best-effort; ignore browsers that reject fullscreen
+	      } finally {
+	        syncRuleLineageFullscreenButton();
+	      }
+	    }
+
+	    async function renderLineageNodeDetail(node) {
+      const panel = document.getElementById('ruleLineageDetailPanel');
+      const selectedLabelEl = document.getElementById('ruleLineageSelectedLabel');
+      if (!panel) {
+        return;
+      }
+      if (selectedLabelEl) {
+        selectedLabelEl.textContent = String(node?.label || currentLineageRootMdrm || currentLineageBaseMdrm || '-');
+      }
+      const requestId = ++currentLineageSelectionRequestId;
+      const dependencyEntries = getLineageDependencyEntries(node.id);
+      const dependentCount = Array.from(node.dependents || []).length;
+      panel.innerHTML = '<div class="text-muted small">Loading selected dependency node...</div>';
+      try {
+        const payload = await fetchLineageRulePayloadForNode(node);
+        if (requestId !== currentLineageSelectionRequestId) {
+          return;
+        }
+        const rulePayload = payload && payload.rules ? payload : { rules: [], discrepancyCount: 0, asOfDate: '-' };
+        const isRoot = String(node.label || '').trim().toUpperCase() === currentLineageRootMdrm;
+        const nodeId = String(node.id || '');
+        panel.innerHTML = `
+          <div class="related-detail-card">
+            <div class="related-detail-title">Dependency MDRM Node</div>
+            <div class="related-detail-row"><span class="k">MDRM</span><span class="mono">${escapeHtml(node.label || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Immediate Parents</span><span>${escapeHtml(dependencyEntries.length)}</span></div>
+            <div class="related-detail-row"><span class="k">Used By</span><span>${escapeHtml(dependentCount)}</span></div>
+            <div class="related-detail-row"><span class="k">Associated Rules</span><span>${escapeHtml(rulePayload.rules?.length || 0)}</span></div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button id="lineageToggleBtn" class="btn btn-sm btn-outline-secondary" type="button" ${dependencyEntries.length ? '' : 'disabled'}>${currentLineageExpandedMdrms.has(nodeId) ? 'Collapse parents' : 'Expand parents'}</button>
+              <button id="lineageRefocusBtn" class="btn btn-sm btn-outline-secondary" type="button" ${isRoot ? 'disabled' : ''}>Focus here</button>
+              <a class="btn btn-sm btn-outline-primary" href="${escapeHtml(buildMdrmProfileLink(node.label || ''))}">Open MDRM profile</a>
+            </div>
+          </div>
+        `;
+        renderLineageAssociatedRules(`Rules for MDRM ${node.label || '-'}`, rulePayload);
+        document.getElementById('lineageToggleBtn')?.addEventListener('click', () => {
+          toggleLineageNodeExpansion(nodeId);
+        });
+        document.getElementById('lineageRefocusBtn')?.addEventListener('click', () => {
+          currentLineageSelectedNodeId = nodeId;
+          loadRuleLineageGraph(node.label || '', { pushHistory: true });
+        });
+      } catch (error) {
+        if (requestId !== currentLineageSelectionRequestId) {
+          return;
+        }
+        panel.innerHTML = `<div class="text-danger small">Unable to load dependency details: ${escapeHtml(error.message || error)}</div>`;
+        renderLineageAssociatedRules('Rules for selected dependency node', { rules: [], discrepancyCount: 0, asOfDate: '-' });
+      }
+    }
+
+    function renderRuleLineageGraph(graphPayload) {
+      const host = document.getElementById('ruleLineageGraphHost');
+      const detailPanel = document.getElementById('ruleLineageDetailPanel');
+      if (!host) {
+        return;
+      }
+      host.innerHTML = '';
+      currentLineageNodeSelection = null;
+      currentLineageNodeMap = buildLineageDependencyGraph(graphPayload);
+      const rootNodeId = `mdrm:${currentLineageRootMdrm}`;
+      const treeData = buildLineageTreeNode(rootNodeId);
+      if (!treeData || !window.d3) {
+        host.innerHTML = '<div class="text-muted small p-3">No dependency lineage available for this MDRM.</div>';
+        if (detailPanel) {
+          detailPanel.innerHTML = '<div class="text-muted small">Select a dependency node to view details.</div>';
+        }
+        renderLineageAssociatedRules(`Rules for MDRM ${currentLineageBaseMdrm || '-'}`, currentRulesPayload || { rules: [], discrepancyCount: 0, asOfDate: '-' });
+        return;
+      }
+
+      const root = d3.hierarchy(treeData, d => d.children);
+      d3.tree().nodeSize([88, 240])(root);
+      const descendants = root.descendants();
+      const xExtent = d3.extent(descendants, d => d.x);
+      const minX = Number.isFinite(xExtent[0]) ? xExtent[0] : 0;
+      const maxX = Number.isFinite(xExtent[1]) ? xExtent[1] : 0;
+	      const width = Math.max(980, host.clientWidth || 980);
+	      const height = Math.max(420, (maxX - minX) + 180);
+	      const xOffset = 80 - minX;
+	      const yOffset = 110;
+	      host.dataset.baseTranslateX = String(yOffset);
+	      host.dataset.baseTranslateY = String(xOffset);
+
+	      const svg = d3.select(host)
+	        .append('svg')
+	        .attr('viewBox', `0 0 ${width} ${height}`)
+	        .attr('width', width)
+	        .attr('height', height)
+	        .attr('class', 'rule-lineage-graph rule-lineage-tree')
+	        .attr('role', 'img')
+	        .attr('aria-label', 'MDRM dependency lineage tree');
+
+	      const graphLayer = svg.append('g');
+	      const zoomBehavior = d3.zoom()
+	        .scaleExtent([0.45, 2.8])
+	        .on('zoom', event => {
+	          currentLineageZoomTransform = event.transform;
+	          graphLayer.attr('transform', event.transform);
+	        });
+	      svg.call(zoomBehavior);
+	      const startingTransform = currentLineageZoomTransform || d3.zoomIdentity.translate(yOffset, xOffset).scale(1);
+	      svg.call(zoomBehavior.transform, startingTransform);
+	      currentLineageZoomBehavior = zoomBehavior;
+	      currentLineageZoomSvg = svg;
+	      graphLayer.append('g')
+	        .attr('class', 'lineage-links')
+        .selectAll('path')
+        .data(root.links())
+        .enter()
+        .append('path')
+        .attr('class', d => `lineage-link ${String(d.target.data.incomingStatus || '').toUpperCase() === 'VALID' ? 'ok' : 'warn'}`)
+        .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x));
+
+      const nodeSelection = graphLayer.append('g')
+        .attr('class', 'lineage-nodes')
+        .selectAll('g')
+        .data(descendants)
+        .enter()
+        .append('g')
+        .attr('class', d => {
+          const base = lineageNodeStatusClass(d.data.status);
+          const isRoot = String(d.data.id || '') === rootNodeId ? 'is-root' : '';
+          return `lineage-node lineage-node-mdrm ${base} ${isRoot} node-clickable`.trim();
+        })
+        .attr('transform', d => `translate(${d.y}, ${d.x})`)
+        .on('click', (_, d) => {
+          currentLineageSelectedNodeId = String(d.data.id || '');
+          updateLineageNodeSelection();
+          const selectedNode = currentLineageNodeMap.get(currentLineageSelectedNodeId);
+          if (selectedNode) {
+            renderLineageNodeDetail(selectedNode).catch(() => {});
+          }
+        });
+
+      nodeSelection.append('rect')
+        .attr('x', -84)
+        .attr('y', -24)
+        .attr('width', 168)
+        .attr('height', 48)
+        .attr('rx', 12)
+        .attr('ry', 12);
+
+      nodeSelection.append('text')
+        .attr('class', 'lineage-node-code')
+        .attr('text-anchor', 'middle')
+        .attr('dy', -2)
+        .text(d => shortenLineageLabel(d.data.label, 'MDRM'));
+
+      nodeSelection.append('text')
+        .attr('class', 'lineage-node-meta')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 14)
+        .text(d => {
+          if (d.data.collapsedChildCount > 0) {
+            return `+${d.data.collapsedChildCount} parents`;
+          }
+          if (d.data.childCount > 0) {
+            return `${d.data.childCount} parents`;
+          }
+          return 'No parents';
+        });
+
+      const toggleSelection = nodeSelection
+        .filter(d => d.data.canExpand)
+        .append('g')
+        .attr('class', 'lineage-node-toggle')
+        .attr('transform', 'translate(94,-24)')
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          toggleLineageNodeExpansion(d.data.id);
+        });
+
+      toggleSelection.append('circle').attr('r', 11);
+      toggleSelection.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 4)
+        .text(d => d.data.isExpanded ? '−' : '+');
+
+      nodeSelection.append('title')
+        .text(d => {
+          const node = currentLineageNodeMap.get(d.data.id);
+          const dependencyCount = getLineageDependencyEntries(d.data.id).length;
+          return `${node?.label || d.data.label} | status=${node?.status || '-'} | immediate parents=${dependencyCount}`;
+        });
+
+      currentLineageNodeSelection = nodeSelection;
+      if (!currentLineageSelectedNodeId || !currentLineageNodeMap.has(currentLineageSelectedNodeId)) {
+        currentLineageSelectedNodeId = rootNodeId;
+      }
+      updateLineageNodeSelection();
+      const selectedNode = currentLineageNodeMap.get(currentLineageSelectedNodeId) || currentLineageNodeMap.get(rootNodeId);
+      if (selectedNode) {
+        renderLineageNodeDetail(selectedNode).catch(() => {});
+      }
+    }
+
+    function renderRules(payload, graphPayload, profile) {
+      currentRulesPayload = payload || null;
+      currentRuleGraphPayload = graphPayload || null;
+      currentProfilePayload = profile || currentProfilePayload;
+      if (!rulesContainer) {
+        return;
+      }
+      const rows = Array.isArray(payload?.rules) ? payload.rules : [];
+      if (!currentLineageBaseMdrm && currentProfilePayload?.mdrmCode) {
+        currentLineageBaseMdrm = String(currentProfilePayload.mdrmCode || '').trim().toUpperCase();
+      }
+      if (!currentLineageRootMdrm) {
+        currentLineageRootMdrm = currentLineageBaseMdrm;
+      }
+      if (!currentLineageExpandedMdrms.size && currentLineageRootMdrm) {
+        currentLineageExpandedMdrms = new Set([`mdrm:${currentLineageRootMdrm}`]);
+      }
+
+	      rulesContainer.innerHTML = `
+	        <div class="relationship-shell">
+	          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+	            <div class="small text-muted">Profile MDRM rules: ${escapeHtml(rows.length)} | discrepancies: ${escapeHtml(payload?.discrepancyCount || 0)} | as of ${escapeHtml(payload?.asOfDate || '-')}</div>
+	            <div class="d-flex flex-wrap align-items-center gap-2">
+	              <span class="small text-muted">Lineage root: <span id="ruleLineageRootLabel" class="mono">${escapeHtml(currentLineageRootMdrm || currentLineageBaseMdrm || '-')}</span></span>
+	              <span class="small text-muted">Selected: <span id="ruleLineageSelectedLabel" class="mono">${escapeHtml(String((currentLineageNodeMap.get(currentLineageSelectedNodeId)?.label) || currentLineageRootMdrm || currentLineageBaseMdrm || '-'))}</span></span>
+	              <button id="ruleLineageBackBtn" class="btn btn-sm btn-outline-secondary" type="button" ${currentLineageFocusHistory.length ? '' : 'disabled'}>Back</button>
+	              <button id="ruleLineageResetBtn" class="btn btn-sm btn-outline-secondary" type="button" ${currentLineageRootMdrm === currentLineageBaseMdrm ? 'disabled' : ''}>Reset to profile MDRM</button>
+	            </div>
+	          </div>
+	          <div class="small text-muted">The tree starts with the selected MDRM and shows immediate parent dependencies first. Expand a node to reveal the next dependency level and use Back to return after refocusing.</div>
+	          <div class="relationship-legend">
+	            <span><i class="dot active"></i> Current MDRM / selected dependency</span>
+	            <span><i class="dot inactive"></i> Dependency warning on path</span>
+	            <span><i class="dot report"></i> Expand to reveal deeper parent dependencies</span>
+	          </div>
+	          <div class="relationship-layout">
+	            <div id="ruleLineageGraphPane" class="relationship-graph-pane">
+	              <div class="lineage-graph-toolbar">
+	                <div class="lineage-graph-toolbar-group">
+	                  <button id="ruleLineageZoomOutBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Zoom out lineage graph">-</button>
+	                  <button id="ruleLineageZoomResetBtn" class="btn btn-sm btn-outline-secondary" type="button">Reset Zoom</button>
+	                  <button id="ruleLineageZoomInBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Zoom in lineage graph">+</button>
+	                </div>
+	                <button id="ruleLineageFullscreenBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-pressed="false">Full Screen</button>
+	              </div>
+	              <div id="ruleLineageGraphHost" class="relationship-graph-host"></div>
+	            </div>
+	            <aside id="ruleLineageDetailPanel" class="relationship-detail-panel"></aside>
+	          </div>
+          <div class="card-shell p-0">
+            <div id="ruleLineageAssociatedRulesMeta" class="small text-muted p-3 pb-0">Rules for the selected dependency node.</div>
+            <div id="ruleLineageAssociatedRulesContainer" class="table-shell"></div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('ruleLineageBackBtn')?.addEventListener('click', () => {
+        const previousRoot = currentLineageFocusHistory.pop();
+        if (!previousRoot) {
+          return;
+        }
+        currentLineageSelectedNodeId = `mdrm:${previousRoot}`;
+        loadRuleLineageGraph(previousRoot);
+      });
+	      document.getElementById('ruleLineageResetBtn')?.addEventListener('click', () => {
+	        currentLineageFocusHistory = [];
+	        currentLineageSelectedNodeId = `mdrm:${currentLineageBaseMdrm}`;
+	        loadRuleLineageGraph(currentLineageBaseMdrm);
+	      });
+	      document.getElementById('ruleLineageZoomInBtn')?.addEventListener('click', () => zoomRuleLineageBy(1.2));
+	      document.getElementById('ruleLineageZoomOutBtn')?.addEventListener('click', () => zoomRuleLineageBy(1 / 1.2));
+	      document.getElementById('ruleLineageZoomResetBtn')?.addEventListener('click', () => resetRuleLineageZoom());
+	      document.getElementById('ruleLineageFullscreenBtn')?.addEventListener('click', () => toggleRuleLineageFullscreen());
+	      syncRuleLineageFullscreenButton();
+
+	      renderRuleLineageGraph(graphPayload);
+	      const selectedLabelEl = document.getElementById('ruleLineageSelectedLabel');
+      if (selectedLabelEl) {
+        selectedLabelEl.textContent = String(currentLineageNodeMap.get(currentLineageSelectedNodeId)?.label || currentLineageRootMdrm || currentLineageBaseMdrm || '-');
+      }
+    }
+
     function normalizeReportLabel(value) {
       const text = String(value || '').trim();
       return text && text !== '-' ? text : 'Unassigned';
@@ -1225,11 +1878,28 @@
 
       try {
         const runId = resolveEffectiveRunContext();
+        currentLineageBaseMdrm = searchText.toUpperCase();
+        currentLineageRootMdrm = currentLineageBaseMdrm;
+        currentLineageSelectedNodeId = `mdrm:${currentLineageBaseMdrm}`;
+        currentLineageExpandedMdrms = new Set([currentLineageSelectedNodeId]);
+        currentLineageFocusHistory = [];
+        lineageRulePayloadCache.clear();
+        lineageRuleDetailCache.clear();
         const profileUrl = runId
           ? `/api/mdrm/profile?mdrm=${encodeURIComponent(searchText)}&runId=${encodeURIComponent(String(runId))}`
           : `/api/mdrm/profile?mdrm=${encodeURIComponent(searchText)}`;
-        const response = await fetch(profileUrl);
+        const rulesUrl = runId
+          ? `/api/mdrm/rules/by-mdrm?mdrm=${encodeURIComponent(searchText)}&runId=${encodeURIComponent(String(runId))}`
+          : `/api/mdrm/rules/by-mdrm?mdrm=${encodeURIComponent(searchText)}`;
+        const graphUrl = buildRuleGraphUrl(searchText, currentLineageDepth);
+        const [response, rulesResponse, graphResponse] = await Promise.all([
+          fetch(profileUrl),
+          fetch(rulesUrl),
+          fetch(graphUrl)
+        ]);
         const payload = await response.json();
+        const rulesPayload = await rulesResponse.json().catch(() => ({}));
+        const graphPayload = await graphResponse.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
@@ -1245,6 +1915,8 @@
         renderFieldChanges(payload.fieldChanges || []);
         renderTimeline(payload.timeline || []);
         renderAssociations(payload.associations || []);
+        currentProfilePayload = payload;
+        renderRules(rulesResponse.ok ? rulesPayload : null, graphResponse.ok ? graphPayload : null, payload);
         renderRelatedMdrms(payload);
         recordRecentProfileView(searchText, payload, runId);
         await refreshMdrmBookmarkState(payload.mdrmCode || searchText);
@@ -1322,11 +1994,14 @@
     if (authModeResetBtn) {
       authModeResetBtn.addEventListener('click', () => setAuthMode('reset'));
     }
-    if (authShowPasswordInput) {
-      authShowPasswordInput.addEventListener('change', () => setPasswordVisibility(authShowPasswordInput.checked));
-    }
+	    if (authShowPasswordInput) {
+	      authShowPasswordInput.addEventListener('change', () => setPasswordVisibility(authShowPasswordInput.checked));
+	    }
+	    document.addEventListener('fullscreenchange', () => {
+	      syncRuleLineageFullscreenButton();
+	    });
 
-    initTheme();
+	    initTheme();
     setAuthMode('');
     refreshAuthState();
 
