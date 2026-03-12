@@ -209,6 +209,46 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
 - Reporting header action polish:
   - Replaced text-based `Refresh Metadata` button with icon-based refresh control while preserving tooltip/ARIA labeling.
 
+## Latest Updates (2026-03-12)
+- Frontend modularization pass completed:
+  - Large `index.html` behaviors were split into focused JS modules under `src/main/resources/static/js/`
+  - Current modules cover shell, auth/bookmarks, discovery, reporting, load, ontology, and rules
+  - Main console remains static HTML/JS, but feature logic is no longer concentrated in one oversized page file
+- Generic rules ingestion subsystem added:
+  - New Spring Boot services/controllers support workbook ingestion, rule search, rule detail, report/MDRM association, lineage graph, and discrepancy analysis
+  - The core data model is generic (`rules`, `rule_dependencies`, `rule_loads`, `rule_import_warnings`) even though the first loaded source is FR Y-9C edits
+  - `rule_category` supports future non-regulatory sources such as internal rules
+- Rules workbook ingestion behavior:
+  - Reads the configured workbook from `mdrm.rules-file-path`
+  - Stores `Edit Test` as business-facing rule text
+  - Stores `Alg Edit Test` as canonical rule expression
+  - Derives secondary MDRM dependencies from the canonical expression using configurable regex extraction
+  - Tracks non-fatal import warnings instead of failing the entire load on malformed rows
+- New rules APIs:
+  - `POST /api/mdrm/rules/load`
+  - `GET /api/mdrm/rules/load-history`
+  - `GET /api/mdrm/rules/search`
+  - `GET /api/mdrm/rules/by-report`
+  - `GET /api/mdrm/rules/by-mdrm`
+  - `GET /api/mdrm/rules/by-scope`
+  - `GET /api/mdrm/rules/{ruleId}`
+  - `GET /api/mdrm/rules/graph`
+  - `GET /api/mdrm/rules/discrepancies`
+- Reporting and discovery integration:
+  - Discovery search now includes rules as a first-class result type
+  - Reports view includes rules alongside existing reporting analysis surfaces
+  - Load Data includes rules workbook load/history support
+- Ontology redesign:
+  - Ontology now emphasizes active reports, active MDRMs, and scoped rules counts
+  - Rules are integrated into the summarized ontology flow instead of a separate rules-only graph mode
+  - Persistent ontology inspector tabs added for `Selection`, `Reports`, `MDRMs`, and `Rules`
+  - Ontology graph and inspector panes are vertically resizable
+- MDRM profile rules lineage:
+  - MDRM profile now includes a rules tab with dependency-based lineage exploration
+  - Graph is MDRM-only and shows immediate parent dependencies first
+  - Users can expand/collapse deeper dependencies, refocus the lineage root, move back through traversal history, zoom in/out, reset zoom, and open the graph pane in fullscreen
+  - Associated rules for the currently selected dependency node render below the graph
+
 Current ingestion flow (`POST /api/mdrm/load`):
 1. Clean all MDRM tables (`mdrm_run_summary`, `mdrm_run_error`, `mdrm_master`, `mdrm_run_master`, and rebuild `mdrm_staging`)
 2. Discover files by pattern `mdrm.migration-file-pattern` and keep only `MDRM_mmyy.csv`
@@ -251,6 +291,50 @@ Current ingestion flow (`POST /api/mdrm/load`):
   - `inactive_mdrms`
   - `updated_mdrms`
   - populated during each successful load and backfilled for older runs at startup
+- `rule_loads`
+  - `load_id` (PK)
+  - `source_system`
+  - `report_series`
+  - `source_file_name`
+  - `file_checksum`
+  - `loaded_at`
+  - `load_status`
+  - workbook row/dependency/warning/error counts
+- `rules`
+  - `rule_id` (PK)
+  - `load_id`
+  - `rule_category`
+  - `report_series`
+  - `reporting_form`
+  - `schedule_name`
+  - `rule_type`
+  - `rule_number`
+  - `primary_mdrm_code`
+  - `effective_start_date`
+  - `effective_end_date`
+  - `change_status`
+  - `rule_text`
+  - `rule_expression`
+  - `source_sheet`
+  - `source_row_number`
+- `rule_dependencies`
+  - `dependency_id` (PK)
+  - `rule_id`
+  - `primary_mdrm_code`
+  - `secondary_token_raw`
+  - `secondary_mdrm_code`
+  - `dependency_kind`
+  - `qualifier_detail`
+  - `parse_confidence`
+  - `is_self_reference`
+- `rule_import_warnings`
+  - `warning_id` (PK)
+  - `load_id`
+  - `rule_id`
+  - `source_sheet`
+  - `source_row_number`
+  - `warning_type`
+  - `warning_message`
 
 ## Derived Rules
 - Date parsing format: `M/d/yyyy h:mm:ss a`
@@ -258,6 +342,27 @@ Current ingestion flow (`POST /api/mdrm/load`):
   - end-date year is `9999`, or
   - end date is greater than current UTC time
 - otherwise `is_active = 'N'`
+- Rule dependency derivation:
+  - Primary MDRM comes from the rule target row
+  - Secondary MDRMs are derived from workbook dependency columns when present, otherwise from `Alg Edit Test`
+  - MDRM tokens are normalized by trimming and uppercasing
+  - Self-references are skipped
+  - Duplicate dependency edges within a rule are removed
+  - Dependency discrepancies such as inactive or missing secondary MDRMs are computed against selected run context rather than stored as permanent source truth
+
+## Configuration
+- `mdrm.local-file-path`
+  - current single-file MDRM load source
+- `mdrm.migration-file-pattern`
+  - MDRM historical migration pattern
+- `mdrm.rules-file-path`
+  - configured rules workbook path
+- `mdrm.rules-source-system`
+  - source system label stored in `rule_loads`
+- `mdrm.rules-default-category`
+  - default category assigned during rules ingestion
+- `mdrm.rules-expression-regex`
+  - regex used to derive dependency MDRM tokens from canonical rule expression text
 - Rows with null/invalid dates are skipped from `mdrm_master` and logged to `mdrm_run_error`
 - Run summary classification by unique `mdrm_code` per run/report:
   - `active`: has only `is_active = 'Y'`
