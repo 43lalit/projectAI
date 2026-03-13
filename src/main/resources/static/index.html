@@ -560,6 +560,43 @@
     <div id="ontologyInsightBody" class="ontology-insight-body"></div>
   </aside>
 
+  <div class="modal fade" id="ontologyTimelineRunModal" tabindex="-1" aria-labelledby="ontologyTimelineRunModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header app-modal-header">
+          <div>
+            <h3 class="modal-title h5 mb-1" id="ontologyTimelineRunModalTitle">Run details</h3>
+            <div id="ontologyTimelineRunModalMeta" class="small text-muted"></div>
+          </div>
+          <div class="app-modal-header-actions">
+            <button type="button" class="app-modal-header-btn dismiss" data-bs-dismiss="modal" aria-label="Close modal">Close</button>
+          </div>
+        </div>
+        <div class="modal-body" id="ontologyTimelineRunModalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="mdrmAnalysisModal" tabindex="-1" aria-labelledby="mdrmAnalysisModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered mdrm-analysis-modal-dialog">
+      <div class="modal-content mdrm-analysis-modal-content">
+        <div class="modal-header app-modal-header">
+          <div>
+            <h3 class="modal-title h5 mb-1" id="mdrmAnalysisModalTitle">MDRM analysis</h3>
+            <div id="mdrmAnalysisModalMeta" class="small text-muted">Graph workspace</div>
+          </div>
+          <div class="app-modal-header-actions mdrm-analysis-modal-actions">
+            <button id="mdrmAnalysisModalFullscreenBtn" type="button" class="app-modal-header-btn" aria-pressed="false">Expand</button>
+            <button type="button" class="app-modal-header-btn dismiss" data-bs-dismiss="modal" aria-label="Close modal">Close</button>
+          </div>
+        </div>
+        <div class="modal-body p-0">
+          <iframe id="mdrmAnalysisModalFrame" class="mdrm-analysis-modal-frame" title="MDRM analysis workspace" loading="lazy"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="commandPaletteOverlay" class="command-palette-overlay" hidden>
     <div class="command-palette-shell" role="dialog" aria-modal="true" aria-label="Command palette">
       <div class="command-palette-input-wrap">
@@ -918,6 +955,15 @@
     const ontologyInsightTitle = document.getElementById('ontologyInsightTitle');
     const ontologyInsightBody = document.getElementById('ontologyInsightBody');
     const ontologyInsightCloseBtn = document.getElementById('ontologyInsightCloseBtn');
+    const ontologyTimelineRunModalEl = document.getElementById('ontologyTimelineRunModal');
+    const ontologyTimelineRunModalTitle = document.getElementById('ontologyTimelineRunModalTitle');
+    const ontologyTimelineRunModalMeta = document.getElementById('ontologyTimelineRunModalMeta');
+    const ontologyTimelineRunModalBody = document.getElementById('ontologyTimelineRunModalBody');
+    const mdrmAnalysisModalEl = document.getElementById('mdrmAnalysisModal');
+    const mdrmAnalysisModalTitle = document.getElementById('mdrmAnalysisModalTitle');
+    const mdrmAnalysisModalMeta = document.getElementById('mdrmAnalysisModalMeta');
+    const mdrmAnalysisModalFrame = document.getElementById('mdrmAnalysisModalFrame');
+    const mdrmAnalysisModalFullscreenBtn = document.getElementById('mdrmAnalysisModalFullscreenBtn');
     const ontologyManageModalEl = document.getElementById('ontologyManageModal');
     const ontologyManageOperation = document.getElementById('ontologyManageOperation');
     const ontologyManageReportInput = document.getElementById('ontologyManageReportInput');
@@ -1086,6 +1132,7 @@
     let latestAvailableRunId = null;
     let ontologyManageModal = null;
     let ontologyManageMdrmOptionList = [];
+    let mdrmAnalysisModal = null;
     const uiModules = window.ProjectAiUiModules || {};
     const commandPaletteManager = typeof uiModules.createCommandPaletteManager === 'function'
       ? uiModules.createCommandPaletteManager({
@@ -1116,6 +1163,7 @@
           getRecentSearches: () => recentSearches,
           applyRecentSearchByIndex: index => applyRecentSearchByIndex(index),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
           upsertRecentSearch: query => upsertRecentSearch(query)
         })
       : null;
@@ -1203,6 +1251,7 @@
           appendRunContext: url => appendRunContext(url),
           apiFetch: (url, options) => apiFetch(url, options),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
           formatRunDate: value => formatRunDate(value),
           getSelectedReportingForm: () => selectedReportingForm,
           getActiveMdrmGridApi: () => activeMdrmGridApi,
@@ -1264,6 +1313,7 @@
           switchView: targetViewId => switchView(targetViewId),
           syncCopyLinkButtons: () => syncCopyLinkButtons(),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
           apiFetch: (url, options) => apiFetch(url, options),
           setAuthStatus: (text, css) => setAuthStatus(text, css),
           isRecentItemBookmarked: item => isRecentItemBookmarked(item),
@@ -1349,6 +1399,7 @@
           appendRunContext: url => appendRunContext(url),
           apiFetch: (url, options) => apiFetch(url, options),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
           formatCount: value => formatCount(value),
           formatRunDate: value => formatRunDate(value),
           buildReportDeepLink: reportingForm => buildReportDeepLink(reportingForm),
@@ -1379,6 +1430,7 @@
           updateLoadButtonStates: () => updateLoadButtonStates(),
           apiFetch: (url, options) => apiFetch(url, options),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
           formatCount: value => formatCount(value),
           formatRunDate: value => formatRunDate(value),
           appendRunContext: url => appendRunContext(url),
@@ -1405,6 +1457,8 @@
           apiFetch: (url, options) => apiFetch(url, options),
           appendRunContext: url => appendRunContext(url),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
+          buildMdrmProfileUrl: mdrmCode => buildMdrmProfileUrl(mdrmCode),
           formatRunDate: value => formatRunDate(value),
           formatCount: value => formatCount(value)
         })
@@ -1447,6 +1501,10 @@
             ontologyInsightDrawer,
             ontologyInsightTitle,
             ontologyInsightBody,
+            ontologyTimelineRunModalEl,
+            ontologyTimelineRunModalTitle,
+            ontologyTimelineRunModalMeta,
+            ontologyTimelineRunModalBody,
             ontologyManageModalEl,
             ontologyManageOperation,
             ontologyManageReportInput,
@@ -1508,6 +1566,7 @@
           appendRunContext: url => appendRunContext(url),
           apiFetch: (url, options) => apiFetch(url, options),
           escapeHtml: value => escapeHtml(value),
+          renderExpandableText: (value, options) => renderExpandableText(value, options),
           formatCount: value => formatCount(value),
           buildReportDeepLink: reportingForm => buildReportDeepLink(reportingForm),
           buildMdrmProfileUrl: mdrmCode => buildMdrmProfileUrl(mdrmCode),
@@ -1643,6 +1702,26 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    }
+
+    function renderExpandableText(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const maxLength = Number(options.maxLength || 100);
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      if (!text) {
+        return escapeHtml(emptyValue);
+      }
+      if (!Number.isFinite(maxLength) || text.length <= maxLength) {
+        return escapeHtml(text);
+      }
+      const preview = `${text.slice(0, maxLength).trimEnd()}...`;
+      return `
+        <span class="expandable-text" data-expanded="false">
+          <span class="expandable-text-collapsed expandable-text-content">${escapeHtml(preview)}</span>
+          <span class="expandable-text-full expandable-text-content">${escapeHtml(text)}</span>
+          <button class="expandable-text-toggle" type="button" aria-expanded="false">Read more</button>
+        </span>
+      `;
     }
 
     function statusCapsule(value) {
@@ -1782,6 +1861,7 @@
       applySummaryGridTheme(nextTheme);
       applyActiveMdrmGridTheme(nextTheme);
       applyNetChangeGridTheme(nextTheme);
+      applyReportRulesGridTheme(nextTheme);
       localStorage.setItem(THEME_KEY, nextTheme);
       if (themeIconBtn) {
         themeIconBtn.textContent = nextTheme === 'dark' ? '☀' : '☾';
@@ -2458,6 +2538,12 @@
       }
     }
 
+    function applyReportRulesGridTheme(theme) {
+      if (rulesManager) {
+        rulesManager.applyReportRulesGridTheme(theme);
+      }
+    }
+
     function initActiveMdrmGrid() {
       if (reportingManager) {
         reportingManager.initActiveMdrmGrid();
@@ -2514,6 +2600,36 @@
 
     function buildMdrmProfileUrl(mdrmCode) {
       return discoveryManager ? discoveryManager.buildMdrmProfileUrl(mdrmCode) : '/mdrm.html';
+    }
+
+    function ensureMdrmAnalysisModal() {
+      if (!mdrmAnalysisModalEl || !window.bootstrap || !bootstrap.Modal) {
+        return null;
+      }
+      if (!mdrmAnalysisModal) {
+        mdrmAnalysisModal = bootstrap.Modal.getOrCreateInstance(mdrmAnalysisModalEl);
+      }
+      return mdrmAnalysisModal;
+    }
+
+    function openMdrmAnalysisModal(url, options = {}) {
+      const targetUrl = String(url || '').trim();
+      if (!targetUrl || !mdrmAnalysisModalFrame) {
+        return;
+      }
+      if (mdrmAnalysisModalTitle) {
+        mdrmAnalysisModalTitle.textContent = String(options.title || 'MDRM analysis').trim() || 'MDRM analysis';
+      }
+      if (mdrmAnalysisModalMeta) {
+        mdrmAnalysisModalMeta.textContent = String(options.meta || 'Graph workspace').trim() || 'Graph workspace';
+      }
+      mdrmAnalysisModalEl?.classList.remove('is-maximized');
+      if (mdrmAnalysisModalFullscreenBtn) {
+        mdrmAnalysisModalFullscreenBtn.textContent = 'Expand';
+        mdrmAnalysisModalFullscreenBtn.setAttribute('aria-pressed', 'false');
+      }
+      mdrmAnalysisModalFrame.src = targetUrl;
+      ensureMdrmAnalysisModal()?.show();
     }
 
     function initDiscoveryGrid() {
@@ -3400,6 +3516,81 @@
     });
 
     document.addEventListener('click', event => {
+      const expandableToggle = event.target.closest('.expandable-text-toggle');
+      if (expandableToggle) {
+        event.preventDefault();
+        const container = expandableToggle.closest('.expandable-text');
+        if (!container) {
+          return;
+        }
+        const expanded = container.getAttribute('data-expanded') === 'true';
+        container.setAttribute('data-expanded', expanded ? 'false' : 'true');
+        expandableToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        expandableToggle.textContent = expanded ? 'Read more' : 'Read less';
+        [discoveryGridApi, summaryGridApi, activeMdrmGridApi, netChangeGridApi].forEach(api => {
+          if (api && typeof api.onRowHeightChanged === 'function') {
+            api.onRowHeightChanged();
+          }
+        });
+        if (rulesManager) {
+          rulesManager.refreshReportRulesGridHeights();
+        }
+        return;
+      }
+
+      const expandableBlockToggle = event.target.closest('.expandable-block-toggle');
+      if (expandableBlockToggle) {
+        event.preventDefault();
+        const container = expandableBlockToggle.closest('.expandable-block');
+        if (!container) {
+          return;
+        }
+        const expanded = container.getAttribute('data-expanded') === 'true';
+        container.setAttribute('data-expanded', expanded ? 'false' : 'true');
+        expandableBlockToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        expandableBlockToggle.textContent = expanded ? 'Read more' : 'Read less';
+        [discoveryGridApi, summaryGridApi, activeMdrmGridApi, netChangeGridApi].forEach(api => {
+          if (api && typeof api.onRowHeightChanged === 'function') {
+            api.onRowHeightChanged();
+          }
+        });
+        if (rulesManager) {
+          rulesManager.refreshReportRulesGridHeights();
+        }
+        applyReportRulesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        return;
+      }
+
+      const ontologyTimelineCell = event.target.closest('.ontology-timeline-activity-cell');
+      if (ontologyTimelineCell) {
+        event.preventDefault();
+        const timelineIndex = ontologyTimelineCell.getAttribute('data-timeline-index');
+        if (ontologyManager && timelineIndex != null && typeof ontologyManager.openOntologyTimelineRunDetail === 'function') {
+          ontologyManager.openOntologyTimelineRunDetail(timelineIndex);
+        }
+        return;
+      }
+
+      const mdrmInsightBtn = event.target.closest('[data-mdrm-insight]');
+      if (mdrmInsightBtn) {
+        event.preventDefault();
+        const value = String(mdrmInsightBtn.getAttribute('data-mdrm-insight') || '').trim();
+        if (value) {
+          openOntologyInsight('mdrm', value).catch(() => {});
+        }
+        return;
+      }
+
+      const analysisLaunchBtn = event.target.closest('.open-mdrm-analysis-btn');
+      if (analysisLaunchBtn) {
+        event.preventDefault();
+        openMdrmAnalysisModal(analysisLaunchBtn.getAttribute('data-analysis-url'), {
+          title: analysisLaunchBtn.getAttribute('data-analysis-title') || 'MDRM analysis',
+          meta: analysisLaunchBtn.getAttribute('data-analysis-meta') || 'Graph workspace'
+        });
+        return;
+      }
+
       const mdrmLink = event.target.closest('a[href*=\"/mdrm.html?mdrm=\"]');
       if (!mdrmLink) {
         return;
@@ -3444,6 +3635,27 @@
         moveBookmark(bookmarkId, Number.isNaN(groupId) ? null : groupId);
       }
     });
+
+    if (mdrmAnalysisModalEl) {
+      mdrmAnalysisModalEl.addEventListener('hidden.bs.modal', () => {
+        mdrmAnalysisModalEl.classList.remove('is-maximized');
+        if (mdrmAnalysisModalFrame) {
+          mdrmAnalysisModalFrame.src = 'about:blank';
+        }
+        if (mdrmAnalysisModalFullscreenBtn) {
+          mdrmAnalysisModalFullscreenBtn.textContent = 'Expand';
+          mdrmAnalysisModalFullscreenBtn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    }
+
+    if (mdrmAnalysisModalFullscreenBtn && mdrmAnalysisModalEl) {
+      mdrmAnalysisModalFullscreenBtn.addEventListener('click', () => {
+        const maximized = mdrmAnalysisModalEl.classList.toggle('is-maximized');
+        mdrmAnalysisModalFullscreenBtn.textContent = maximized ? 'Restore' : 'Expand';
+        mdrmAnalysisModalFullscreenBtn.setAttribute('aria-pressed', maximized ? 'true' : 'false');
+      });
+    }
 
     if (profileMenuBtn && profileMenu) {
       profileMenuBtn.addEventListener('click', () => {

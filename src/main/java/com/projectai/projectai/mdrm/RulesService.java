@@ -59,6 +59,7 @@ public class RulesService {
     private static final DateTimeFormatter ISO_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final Set<String> RULE_SHEET_NAMES = Set.of("all_edits");
     private static final Set<String> DEPENDENCY_SHEET_NAMES = Set.of("edit_dependencies", "mdrm_graph_edges");
+    private static final Pattern MDRM_CODE_PATTERN = Pattern.compile("^([A-Z]{4}[A-Z0-9]{4})(?:-Q([1-8]))?$");
 
     private final JdbcTemplate jdbcTemplate;
     private final MdrmProperties properties;
@@ -133,6 +134,19 @@ public class RulesService {
             markLoadFailed(loadId, ex.getMessage());
             throw ex;
         }
+    }
+
+    @Transactional
+    public RuleLoadResult reprocessConfiguredRulesWorkbook() {
+        clearRulesData();
+        ensureTables();
+        ensureIndexes();
+        ensureSqlFunctions();
+        return loadConfiguredRulesWorkbook();
+    }
+
+    public void reloadSqlFunctions() {
+        ensureSqlFunctions();
     }
 
     public List<RuleLoadHistoryEntry> getLoadHistory() {
@@ -499,7 +513,14 @@ public class RulesService {
                 LANGUAGE SQL
                 IMMUTABLE
                 AS $$
-                SELECT NULLIF(UPPER(BTRIM(value)), '')
+                SELECT NULLIF(
+                    CASE
+                        WHEN UPPER(BTRIM(value)) ~ '^[A-Z]{4}[A-Z0-9]{4}-Q[1-8]$'
+                            THEN REGEXP_REPLACE(UPPER(BTRIM(value)), '^([A-Z]{4}[A-Z0-9]{4})-Q[1-8]$', '\\1')
+                        ELSE UPPER(BTRIM(value))
+                    END,
+                    ''
+                )
                 $$;
                 """);
         jdbcTemplate.execute("""
@@ -760,12 +781,14 @@ public class RulesService {
                         CASE
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive') > 0 THEN 'INACTIVE_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
+                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS target_status,
                         'MDRM_HAS_RULE' AS relation,
                         CASE
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive') > 0 THEN 'INACTIVE_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
+                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS edge_status
                     FROM relevant_rules rr
@@ -781,6 +804,7 @@ public class RulesService {
                         CASE
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive' THEN 'INACTIVE_DEPENDENCY'
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL THEN 'MISSING_DEPENDENCY'
+                            WHEN d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS source_status,
                         'mdrm:' || COALESCE(d.secondary_mdrm_code, d.secondary_token_raw, 'UNKNOWN') AS target_id,
@@ -1010,6 +1034,24 @@ public class RulesService {
                 )
                         : null
         );
+    }
+
+    private void clearRulesData() {
+        if (isPostgres()) {
+            jdbcTemplate.execute("""
+                    TRUNCATE TABLE __WARNINGS__, __DEPENDENCIES__, __RULES__, __LOADS__
+                    RESTART IDENTITY CASCADE
+                    """
+                    .replace("__WARNINGS__", MdrmConstants.DEFAULT_RULE_WARNINGS_TABLE)
+                    .replace("__DEPENDENCIES__", MdrmConstants.DEFAULT_RULE_DEPENDENCIES_TABLE)
+                    .replace("__RULES__", MdrmConstants.DEFAULT_RULES_TABLE)
+                    .replace("__LOADS__", MdrmConstants.DEFAULT_RULE_LOADS_TABLE));
+            return;
+        }
+        jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_RULE_WARNINGS_TABLE);
+        jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_RULE_DEPENDENCIES_TABLE);
+        jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_RULES_TABLE);
+        jdbcTemplate.execute("DELETE FROM " + MdrmConstants.DEFAULT_RULE_LOADS_TABLE);
     }
 
     private ParsedWorkbook parseWorkbook(byte[] content) {
@@ -1970,7 +2012,8 @@ public class RulesService {
             return null;
         }
         String cleaned = raw.trim().toUpperCase(Locale.ROOT);
-        return cleaned.matches("[A-Z]{4}[A-Z0-9]{4}") ? cleaned : null;
+        Matcher matcher = MDRM_CODE_PATTERN.matcher(cleaned);
+        return matcher.matches() ? matcher.group(1) : null;
     }
 
     private String blankToNull(String value) {

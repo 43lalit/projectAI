@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MDRM Profile</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.css">
   <link rel="stylesheet" href="/css/mdrm-console.css">
 </head>
 <body>
@@ -103,7 +105,7 @@
       </div>
     </header>
 
-    <section class="panel">
+    <section class="panel mdrm-three-pane-shell">
       <div class="crumbs">
         <a href="/index.html">Console</a> <span class="crumbSep">›</span>
         <span>MDRM Profile</span> <span class="crumbSep">›</span>
@@ -111,88 +113,147 @@
         <a id="backToJourneyLink" class="ms-auto" href="/index.html?view=view-discovery" style="display:none;">Back to Search Results</a>
       </div>
 
-      <div class="element-head mt-3">
-        <div class="element-main">
-          <div class="d-flex align-items-center gap-2">
-            <h2 class="mb-0"><span class="mono" id="elementCodeLabel">MDRM</span></h2>
-            <button id="bookmarkMdrmBtn" class="btn btn-sm btn-outline-warning link-action-btn" type="button" disabled aria-label="Bookmark MDRM" title="Bookmark MDRM">
-              <span id="bookmarkMdrmBtnIcon" aria-hidden="true">☆</span>
-              <span>Bookmark</span>
-            </button>
-            <button id="copyMdrmLinkBtn" class="btn btn-sm btn-outline-secondary link-action-btn" type="button" disabled aria-label="Share MDRM link" title="Share MDRM link">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M10 14l4-4m-6.5 8.5l-2 2a3 3 0 104.2 4.3l2-2m5-13l2-2a3 3 0 10-4.2-4.3l-2 2m-2.3 8.3l4.6-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span>Share</span>
-            </button>
-          </div>
-          <p id="elementDefinition" class="muted mb-0">Detailed timeline, associations, and related relationships for a single MDRM.</p>
-          <div id="elementTagRow" class="tag-row mt-3"></div>
-        </div>
-
-        <aside class="detail-card">
-          <h3>Latest snapshot</h3>
-          <div id="snapshotList" class="snapshot-list"></div>
-        </aside>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <h3>MDRM Relationship Explorer</h3>
-          <p class="muted">Track change history and cross-report relationships for this MDRM family.</p>
-        </div>
-      </div>
       <div class="status neutral mt-2" id="detailStatus">Ready.</div>
 
-      <div class="tab-row mt-3" id="profileTabs" role="tablist" aria-label="MDRM profile tabs">
-        <button class="tab-chip active" type="button" data-tab="tab-overview" role="tab" aria-selected="true">Overview</button>
-        <button class="tab-chip" type="button" data-tab="tab-timeline" role="tab" aria-selected="false">Timeline</button>
-        <button class="tab-chip" type="button" data-tab="tab-associations" role="tab" aria-selected="false">Report Association</button>
-        <button class="tab-chip" type="button" data-tab="tab-rules" role="tab" aria-selected="false">Rules</button>
-        <button class="tab-chip" type="button" data-tab="tab-related-mdrm" role="tab" aria-selected="false">Related MDRM Graph</button>
-      </div>
+      <div class="mdrm-three-pane-layout mt-3">
+        <aside class="mdrm-context-pane">
+          <div class="mdrm-context-drawer">
+            <div class="mdrm-context-drawer-head">
+              <div class="element-main">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <h2 class="mb-0"><span class="mono" id="elementCodeLabel">MDRM</span></h2>
+                  <button id="bookmarkMdrmBtn" class="btn btn-sm btn-outline-warning link-action-btn" type="button" disabled aria-label="Bookmark MDRM" title="Bookmark MDRM">
+                    <span id="bookmarkMdrmBtnIcon" aria-hidden="true">☆</span>
+                    <span>Bookmark</span>
+                  </button>
+                  <button id="copyMdrmLinkBtn" class="btn btn-sm btn-outline-secondary link-action-btn" type="button" disabled aria-label="Share MDRM link" title="Share MDRM link">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M10 14l4-4m-6.5 8.5l-2 2a3 3 0 104.2 4.3l2-2m5-13l2-2a3 3 0 10-4.2-4.3l-2 2m-2.3 8.3l4.6-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Share</span>
+                  </button>
+                </div>
+                <div id="elementDefinition" class="mdrm-primary-definition mt-2">Detailed timeline, associations, and related relationships for a single MDRM.</div>
+              </div>
 
-      <div id="tab-overview" class="tab-panel active mt-3" role="tabpanel">
-        <div class="card-shell p-3">
-          <div id="overviewSummary" class="overview-grid"></div>
-          <div id="fieldChangesContainer" class="mt-3"></div>
-        </div>
-      </div>
+              <section class="mdrm-context-snapshot">
+                <div class="mdrm-context-section-title">Latest Snapshot</div>
+                <div id="snapshotList" class="snapshot-list"></div>
+                <div class="mdrm-context-subsection">
+                  <div class="mdrm-context-section-title">Report Associations</div>
+                  <div id="associationsContainer" class="table-shell mdrm-context-associations"></div>
+                </div>
+              </section>
+            </div>
 
-      <div id="tab-timeline" class="tab-panel mt-3" role="tabpanel">
-        <div id="timelineContainer" class="table-shell card-shell"></div>
-      </div>
+            <div class="mdrm-context-drawer-body">
+              <section id="mdrmSupportTimelinePanel" class="mdrm-support-panel active" role="tabpanel">
+                <div class="mdrm-context-section-title">Timeline</div>
+                <div id="timelineContainer" class="table-shell"></div>
+              </section>
+            </div>
+          </div>
+        </aside>
 
-      <div id="tab-associations" class="tab-panel mt-3" role="tabpanel">
-        <div id="associationsContainer" class="table-shell card-shell"></div>
-      </div>
+        <section class="mdrm-analysis-pane">
+          <div id="ruleLineageWorkspace" class="relationship-shell mdrm-analysis-workspace">
+            <div class="mdrm-analysis-header">
+              <div class="mdrm-analysis-copy">
+                <div class="mdrm-analysis-title">Analysis</div>
+                <div id="ruleLineageSummaryMeta" class="small text-muted">Select a graph view to inspect MDRM relationships.</div>
+                <div id="ruleLineageContextMeta" class="small text-muted"></div>
+              </div>
+              <div class="mdrm-analysis-actions">
+                <button id="ruleLineageBackBtn" class="btn btn-sm btn-outline-secondary" type="button">Back</button>
+                <button id="ruleLineageResetBtn" class="btn btn-sm btn-outline-secondary" type="button">Reset</button>
+                <button id="ruleLineageToggleDetailsBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-pressed="false">Hide Details</button>
+                <button id="ruleLineageFullscreenBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-pressed="false">Full Screen</button>
+              </div>
+            </div>
 
-      <div id="tab-rules" class="tab-panel mt-3" role="tabpanel">
-        <div id="rulesContainer" class="table-shell card-shell"></div>
-      </div>
+            <div class="mdrm-analysis-tabbar" role="tablist" aria-label="MDRM analysis views">
+              <button id="analysisTabLineageBtn" class="mdrm-analysis-tab active" type="button" role="tab" aria-selected="true" aria-controls="mdrmAnalysisLineagePanel">Rule Based Lineage</button>
+              <button id="analysisTabRelatedBtn" class="mdrm-analysis-tab" type="button" role="tab" aria-selected="false" aria-controls="mdrmAnalysisRelatedPanel">Related MDRM</button>
+            </div>
 
-      <div id="tab-related-mdrm" class="tab-panel mt-3" role="tabpanel">
-        <div id="relatedMdrmContainer" class="table-shell card-shell"></div>
+            <section class="mdrm-analysis-top-pane">
+              <div id="mdrmAnalysisLineagePanel" class="mdrm-analysis-panel active" role="tabpanel">
+                <div class="lineage-graph-toolbar">
+                  <div class="lineage-graph-toolbar-group">
+                    <button id="ruleLineageZoomOutBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Zoom out lineage graph">-</button>
+                    <button id="ruleLineageZoomResetBtn" class="btn btn-sm btn-outline-secondary" type="button">Reset Zoom</button>
+                    <button id="ruleLineageZoomInBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Zoom in lineage graph">+</button>
+                  </div>
+                  <div class="small text-muted">Select a node to inspect details in the bottom pane.</div>
+                </div>
+                <div class="relationship-legend">
+                  <span><i class="dot active"></i> Current MDRM / selected dependency</span>
+                  <span><i class="dot inactive"></i> Dependency warning on path</span>
+                  <span><i class="dot report"></i> Expand nodes for more parents</span>
+                </div>
+                <div class="lineage-graph-stage">
+                  <div id="ruleLineageGraphHost" class="relationship-graph-host lineage-analysis-graph-host"></div>
+                  <aside id="ruleLineageNodeOverlay" class="lineage-node-overlay">
+                    <div class="text-muted small">Select a node to inspect dependency details.</div>
+                  </aside>
+                </div>
+              </div>
+
+              <div id="mdrmAnalysisRelatedPanel" class="mdrm-analysis-panel" role="tabpanel" hidden>
+                <div id="relatedMdrmContainer"></div>
+              </div>
+            </section>
+
+            <div id="ruleLineageRulesHandle" class="lineage-pane-handle horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize bottom details pane" tabindex="0"><span></span></div>
+
+            <section id="mdrmAnalysisDetailPane" class="card-shell p-0 mdrm-analysis-detail-pane">
+              <div class="mdrm-analysis-detail-head">
+                <div>
+                  <div id="mdrmAnalysisDetailTitle" class="mdrm-analysis-detail-title">Selection details</div>
+                  <div id="mdrmAnalysisDetailMeta" class="small text-muted">Select a node to inspect details.</div>
+                </div>
+              </div>
+              <div id="mdrmAnalysisDetailBody" class="mdrm-analysis-detail-body">
+                <div class="text-muted small p-3">Select a node from the active graph.</div>
+              </div>
+            </section>
+          </div>
+        </section>
       </div>
     </section>
+
+    <div class="modal fade" id="timelineRunModal" tabindex="-1" aria-labelledby="timelineRunModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div>
+              <h3 class="modal-title h5 mb-1" id="timelineRunModalTitle">Run details</h3>
+              <div id="timelineRunModalMeta" class="small text-muted"></div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="timelineRunModalBody"></div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
   <script>
     const detailStatus = document.getElementById('detailStatus');
     const elementCodeLabel = document.getElementById('elementCodeLabel');
     const elementDefinition = document.getElementById('elementDefinition');
     const snapshotList = document.getElementById('snapshotList');
-    const elementTagRow = document.getElementById('elementTagRow');
     const crumbMdrmCode = document.getElementById('crumbMdrmCode');
-    const overviewSummary = document.getElementById('overviewSummary');
     const timelineContainer = document.getElementById('timelineContainer');
     const associationsContainer = document.getElementById('associationsContainer');
-    const rulesContainer = document.getElementById('rulesContainer');
+    const ruleLineageWorkspace = document.getElementById('ruleLineageWorkspace');
     const relatedMdrmContainer = document.getElementById('relatedMdrmContainer');
-    const fieldChangesContainer = document.getElementById('fieldChangesContainer');
+    const timelineRunModalElement = document.getElementById('timelineRunModal');
+    const timelineRunModalTitle = document.getElementById('timelineRunModalTitle');
+    const timelineRunModalMeta = document.getElementById('timelineRunModalMeta');
+    const timelineRunModalBody = document.getElementById('timelineRunModalBody');
     const backToJourneyLink = document.getElementById('backToJourneyLink');
     const bookmarkMdrmBtn = document.getElementById('bookmarkMdrmBtn');
     const bookmarkMdrmBtnIcon = document.getElementById('bookmarkMdrmBtnIcon');
@@ -245,15 +306,27 @@
     let currentLineageSelectedNodeId = '';
     let currentLineageNodeMap = new Map();
     let currentLineageEdges = [];
-	    let currentLineageNodeSelection = null;
-	    let currentLineageSelectionRequestId = 0;
-	    let currentLineageExpandedMdrms = new Set();
-	    let currentLineageFocusHistory = [];
-	    let currentLineageZoomBehavior = null;
-	    let currentLineageZoomSvg = null;
-	    let currentLineageZoomTransform = null;
-	    const lineageRulePayloadCache = new Map();
-	    const lineageRuleDetailCache = new Map();
+    let currentLineageNodeSelection = null;
+    let currentLineageSelectionRequestId = 0;
+    let currentLineageExpandedMdrms = new Set();
+    let currentLineageFocusHistory = [];
+    let currentLineageZoomBehavior = null;
+    let currentLineageZoomSvg = null;
+    let currentLineageZoomTransform = null;
+    let ruleLineageGridApi = null;
+    let ruleLineageGridHost = null;
+    let currentLineageRulesCollapsed = false;
+    let currentLineageRulesHeight = 280;
+    let currentLineageResizeMoveHandler = null;
+    let currentLineageResizeStopHandler = null;
+    let currentAnalysisTab = 'lineage';
+    let currentRelatedSelection = null;
+    let currentRelatedGroupedReports = new Map();
+    let currentTimelineRows = [];
+    let currentTimelineModal = null;
+    let analysisWorkspaceInitialized = false;
+    const lineageRulePayloadCache = new Map();
+    const lineageRuleDetailCache = new Map();
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -262,6 +335,70 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    }
+
+    function renderExpandableText(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const maxLength = Number(options.maxLength || 100);
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      if (!text) {
+        return escapeHtml(emptyValue);
+      }
+      if (!Number.isFinite(maxLength) || text.length <= maxLength) {
+        return escapeHtml(text);
+      }
+      const preview = `${text.slice(0, maxLength).trimEnd()}...`;
+      return `
+        <span class="expandable-text" data-expanded="false">
+          <span class="expandable-text-collapsed expandable-text-content">${escapeHtml(preview)}</span>
+          <span class="expandable-text-full expandable-text-content">${escapeHtml(text)}</span>
+          <button class="expandable-text-toggle" type="button" aria-expanded="false">Read more</button>
+        </span>
+      `;
+    }
+
+    function renderExpandableBlock(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      const lineClamp = Math.max(1, Number(options.lineClamp || 4));
+      const approxCharsPerLine = Math.max(30, Number(options.approxCharsPerLine || 82));
+      if (!text) {
+        return `<span>${escapeHtml(emptyValue)}</span>`;
+      }
+      if (text.length <= lineClamp * approxCharsPerLine) {
+        return `<span>${escapeHtml(text)}</span>`;
+      }
+      return `
+        <div class="expandable-block" data-expanded="false" style="--expandable-line-clamp:${lineClamp};">
+          <div class="expandable-block-content">${escapeHtml(text)}</div>
+          <button class="expandable-block-toggle" type="button" aria-expanded="false">Read more</button>
+        </div>
+      `;
+    }
+
+    function renderGridClampText(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      if (!text) {
+        return `<span class="grid-clamp-fallback">${escapeHtml(emptyValue)}</span>`;
+      }
+      return `
+        <div class="grid-clamp-text">
+          ${renderExpandableBlock(text, {
+            lineClamp: Math.max(1, Number(options.lineClamp || 2)),
+            approxCharsPerLine: Math.max(32, Number(options.approxCharsPerLine || 72)),
+            emptyValue
+          })}
+        </div>
+      `;
+    }
+
+    function renderMdrmLink(value) {
+      const code = String(value || '').trim().toUpperCase();
+      if (!code || code === '-') {
+        return '<span>-</span>';
+      }
+      return `<a class="mono" href="${escapeHtml(buildMdrmProfileLink(code))}">${escapeHtml(code)}</a>`;
     }
 
     function statusCapsule(value) {
@@ -293,6 +430,7 @@
         themeIconBtn.textContent = nextTheme === 'dark' ? '☀' : '☾';
         themeIconBtn.setAttribute('aria-label', nextTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
       }
+      syncRuleLineageGridTheme();
     }
 
     function initTheme() {
@@ -824,17 +962,6 @@
       closeProfileMenu();
     }
 
-    function activateTab(tabId) {
-      document.querySelectorAll('.tab-chip').forEach(button => {
-        const isActive = button.dataset.tab === tabId;
-        button.classList.toggle('active', isActive);
-        button.setAttribute('aria-selected', String(isActive));
-      });
-      document.querySelectorAll('.tab-panel').forEach(panel => {
-        panel.classList.toggle('active', panel.id === tabId);
-      });
-    }
-
     function renderSnapshot(profile) {
       const items = [
         ['MDRM', profile.mdrmCode || '-'],
@@ -853,47 +980,6 @@
       `).join('');
     }
 
-    function renderOverview(profile) {
-      const details = [
-        ['Description', profile.description || '-'],
-        ['Definition', profile.definition || '-'],
-        ['Timeline events', String(profile.timelineCount ?? 0)],
-        ['Report associations', String(profile.associationCount ?? 0)],
-        ['Related MDRMs', String(profile.relatedMdrmCount ?? 0)],
-        ['Related reports', String(profile.relatedReportCount ?? 0)]
-      ];
-
-      overviewSummary.innerHTML = details.map(([key, value]) => `
-        <div class="overview-item">
-          <div class="overview-key">${escapeHtml(key)}</div>
-          <div class="overview-value">${escapeHtml(value)}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderFieldChanges(changes) {
-      const rows = Array.isArray(changes) ? changes : [];
-      if (!rows.length) {
-        fieldChangesContainer.innerHTML = '<div class="text-muted small">No field-level change found between first and latest appearance.</div>';
-        return;
-      }
-      fieldChangesContainer.innerHTML = `
-        <div class="overview-key mb-2">First vs Latest Field Changes (${rows.length})</div>
-        <div class="field-change-list">
-          ${rows.map(change => `
-            <div class="field-change-item">
-              <div class="field-change-name">${escapeHtml(change.fieldName || '-')}</div>
-              <div class="field-change-values">
-                <span class="field-old">${escapeHtml(change.firstValue || '-')}</span>
-                <span class="field-arrow">→</span>
-                <span class="field-new">${escapeHtml(change.latestValue || '-')}</span>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
     function formatRunDatetime(epochMillis) {
       const value = Number(epochMillis || 0);
       if (!value) {
@@ -902,64 +988,167 @@
       return new Date(value).toLocaleString();
     }
 
+    function formatTimelineMonth(epochMillis) {
+      const value = Number(epochMillis || 0);
+      if (!value) {
+        return 'Unknown';
+      }
+      return new Date(value).toLocaleString(undefined, { month: 'short', year: 'numeric' });
+    }
+
+    function timelineHeatLevel(changedCount) {
+      const count = Math.max(0, Number(changedCount || 0));
+      if (!count) {
+        return 0;
+      }
+      if (count <= 2) {
+        return 1;
+      }
+      if (count <= 5) {
+        return 2;
+      }
+      if (count <= 10) {
+        return 3;
+      }
+      return 4;
+    }
+
+    function ensureTimelineModal() {
+      if (!timelineRunModalElement || !window.bootstrap || !bootstrap.Modal) {
+        return null;
+      }
+      if (!currentTimelineModal) {
+        currentTimelineModal = bootstrap.Modal.getOrCreateInstance(timelineRunModalElement);
+      }
+      return currentTimelineModal;
+    }
+
+    function showTimelineRunDetail(index) {
+      const row = currentTimelineRows[Number(index)];
+      if (!row || !timelineRunModalTitle || !timelineRunModalMeta || !timelineRunModalBody) {
+        return;
+      }
+      const changeRows = Array.isArray(row.fieldChanges) ? row.fieldChanges : [];
+      const changedCount = Number(row.changedFieldCount || 0);
+      timelineRunModalTitle.textContent = `Run ${row.runId || '-'}`;
+      timelineRunModalMeta.textContent = `${formatRunDatetime(row.runDatetime)} | ${changedCount} field changes | ${row.reportCount || 0} reports`;
+      timelineRunModalBody.innerHTML = `
+        <div class="timeline-modal-grid">
+          <div class="timeline-modal-card">
+            <div class="timeline-modal-card-title">Run summary</div>
+            <div class="related-detail-row"><span class="k">Run ID</span><span>${escapeHtml(row.runId || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(row.status || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Rows</span><span>${escapeHtml(row.rowCount || 0)}</span></div>
+            <div class="related-detail-row"><span class="k">Reports</span><span>${escapeHtml(row.reportCount || 0)}</span></div>
+            <div class="related-detail-row"><span class="k">Fields changed</span><span>${escapeHtml(changedCount)}</span></div>
+            <div class="related-detail-row"><span class="k">Date range</span><span>${escapeHtml(row.minStartDateUtc || '-')} to ${escapeHtml(row.maxEndDateUtc || '-')}</span></div>
+          </div>
+          <div class="timeline-modal-card">
+            <div class="timeline-modal-card-title">Source context</div>
+            <div class="related-detail-row"><span class="k">File</span><span>${renderExpandableText(row.fileName || '-', { maxLength: 160 })}</span></div>
+            <div class="related-detail-row"><span class="k">Forms</span><span>${renderExpandableText(row.reportingForms || '-', { maxLength: 160 })}</span></div>
+          </div>
+        </div>
+        <div class="timeline-modal-card mt-3">
+          <div class="timeline-modal-card-title">Field changes</div>
+          ${changeRows.length ? `
+            <div class="timeline-change-table-wrap mt-2">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Previous</th>
+                    <th>Current</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${changeRows.map(change => `
+                    <tr>
+                      <td>${escapeHtml(change.fieldName || '-')}</td>
+                      <td>${renderExpandableText(change.previousValue || '-', { maxLength: 140 })}</td>
+                      <td>${renderExpandableText(change.currentValue || '-', { maxLength: 140 })}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : '<div class="text-muted small mt-2">No field changes were recorded for this run.</div>'}
+        </div>
+      `;
+      ensureTimelineModal()?.show();
+    }
+
     function renderTimeline(rows) {
       if (!Array.isArray(rows) || !rows.length) {
         timelineContainer.innerHTML = '<div class="text-muted small p-3">No run timeline found for this MDRM.</div>';
+        currentTimelineRows = [];
         return;
       }
+      currentTimelineRows = rows
+        .slice()
+        .sort((left, right) => Number(left?.runDatetime || 0) - Number(right?.runDatetime || 0))
+        .map((row, index) => ({ ...row, __timelineIndex: index }));
+
+      const changedRuns = currentTimelineRows.filter(row => Number(row.changedFieldCount || 0) > 0).length;
+      const latestRow = currentTimelineRows[currentTimelineRows.length - 1] || null;
+      const groupedRows = currentTimelineRows.reduce((map, row) => {
+        const monthKey = formatTimelineMonth(row.runDatetime);
+        if (!map.has(monthKey)) {
+          map.set(monthKey, []);
+        }
+        map.get(monthKey).push(row);
+        return map;
+      }, new Map());
 
       timelineContainer.innerHTML = `
-        <div class="timeline-graph">
-          ${rows.map(row => {
-            const changedCount = Number(row.changedFieldCount || 0);
-            const hasChanges = changedCount > 0;
-            const changeRows = Array.isArray(row.fieldChanges) ? row.fieldChanges : [];
-            return `
-              <article class="timeline-item ${hasChanges ? 'changed' : 'no-change'}">
-                <div class="timeline-dot" aria-hidden="true"></div>
-                <div class="timeline-card ${hasChanges ? 'changed' : 'no-change'}">
-                  <div class="timeline-top">
-                    <div class="timeline-run">Run ${escapeHtml(row.runId)}</div>
-                    <div class="timeline-date">${escapeHtml(formatRunDatetime(row.runDatetime))}</div>
-                  </div>
-                  <div class="timeline-meta">
-                    <span class="tag">${statusCapsule(row.status || '-')}</span>
-                    <span class="tag">Rows: ${escapeHtml(row.rowCount || 0)}</span>
-                    <span class="tag">Reports: ${escapeHtml(row.reportCount || 0)}</span>
-                    <span class="tag ${hasChanges ? 'good' : ''}">${hasChanges ? `${escapeHtml(changedCount)} Fields Changed` : 'No Change'}</span>
-                  </div>
-                  <div class="small text-muted mt-2">File: ${escapeHtml(row.fileName || '-')}</div>
-                  <div class="small text-muted">Forms: ${escapeHtml(row.reportingForms || '-')}</div>
-                  <div class="small text-muted">Date range: ${escapeHtml(row.minStartDateUtc || '-')} to ${escapeHtml(row.maxEndDateUtc || '-')}</div>
-                  ${hasChanges ? `
-                    <details class="timeline-details mt-2">
-                      <summary>Show Field Changes</summary>
-                      <div class="timeline-change-table-wrap mt-2">
-                        <table class="table table-sm mb-0">
-                          <thead>
-                            <tr>
-                              <th>Field</th>
-                              <th>Previous</th>
-                              <th>Current</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${changeRows.map(change => `
-                              <tr>
-                                <td>${escapeHtml(change.fieldName || '-')}</td>
-                                <td>${escapeHtml(change.previousValue || '-')}</td>
-                                <td>${escapeHtml(change.currentValue || '-')}</td>
-                              </tr>
-                            `).join('')}
-                          </tbody>
-                        </table>
-                      </div>
-                    </details>
-                  ` : ''}
+        <div class="timeline-summary-strip">
+          <div class="timeline-summary-pill">
+            <span class="timeline-summary-label">Runs</span>
+            <span class="timeline-summary-value">${escapeHtml(currentTimelineRows.length)}</span>
+          </div>
+          <div class="timeline-summary-pill">
+            <span class="timeline-summary-label">Changed</span>
+            <span class="timeline-summary-value">${escapeHtml(changedRuns)}</span>
+          </div>
+          <div class="timeline-summary-pill">
+            <span class="timeline-summary-label">Latest</span>
+            <span class="timeline-summary-value">${escapeHtml(latestRow ? formatRunDatetime(latestRow.runDatetime) : '-')}</span>
+          </div>
+        </div>
+        <div class="timeline-activity-shell">
+          <div class="timeline-activity-map">
+            ${Array.from(groupedRows.entries()).map(([monthLabel, monthRows]) => `
+              <section class="timeline-month-group">
+                <div class="timeline-month-label">${escapeHtml(monthLabel)}</div>
+                <div class="timeline-month-cells">
+                  ${monthRows.map(row => {
+                    const changedCount = Number(row.changedFieldCount || 0);
+                    const level = timelineHeatLevel(changedCount);
+                    const title = `Run ${row.runId || '-'} | ${formatRunDatetime(row.runDatetime)} | ${changedCount} field changes`;
+                    return `
+                      <button
+                        class="timeline-activity-cell level-${level}"
+                        type="button"
+                        data-timeline-index="${row.__timelineIndex}"
+                        aria-label="${escapeHtml(title)}"
+                        title="${escapeHtml(title)}"
+                      ></button>
+                    `;
+                  }).join('')}
                 </div>
-              </article>
-            `;
-          }).join('')}
+              </section>
+            `).join('')}
+          </div>
+          <div class="timeline-activity-legend">
+            <span class="small text-muted">Less</span>
+            <span class="timeline-legend-dot level-0"></span>
+            <span class="timeline-legend-dot level-1"></span>
+            <span class="timeline-legend-dot level-2"></span>
+            <span class="timeline-legend-dot level-3"></span>
+            <span class="timeline-legend-dot level-4"></span>
+            <span class="small text-muted">More</span>
+          </div>
+          <div class="small text-muted">Click any run cell to open the detailed modal.</div>
         </div>
       `;
     }
@@ -977,7 +1166,6 @@
               <th>Report</th>
               <th>Schedule</th>
               <th>Line</th>
-              <th>Label</th>
             </tr>
           </thead>
           <tbody>
@@ -986,7 +1174,6 @@
                 <td>${escapeHtml(row.reportingForm || '-')}</td>
                 <td>${escapeHtml(row.schedule || '-')}</td>
                 <td>${escapeHtml(row.line || '-')}</td>
-                <td>${escapeHtml(row.label || '-')}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -1050,6 +1237,34 @@
       return 'warn';
     }
 
+    function lineageCompletenessStatus(node) {
+      const total = Number(node?.associatedRuleCount || 0);
+      const valid = Number(node?.validAssociatedRuleCount || 0);
+      const invalid = Number(node?.invalidAssociatedRuleCount || 0);
+      if (total <= 0) {
+        return 'unknown';
+      }
+      if (invalid > 0) {
+        return 'incomplete';
+      }
+      if (valid === total) {
+        return 'complete';
+      }
+      return 'unknown';
+    }
+
+    function lineageCompletenessLabel(node) {
+      const total = Number(node?.associatedRuleCount || 0);
+      const invalid = Number(node?.invalidAssociatedRuleCount || 0);
+      if (total <= 0) {
+        return 'No associated rules';
+      }
+      if (invalid > 0) {
+        return `Rule completeness: ${total - invalid}/${total} valid`;
+      }
+      return `Rule completeness: all ${total} rules valid`;
+    }
+
     function shortenLineageLabel(label, category) {
       const text = String(label || '').trim();
       if (!text) return '-';
@@ -1059,51 +1274,280 @@
       return text.length > 20 ? `${text.slice(0, 20)}…` : text;
     }
 
-    function renderRuleRowsTable(rows, emptyMessage) {
-      const safeRows = Array.isArray(rows) ? rows : [];
-      if (!safeRows.length) {
-        return `<div class="text-muted small p-3">${escapeHtml(emptyMessage || 'No rules found.')}</div>`;
+    function syncRuleLineageGridTheme() {
+      const gridEl = document.getElementById('ruleLineageAssociatedRulesGrid');
+      if (!gridEl) {
+        return;
       }
-      return `
-        <table class="table table-sm table-striped table-hover mb-0">
-          <thead>
-            <tr>
-              <th>Rule</th>
-              <th>Report</th>
-              <th>Schedule</th>
-              <th>Type</th>
-              <th>Dependencies</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${safeRows.map(row => `
-              <tr>
-                <td>
-                  <div class="fw-semibold">${escapeHtml(row.ruleNumber || row.ruleId || '-')}</div>
-                  <div class="small text-muted">${escapeHtml((row.ruleText || row.ruleExpression || '-').slice(0, 180))}</div>
-                </td>
-                <td>${escapeHtml(row.reportingForm || row.reportSeries || '-')}</td>
-                <td>${escapeHtml(row.scheduleName || '-')}</td>
-                <td>${escapeHtml(row.ruleType || '-')}</td>
-                <td>${escapeHtml(row.dependencyCount || 0)}</td>
-                <td>${statusCapsule(row.lineageStatus || '-')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      gridEl.classList.toggle('ag-theme-quartz-dark', dark);
+      gridEl.classList.toggle('ag-theme-quartz', !dark);
+      if (ruleLineageGridApi) {
+        ruleLineageGridApi.refreshHeader();
+        ruleLineageGridApi.refreshCells({ force: true });
+      }
+    }
+
+    function buildRuleGridRows(rows) {
+      return (Array.isArray(rows) ? rows : []).map(row => ({
+        ruleId: Number(row?.ruleId || 0),
+        ruleNumber: String(row?.ruleNumber || row?.ruleId || '-'),
+        report: String(row?.reportingForm || row?.reportSeries || '-'),
+        scheduleName: String(row?.scheduleName || '-'),
+        ruleType: String(row?.ruleType || '-'),
+        targetItemLabel: String(row?.targetItemLabel || '-'),
+        primaryMdrmCode: String(row?.primaryMdrmCode || '-'),
+        ruleText: String(row?.ruleText || '-'),
+        ruleExpression: String(row?.ruleExpression || '-'),
+        dependencyCount: Number(row?.dependencyCount || 0),
+        lineageStatus: String(row?.lineageStatus || '-'),
+        effectiveStartDate: String(row?.effectiveStartDate || '-'),
+        effectiveEndDate: String(row?.effectiveEndDate || '-')
+      }));
+    }
+
+    function ensureRuleLineageGrid(host) {
+      if (!host || !window.agGrid) {
+        return null;
+      }
+      if (ruleLineageGridApi && (!ruleLineageGridHost || ruleLineageGridHost !== host || !ruleLineageGridHost.isConnected)) {
+        ruleLineageGridApi.destroy();
+        ruleLineageGridApi = null;
+        ruleLineageGridHost = null;
+      }
+      if (ruleLineageGridApi) {
+        syncRuleLineageGridTheme();
+        return ruleLineageGridApi;
+      }
+      syncRuleLineageGridTheme();
+      ruleLineageGridApi = agGrid.createGrid(host, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false,
+          minWidth: 110,
+          flex: 1,
+          tooltipValueGetter: params => {
+            const value = params?.value;
+            return value == null ? '' : String(value);
+          }
+        },
+        suppressCellFocus: true,
+        rowSelection: {
+          mode: 'singleRow',
+          enableClickSelection: false
+        },
+        rowHeight: 34,
+        headerHeight: 34,
+        animateRows: true,
+        tooltipShowDelay: 150,
+        tooltipMouseTrack: true,
+        overlayNoRowsTemplate: '<span class="ag-overlay-loading-center">No associated rules found for the selected lineage node.</span>',
+        columnDefs: [
+          {
+            headerName: 'Rule',
+            field: 'ruleNumber',
+            minWidth: 120,
+            maxWidth: 150,
+            pinned: 'left'
+          },
+          {
+            headerName: 'Description',
+            field: 'ruleText',
+            minWidth: 260,
+            flex: 1.5,
+            wrapText: true,
+            autoHeight: true,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => renderGridClampText(params.value || '-', { lineClamp: 2, approxCharsPerLine: 76 })
+          },
+          {
+            headerName: 'Alg Edit Test',
+            field: 'ruleExpression',
+            minWidth: 320,
+            flex: 1.8,
+            wrapText: true,
+            autoHeight: true,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => renderGridClampText(params.value || '-', { lineClamp: 2, approxCharsPerLine: 82 })
+          },
+          {
+            headerName: 'Target',
+            field: 'targetItemLabel',
+            minWidth: 150
+          },
+          {
+            headerName: 'Primary MDRM',
+            field: 'primaryMdrmCode',
+            minWidth: 130,
+            cellRenderer: params => renderMdrmLink(params.value)
+          },
+          {
+            headerName: 'Report',
+            field: 'report',
+            minWidth: 110,
+            maxWidth: 130
+          },
+          {
+            headerName: 'Schedule',
+            field: 'scheduleName',
+            minWidth: 120
+          },
+          {
+            headerName: 'Type',
+            field: 'ruleType',
+            minWidth: 110
+          },
+          {
+            headerName: 'Dependencies',
+            field: 'dependencyCount',
+            minWidth: 110,
+            maxWidth: 130
+          },
+          {
+            headerName: 'Lineage Status',
+            field: 'lineageStatus',
+            minWidth: 140,
+            cellRenderer: params => statusCapsule(params.value || '-')
+          },
+          {
+            headerName: 'Effective Start',
+            field: 'effectiveStartDate',
+            minWidth: 120
+          },
+          {
+            headerName: 'Effective End',
+            field: 'effectiveEndDate',
+            minWidth: 120
+          }
+        ]
+      });
+      ruleLineageGridHost = host;
+      return ruleLineageGridApi;
+    }
+
+    function ensureAnalysisWorkspace() {
+      if (!ruleLineageWorkspace) {
+        return false;
+      }
+      if (!analysisWorkspaceInitialized) {
+        document.getElementById('analysisTabLineageBtn')?.addEventListener('click', () => activateAnalysisTab('lineage'));
+        document.getElementById('analysisTabRelatedBtn')?.addEventListener('click', () => activateAnalysisTab('related'));
+        document.getElementById('ruleLineageBackBtn')?.addEventListener('click', () => {
+          const previousRoot = currentLineageFocusHistory.pop();
+          if (!previousRoot) {
+            return;
+          }
+          currentLineageSelectedNodeId = `mdrm:${previousRoot}`;
+          loadRuleLineageGraph(previousRoot);
+        });
+        document.getElementById('ruleLineageResetBtn')?.addEventListener('click', () => {
+          currentLineageFocusHistory = [];
+          currentLineageSelectedNodeId = `mdrm:${currentLineageBaseMdrm}`;
+          loadRuleLineageGraph(currentLineageBaseMdrm);
+        });
+        document.getElementById('ruleLineageZoomInBtn')?.addEventListener('click', () => zoomRuleLineageBy(1.2));
+        document.getElementById('ruleLineageZoomOutBtn')?.addEventListener('click', () => zoomRuleLineageBy(1 / 1.2));
+        document.getElementById('ruleLineageZoomResetBtn')?.addEventListener('click', () => resetRuleLineageZoom());
+        document.getElementById('ruleLineageToggleDetailsBtn')?.addEventListener('click', () => toggleLineageRulesPanel());
+        document.getElementById('ruleLineageFullscreenBtn')?.addEventListener('click', () => toggleRuleLineageFullscreen());
+        initializeLineageWorkspaceResizers();
+        analysisWorkspaceInitialized = true;
+      }
+      syncLineageWorkspaceLayout();
+      syncRuleLineageFullscreenButton();
+      return true;
+    }
+
+    function setAnalysisDetailPane(title, meta, bodyMarkup) {
+      const titleEl = document.getElementById('mdrmAnalysisDetailTitle');
+      const metaEl = document.getElementById('mdrmAnalysisDetailMeta');
+      const bodyEl = document.getElementById('mdrmAnalysisDetailBody');
+      if (titleEl) {
+        titleEl.textContent = title || 'Selection details';
+      }
+      if (metaEl) {
+        metaEl.textContent = meta || '';
+      }
+      if (bodyEl) {
+        bodyEl.innerHTML = bodyMarkup || '<div class="text-muted small p-3">Select a node to inspect details.</div>';
+      }
+    }
+
+    function setLineageNodeOverlay(bodyMarkup) {
+      const overlay = document.getElementById('ruleLineageNodeOverlay');
+      if (!overlay) {
+        return;
+      }
+      overlay.innerHTML = bodyMarkup || '<div class="text-muted small">Select a node to inspect dependency details.</div>';
+    }
+
+    function buildRelatedSelectionKey(selection) {
+      if (!selection) {
+        return 'center';
+      }
+      if (selection.type === 'report') {
+        return `report:${selection.report || ''}`;
+      }
+      if (selection.type === 'mdrm') {
+        return `mdrm:${selection.mdrmCode || ''}`;
+      }
+      return 'center';
+    }
+
+    function activateAnalysisTab(tabId) {
+      currentAnalysisTab = tabId === 'related' ? 'related' : 'lineage';
+      document.getElementById('analysisTabLineageBtn')?.classList.toggle('active', currentAnalysisTab === 'lineage');
+      document.getElementById('analysisTabRelatedBtn')?.classList.toggle('active', currentAnalysisTab === 'related');
+      document.getElementById('analysisTabLineageBtn')?.setAttribute('aria-selected', String(currentAnalysisTab === 'lineage'));
+      document.getElementById('analysisTabRelatedBtn')?.setAttribute('aria-selected', String(currentAnalysisTab === 'related'));
+      const lineagePanel = document.getElementById('mdrmAnalysisLineagePanel');
+      const relatedPanel = document.getElementById('mdrmAnalysisRelatedPanel');
+      if (lineagePanel) {
+        lineagePanel.classList.toggle('active', currentAnalysisTab === 'lineage');
+        lineagePanel.hidden = currentAnalysisTab !== 'lineage';
+      }
+      if (relatedPanel) {
+        relatedPanel.classList.toggle('active', currentAnalysisTab === 'related');
+        relatedPanel.hidden = currentAnalysisTab !== 'related';
+      }
+      syncRuleLineageChrome(currentRulesPayload);
+      if (currentAnalysisTab === 'related') {
+        renderRelationshipDetail(currentRelatedSelection || { type: 'center', mdrmCode: currentProfilePayload?.mdrmCode || '' }, currentProfilePayload, currentRelatedGroupedReports, { force: true });
+      } else {
+        const selectedNode = currentLineageNodeMap.get(currentLineageSelectedNodeId) || currentLineageNodeMap.get(`mdrm:${currentLineageRootMdrm}`);
+        if (selectedNode) {
+          renderLineageNodeDetail(selectedNode).catch(() => {});
+        } else {
+          setLineageNodeOverlay('<div class="text-muted small">Select a node to inspect dependency details.</div>');
+          setAnalysisDetailPane('Associated rules', 'Select a lineage node to inspect associated rules.', '<div class="text-muted small p-3">Select a lineage node to inspect associated rules.</div>');
+        }
+      }
     }
 
     function renderLineageAssociatedRules(title, payload) {
-      const metaEl = document.getElementById('ruleLineageAssociatedRulesMeta');
       const bodyEl = document.getElementById('ruleLineageAssociatedRulesContainer');
-      if (!metaEl || !bodyEl) {
+      if (!bodyEl) {
         return;
       }
       const rules = Array.isArray(payload?.rules) ? payload.rules : [];
-      metaEl.textContent = `${title} | rules=${rules.length} | discrepancies=${payload?.discrepancyCount || 0} | as of ${payload?.asOfDate || '-'}`;
-      bodyEl.innerHTML = renderRuleRowsTable(rules, 'No associated rules found for the selected lineage node.');
+      if (!document.getElementById('ruleLineageAssociatedRulesGrid')) {
+        bodyEl.innerHTML = '<div id="ruleLineageAssociatedRulesGrid" class="mdrm-ag-grid rule-lineage-rules-grid"></div>';
+      }
+      const gridHost = document.getElementById('ruleLineageAssociatedRulesGrid');
+      const gridApi = ensureRuleLineageGrid(gridHost);
+      if (!gridApi) {
+        bodyEl.innerHTML = '<div class="text-muted small p-3">Rule grid is unavailable.</div>';
+        return;
+      }
+      syncRuleLineageGridTheme();
+      gridApi.setGridOption('rowData', buildRuleGridRows(rules));
+      if (rules.length) {
+        gridApi.hideOverlay();
+      } else {
+        gridApi.showNoRowsOverlay();
+      }
     }
 
     async function fetchLineageRulePayloadForNode(node) {
@@ -1116,7 +1560,15 @@
         lineageRulePayloadCache.set(key, fetch(buildRulesByMdrmUrl(mdrmCode))
           .then(response => response.ok ? response.json() : { rules: [], discrepancyCount: 0, asOfDate: '-' }));
       }
-      return lineageRulePayloadCache.get(key);
+      const payload = await lineageRulePayloadCache.get(key);
+      const allRules = Array.isArray(payload?.rules) ? payload.rules : [];
+      const primaryRules = allRules.filter(rule => String(rule?.primaryMdrmCode || '').trim().toUpperCase() === mdrmCode);
+      const discrepancyCount = primaryRules.filter(rule => String(rule?.lineageStatus || '').trim().toUpperCase() !== 'VALID').length;
+      return {
+        ...payload,
+        rules: primaryRules,
+        discrepancyCount
+      };
     }
 
     function buildLineageDependencyGraph(graphPayload) {
@@ -1124,15 +1576,24 @@
       const rawEdges = Array.isArray(graphPayload?.edges) ? graphPayload.edges : [];
       const nodeMap = new Map();
       const ruleToPrimary = new Map();
+      const ruleStatusById = new Map();
 
       rawNodes.forEach(node => {
-        if (String(node?.category || '').toUpperCase() !== 'MDRM') {
+        const category = String(node?.category || '').toUpperCase();
+        if (category === 'RULE') {
+          ruleStatusById.set(String(node.id || ''), String(node.status || '').trim());
+          return;
+        }
+        if (category !== 'MDRM') {
           return;
         }
         nodeMap.set(String(node.id || ''), {
           id: String(node.id || ''),
           label: String(node.label || '').trim().toUpperCase(),
           status: String(node.status || '').trim() || 'Active',
+          associatedRuleCount: 0,
+          validAssociatedRuleCount: 0,
+          invalidAssociatedRuleCount: 0,
           dependencies: new Map(),
           dependents: new Set()
         });
@@ -1140,7 +1601,20 @@
 
       rawEdges.forEach(edge => {
         if (String(edge?.relation || '').toUpperCase() === 'MDRM_HAS_RULE') {
-          ruleToPrimary.set(String(edge.target || ''), String(edge.source || ''));
+          const ruleId = String(edge.target || '');
+          const mdrmId = String(edge.source || '');
+          ruleToPrimary.set(ruleId, mdrmId);
+          const mdrmNode = nodeMap.get(mdrmId);
+          if (!mdrmNode) {
+            return;
+          }
+          mdrmNode.associatedRuleCount += 1;
+          const ruleStatus = normalizeLineageNodeStatus(ruleStatusById.get(ruleId));
+          if (ruleStatus === 'VALID') {
+            mdrmNode.validAssociatedRuleCount += 1;
+          } else if (ruleStatus) {
+            mdrmNode.invalidAssociatedRuleCount += 1;
+          }
         }
       });
 
@@ -1223,6 +1697,10 @@
         id: node.id,
         label: node.label,
         status: node.status,
+        associatedRuleCount: node.associatedRuleCount,
+        validAssociatedRuleCount: node.validAssociatedRuleCount,
+        invalidAssociatedRuleCount: node.invalidAssociatedRuleCount,
+        completenessStatus: lineageCompletenessStatus(node),
         childCount: dependencyEntries.length,
         canExpand,
         isExpanded,
@@ -1240,17 +1718,159 @@
       currentLineageNodeSelection.classed('is-selected', d => String(d.data?.id || '') === currentLineageSelectedNodeId);
     }
 
-    function toggleLineageNodeExpansion(nodeId) {
+    function syncRuleLineageChrome(payload) {
+      ensureAnalysisWorkspace();
+      const rows = Array.isArray(payload?.rules) ? payload.rules : [];
+      const summaryEl = document.getElementById('ruleLineageSummaryMeta');
+      if (summaryEl) {
+        summaryEl.textContent = currentAnalysisTab === 'related'
+          ? `Related MDRMs: ${currentProfilePayload?.relatedMdrmCount || 0} | reports in graph: ${currentProfilePayload?.relatedReportCount || 0} | ${includeInactiveGraphNodes ? 'including inactive nodes' : 'active nodes only'}`
+          : `Profile MDRM rules: ${rows.length} | discrepancies: ${payload?.discrepancyCount || 0} | as of ${payload?.asOfDate || '-'}`;
+      }
+      const contextEl = document.getElementById('ruleLineageContextMeta');
+      if (contextEl) {
+        if (currentAnalysisTab === 'related') {
+          const selection = currentRelatedSelection || { type: 'center', mdrmCode: currentProfilePayload?.mdrmCode || '' };
+          if (selection.type === 'report') {
+            contextEl.textContent = `Selected report: ${selection.report || '-'} | related MDRMs: ${(currentRelatedGroupedReports.get(selection.report) || []).length}`;
+          } else if (selection.type === 'mdrm') {
+            contextEl.textContent = `Selected related MDRM: ${selection.mdrmCode || '-'} | report: ${selection.report || '-'}`;
+          } else {
+            contextEl.textContent = `Selected MDRM: ${currentProfilePayload?.mdrmCode || '-'} | total related MDRMs: ${currentProfilePayload?.relatedMdrmCount || 0}`;
+          }
+        } else {
+          const selectedCode = String(currentLineageNodeMap.get(currentLineageSelectedNodeId)?.label || currentLineageRootMdrm || currentLineageBaseMdrm || '-');
+          contextEl.textContent = `Lineage root: ${currentLineageRootMdrm || currentLineageBaseMdrm || '-'} | selected: ${selectedCode}`;
+        }
+      }
+      const backBtn = document.getElementById('ruleLineageBackBtn');
+      if (backBtn) {
+        backBtn.disabled = currentAnalysisTab !== 'lineage' || !currentLineageFocusHistory.length;
+      }
+      const resetBtn = document.getElementById('ruleLineageResetBtn');
+      if (resetBtn) {
+        resetBtn.disabled = currentAnalysisTab !== 'lineage' || currentLineageRootMdrm === currentLineageBaseMdrm;
+      }
+      const toggleDetailsBtn = document.getElementById('ruleLineageToggleDetailsBtn');
+      if (toggleDetailsBtn) {
+        toggleDetailsBtn.textContent = currentLineageRulesCollapsed ? 'Show Details' : 'Hide Details';
+        toggleDetailsBtn.setAttribute('aria-pressed', currentLineageRulesCollapsed ? 'true' : 'false');
+      }
+      syncLineageWorkspaceLayout();
+      syncRuleLineageFullscreenButton();
+    }
+
+    function syncLineageWorkspaceLayout() {
+      const workspace = document.getElementById('ruleLineageWorkspace');
+      if (!workspace) {
+        return;
+      }
+      const safeRulesHeight = Math.max(180, Math.min(currentLineageRulesHeight || 260, 420));
+      workspace.style.setProperty('--lineage-rules-height', `${safeRulesHeight}px`);
+      workspace.classList.toggle('rules-collapsed', !!currentLineageRulesCollapsed);
+    }
+
+    function toggleLineageRulesPanel() {
+      currentLineageRulesCollapsed = !currentLineageRulesCollapsed;
+      syncRuleLineageChrome(currentRulesPayload);
+    }
+
+    function initializeLineageWorkspaceResizers() {
+      const workspace = document.getElementById('ruleLineageWorkspace');
+      const rulesHandle = document.getElementById('ruleLineageRulesHandle');
+      if (!workspace) {
+        return;
+      }
+      let dragState = null;
+
+      const stopDrag = () => {
+        dragState = null;
+        document.body.classList.remove('is-resizing-lineage-pane');
+      };
+
+      const onPointerMove = event => {
+        if (!dragState || !workspace) {
+          return;
+        }
+        if (typeof event.buttons === 'number' && event.buttons === 0) {
+          stopDrag();
+          return;
+        }
+        if (dragState.type === 'rules') {
+          const rect = workspace.getBoundingClientRect();
+          const footerSpace = Math.max(0, rect.bottom - event.clientY - 16);
+          currentLineageRulesHeight = Math.max(180, Math.min(footerSpace, 420));
+        }
+        syncLineageWorkspaceLayout();
+      };
+
+      const startRulesDrag = event => {
+        if (currentLineageRulesCollapsed) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof rulesHandle?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
+          try {
+            rulesHandle.setPointerCapture(event.pointerId);
+          } catch (_) {
+            // ignore capture failures and continue with window-level listeners
+          }
+        }
+        dragState = { type: 'rules' };
+        document.body.classList.add('is-resizing-lineage-pane');
+      };
+
+      if (currentLineageResizeMoveHandler) {
+        window.removeEventListener('pointermove', currentLineageResizeMoveHandler);
+        window.removeEventListener('mousemove', currentLineageResizeMoveHandler);
+      }
+      if (currentLineageResizeStopHandler) {
+        window.removeEventListener('pointerup', currentLineageResizeStopHandler);
+        window.removeEventListener('pointercancel', currentLineageResizeStopHandler);
+        window.removeEventListener('mouseup', currentLineageResizeStopHandler);
+      }
+      currentLineageResizeMoveHandler = onPointerMove;
+      currentLineageResizeStopHandler = stopDrag;
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', stopDrag);
+      window.addEventListener('pointercancel', stopDrag);
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', stopDrag);
+
+      if (rulesHandle) {
+        rulesHandle.onpointerdown = startRulesDrag;
+        rulesHandle.onmousedown = startRulesDrag;
+        rulesHandle.onpointerup = () => stopDrag();
+        rulesHandle.onpointercancel = () => stopDrag();
+        rulesHandle.onmouseup = () => stopDrag();
+      }
+      syncLineageWorkspaceLayout();
+    }
+
+    async function toggleLineageNodeExpansion(nodeId) {
       if (!nodeId) {
         return;
       }
+      const pane = document.getElementById('ruleLineageWorkspace');
+      const wasFullscreen = !!pane && document.fullscreenElement === pane;
       if (currentLineageExpandedMdrms.has(nodeId)) {
         currentLineageExpandedMdrms.delete(nodeId);
         currentLineageSelectedNodeId = nodeId;
       } else {
         currentLineageExpandedMdrms.add(nodeId);
       }
-      renderRules(currentRulesPayload, currentRuleGraphPayload, currentProfilePayload);
+      renderRuleLineageGraph(currentRuleGraphPayload);
+      syncRuleLineageChrome(currentRulesPayload);
+      if (wasFullscreen && pane && document.fullscreenElement !== pane && typeof pane.requestFullscreen === 'function') {
+        try {
+          await pane.requestFullscreen();
+        } catch (_) {
+          // best-effort; preserve fullscreen when browsers allow it after redraw
+        } finally {
+          syncRuleLineageFullscreenButton();
+        }
+      }
     }
 
 	    async function loadRuleLineageGraph(rootMdrm, options = {}) {
@@ -1261,19 +1881,18 @@
       if (options.pushHistory && currentLineageRootMdrm && currentLineageRootMdrm !== normalizedRoot) {
         currentLineageFocusHistory.push(currentLineageRootMdrm);
       }
-      currentLineageRootMdrm = normalizedRoot;
+	      currentLineageRootMdrm = normalizedRoot;
 	      if (!options.keepSelection) {
 	        currentLineageSelectedNodeId = `mdrm:${normalizedRoot}`;
 	      }
 	      currentLineageExpandedMdrms = new Set([`mdrm:${normalizedRoot}`]);
 	      currentLineageZoomTransform = null;
 	      const host = document.getElementById('ruleLineageGraphHost');
-	      const detailPanel = document.getElementById('ruleLineageDetailPanel');
       if (host) {
         host.innerHTML = '<div class="text-muted small p-3">Loading dependency lineage...</div>';
       }
-      if (detailPanel) {
-        detailPanel.innerHTML = '<div class="text-muted small">Loading selected dependency node...</div>';
+      if (currentAnalysisTab === 'lineage') {
+        setAnalysisDetailPane('Rule details', 'Loading selected dependency node...', '<div class="text-muted small p-3">Loading selected dependency node...</div>');
       }
       try {
         const response = await fetch(buildRuleGraphUrl(normalizedRoot, currentLineageDepth));
@@ -1314,7 +1933,7 @@
 	    }
 
 	    function syncRuleLineageFullscreenButton() {
-	      const pane = document.getElementById('ruleLineageGraphPane');
+	      const pane = document.getElementById('ruleLineageWorkspace');
 	      const button = document.getElementById('ruleLineageFullscreenBtn');
 	      if (!pane || !button) {
 	        return;
@@ -1325,7 +1944,7 @@
 	    }
 
 	    async function toggleRuleLineageFullscreen() {
-	      const pane = document.getElementById('ruleLineageGraphPane');
+	      const pane = document.getElementById('ruleLineageWorkspace');
 	      if (!pane || typeof pane.requestFullscreen !== 'function') {
 	        return;
 	      }
@@ -1343,18 +1962,17 @@
 	    }
 
 	    async function renderLineageNodeDetail(node) {
-      const panel = document.getElementById('ruleLineageDetailPanel');
-      const selectedLabelEl = document.getElementById('ruleLineageSelectedLabel');
-      if (!panel) {
+      if (!node) {
         return;
       }
-      if (selectedLabelEl) {
-        selectedLabelEl.textContent = String(node?.label || currentLineageRootMdrm || currentLineageBaseMdrm || '-');
-      }
+      syncRuleLineageChrome(currentRulesPayload);
       const requestId = ++currentLineageSelectionRequestId;
       const dependencyEntries = getLineageDependencyEntries(node.id);
       const dependentCount = Array.from(node.dependents || []).length;
-      panel.innerHTML = '<div class="text-muted small">Loading selected dependency node...</div>';
+      if (currentAnalysisTab === 'lineage') {
+        setLineageNodeOverlay('<div class="text-muted small">Loading selected dependency node...</div>');
+        setAnalysisDetailPane('Associated rules', 'Loading selected dependency node...', '<div class="text-muted small p-3">Loading associated rules...</div>');
+      }
       try {
         const payload = await fetchLineageRulePayloadForNode(node);
         if (requestId !== currentLineageSelectionRequestId) {
@@ -1363,21 +1981,45 @@
         const rulePayload = payload && payload.rules ? payload : { rules: [], discrepancyCount: 0, asOfDate: '-' };
         const isRoot = String(node.label || '').trim().toUpperCase() === currentLineageRootMdrm;
         const nodeId = String(node.id || '');
-        panel.innerHTML = `
-          <div class="related-detail-card">
+        if (currentAnalysisTab !== 'lineage') {
+          return;
+        }
+        setLineageNodeOverlay(`
+          <div class="lineage-overlay-card">
             <div class="related-detail-title">Dependency MDRM Node</div>
             <div class="related-detail-row"><span class="k">MDRM</span><span class="mono">${escapeHtml(node.label || '-')}</span></div>
             <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Completeness</span><span>${escapeHtml(lineageCompletenessLabel(node))}</span></div>
             <div class="related-detail-row"><span class="k">Immediate Parents</span><span>${escapeHtml(dependencyEntries.length)}</span></div>
             <div class="related-detail-row"><span class="k">Used By</span><span>${escapeHtml(dependentCount)}</span></div>
             <div class="related-detail-row"><span class="k">Associated Rules</span><span>${escapeHtml(rulePayload.rules?.length || 0)}</span></div>
+            <div class="lineage-dependency-list">
+              ${dependencyEntries.length ? dependencyEntries.map(entry => {
+                const dependencyNode = currentLineageNodeMap.get(entry.nodeId);
+                return `
+                  <div class="lineage-dependency-item">
+                    <span class="mono">${escapeHtml(dependencyNode?.label || entry.nodeId)}</span>
+                    <span>${statusCapsule(lineageEdgeStatus(entry))}</span>
+                  </div>
+                `;
+              }).join('') : '<div class="text-muted small">No immediate parents for this node.</div>'}
+            </div>
             <div class="d-flex flex-wrap gap-2 mt-2">
               <button id="lineageToggleBtn" class="btn btn-sm btn-outline-secondary" type="button" ${dependencyEntries.length ? '' : 'disabled'}>${currentLineageExpandedMdrms.has(nodeId) ? 'Collapse parents' : 'Expand parents'}</button>
               <button id="lineageRefocusBtn" class="btn btn-sm btn-outline-secondary" type="button" ${isRoot ? 'disabled' : ''}>Focus here</button>
               <a class="btn btn-sm btn-outline-primary" href="${escapeHtml(buildMdrmProfileLink(node.label || ''))}">Open MDRM profile</a>
             </div>
           </div>
-        `;
+        `);
+        setAnalysisDetailPane(
+          `Associated rules for ${node.label || '-'}`,
+          `Rules=${rulePayload.rules?.length || 0} | discrepancies=${rulePayload.discrepancyCount || 0} | as of ${rulePayload.asOfDate || '-'}`,
+          `
+            <section class="mdrm-selection-rules-card only-rules">
+              <div id="ruleLineageAssociatedRulesContainer" class="table-shell"></div>
+            </section>
+          `
+        );
         renderLineageAssociatedRules(`Rules for MDRM ${node.label || '-'}`, rulePayload);
         document.getElementById('lineageToggleBtn')?.addEventListener('click', () => {
           toggleLineageNodeExpansion(nodeId);
@@ -1390,14 +2032,19 @@
         if (requestId !== currentLineageSelectionRequestId) {
           return;
         }
-        panel.innerHTML = `<div class="text-danger small">Unable to load dependency details: ${escapeHtml(error.message || error)}</div>`;
-        renderLineageAssociatedRules('Rules for selected dependency node', { rules: [], discrepancyCount: 0, asOfDate: '-' });
+        if (currentAnalysisTab === 'lineage') {
+          setLineageNodeOverlay(`<div class="text-danger small">Unable to load dependency details: ${escapeHtml(error.message || error)}</div>`);
+          setAnalysisDetailPane(
+            `Associated rules for ${node.label || '-'}`,
+            'Unable to load dependency details.',
+            `<div class="text-danger small p-3">Unable to load dependency details: ${escapeHtml(error.message || error)}</div>`
+          );
+        }
       }
     }
 
     function renderRuleLineageGraph(graphPayload) {
       const host = document.getElementById('ruleLineageGraphHost');
-      const detailPanel = document.getElementById('ruleLineageDetailPanel');
       if (!host) {
         return;
       }
@@ -1408,10 +2055,10 @@
       const treeData = buildLineageTreeNode(rootNodeId);
       if (!treeData || !window.d3) {
         host.innerHTML = '<div class="text-muted small p-3">No dependency lineage available for this MDRM.</div>';
-        if (detailPanel) {
-          detailPanel.innerHTML = '<div class="text-muted small">Select a dependency node to view details.</div>';
+        if (currentAnalysisTab === 'lineage') {
+          setLineageNodeOverlay('<div class="text-muted small">No dependency lineage available for this MDRM.</div>');
+          setAnalysisDetailPane('Associated rules', 'No dependency lineage available for this MDRM.', '<div class="text-muted small p-3">No dependency lineage available for this MDRM.</div>');
         }
-        renderLineageAssociatedRules(`Rules for MDRM ${currentLineageBaseMdrm || '-'}`, currentRulesPayload || { rules: [], discrepancyCount: 0, asOfDate: '-' });
         return;
       }
 
@@ -1473,6 +2120,7 @@
         .on('click', (_, d) => {
           currentLineageSelectedNodeId = String(d.data.id || '');
           updateLineageNodeSelection();
+          syncRuleLineageChrome(currentRulesPayload);
           const selectedNode = currentLineageNodeMap.get(currentLineageSelectedNodeId);
           if (selectedNode) {
             renderLineageNodeDetail(selectedNode).catch(() => {});
@@ -1486,6 +2134,12 @@
         .attr('height', 48)
         .attr('rx', 12)
         .attr('ry', 12);
+
+      nodeSelection.append('circle')
+        .attr('class', d => `lineage-node-completeness ${d.data.completenessStatus || 'unknown'}`)
+        .attr('cx', -66)
+        .attr('cy', -10)
+        .attr('r', 5);
 
       nodeSelection.append('text')
         .attr('class', 'lineage-node-code')
@@ -1527,7 +2181,7 @@
         .text(d => {
           const node = currentLineageNodeMap.get(d.data.id);
           const dependencyCount = getLineageDependencyEntries(d.data.id).length;
-          return `${node?.label || d.data.label} | status=${node?.status || '-'} | immediate parents=${dependencyCount}`;
+          return `${node?.label || d.data.label} | status=${node?.status || '-'} | immediate parents=${dependencyCount} | ${lineageCompletenessLabel(node)}`;
         });
 
       currentLineageNodeSelection = nodeSelection;
@@ -1536,7 +2190,7 @@
       }
       updateLineageNodeSelection();
       const selectedNode = currentLineageNodeMap.get(currentLineageSelectedNodeId) || currentLineageNodeMap.get(rootNodeId);
-      if (selectedNode) {
+      if (selectedNode && currentAnalysisTab === 'lineage') {
         renderLineageNodeDetail(selectedNode).catch(() => {});
       }
     }
@@ -1545,10 +2199,9 @@
       currentRulesPayload = payload || null;
       currentRuleGraphPayload = graphPayload || null;
       currentProfilePayload = profile || currentProfilePayload;
-      if (!rulesContainer) {
+      if (!ensureAnalysisWorkspace()) {
         return;
       }
-      const rows = Array.isArray(payload?.rules) ? payload.rules : [];
       if (!currentLineageBaseMdrm && currentProfilePayload?.mdrmCode) {
         currentLineageBaseMdrm = String(currentProfilePayload.mdrmCode || '').trim().toUpperCase();
       }
@@ -1558,69 +2211,10 @@
       if (!currentLineageExpandedMdrms.size && currentLineageRootMdrm) {
         currentLineageExpandedMdrms = new Set([`mdrm:${currentLineageRootMdrm}`]);
       }
-
-	      rulesContainer.innerHTML = `
-	        <div class="relationship-shell">
-	          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-	            <div class="small text-muted">Profile MDRM rules: ${escapeHtml(rows.length)} | discrepancies: ${escapeHtml(payload?.discrepancyCount || 0)} | as of ${escapeHtml(payload?.asOfDate || '-')}</div>
-	            <div class="d-flex flex-wrap align-items-center gap-2">
-	              <span class="small text-muted">Lineage root: <span id="ruleLineageRootLabel" class="mono">${escapeHtml(currentLineageRootMdrm || currentLineageBaseMdrm || '-')}</span></span>
-	              <span class="small text-muted">Selected: <span id="ruleLineageSelectedLabel" class="mono">${escapeHtml(String((currentLineageNodeMap.get(currentLineageSelectedNodeId)?.label) || currentLineageRootMdrm || currentLineageBaseMdrm || '-'))}</span></span>
-	              <button id="ruleLineageBackBtn" class="btn btn-sm btn-outline-secondary" type="button" ${currentLineageFocusHistory.length ? '' : 'disabled'}>Back</button>
-	              <button id="ruleLineageResetBtn" class="btn btn-sm btn-outline-secondary" type="button" ${currentLineageRootMdrm === currentLineageBaseMdrm ? 'disabled' : ''}>Reset to profile MDRM</button>
-	            </div>
-	          </div>
-	          <div class="small text-muted">The tree starts with the selected MDRM and shows immediate parent dependencies first. Expand a node to reveal the next dependency level and use Back to return after refocusing.</div>
-	          <div class="relationship-legend">
-	            <span><i class="dot active"></i> Current MDRM / selected dependency</span>
-	            <span><i class="dot inactive"></i> Dependency warning on path</span>
-	            <span><i class="dot report"></i> Expand to reveal deeper parent dependencies</span>
-	          </div>
-	          <div class="relationship-layout">
-	            <div id="ruleLineageGraphPane" class="relationship-graph-pane">
-	              <div class="lineage-graph-toolbar">
-	                <div class="lineage-graph-toolbar-group">
-	                  <button id="ruleLineageZoomOutBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Zoom out lineage graph">-</button>
-	                  <button id="ruleLineageZoomResetBtn" class="btn btn-sm btn-outline-secondary" type="button">Reset Zoom</button>
-	                  <button id="ruleLineageZoomInBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-label="Zoom in lineage graph">+</button>
-	                </div>
-	                <button id="ruleLineageFullscreenBtn" class="btn btn-sm btn-outline-secondary" type="button" aria-pressed="false">Full Screen</button>
-	              </div>
-	              <div id="ruleLineageGraphHost" class="relationship-graph-host"></div>
-	            </div>
-	            <aside id="ruleLineageDetailPanel" class="relationship-detail-panel"></aside>
-	          </div>
-          <div class="card-shell p-0">
-            <div id="ruleLineageAssociatedRulesMeta" class="small text-muted p-3 pb-0">Rules for the selected dependency node.</div>
-            <div id="ruleLineageAssociatedRulesContainer" class="table-shell"></div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('ruleLineageBackBtn')?.addEventListener('click', () => {
-        const previousRoot = currentLineageFocusHistory.pop();
-        if (!previousRoot) {
-          return;
-        }
-        currentLineageSelectedNodeId = `mdrm:${previousRoot}`;
-        loadRuleLineageGraph(previousRoot);
-      });
-	      document.getElementById('ruleLineageResetBtn')?.addEventListener('click', () => {
-	        currentLineageFocusHistory = [];
-	        currentLineageSelectedNodeId = `mdrm:${currentLineageBaseMdrm}`;
-	        loadRuleLineageGraph(currentLineageBaseMdrm);
-	      });
-	      document.getElementById('ruleLineageZoomInBtn')?.addEventListener('click', () => zoomRuleLineageBy(1.2));
-	      document.getElementById('ruleLineageZoomOutBtn')?.addEventListener('click', () => zoomRuleLineageBy(1 / 1.2));
-	      document.getElementById('ruleLineageZoomResetBtn')?.addEventListener('click', () => resetRuleLineageZoom());
-	      document.getElementById('ruleLineageFullscreenBtn')?.addEventListener('click', () => toggleRuleLineageFullscreen());
-	      syncRuleLineageFullscreenButton();
-
-	      renderRuleLineageGraph(graphPayload);
-	      const selectedLabelEl = document.getElementById('ruleLineageSelectedLabel');
-      if (selectedLabelEl) {
-        selectedLabelEl.textContent = String(currentLineageNodeMap.get(currentLineageSelectedNodeId)?.label || currentLineageRootMdrm || currentLineageBaseMdrm || '-');
-      }
+      syncRuleLineageChrome(payload);
+      renderRuleLineageGraph(graphPayload);
+      syncRuleLineageChrome(payload);
+      activateAnalysisTab(currentAnalysisTab);
     }
 
     function normalizeReportLabel(value) {
@@ -1628,71 +2222,102 @@
       return text && text !== '-' ? text : 'Unassigned';
     }
 
-    function renderRelationshipDetail(node, profile, groupedReports) {
-      const panel = document.getElementById('relationshipDetailPanel');
-      if (!panel) {
+    function renderRelationshipDetail(node, profile, groupedReports, options = {}) {
+      currentRelatedSelection = node || { type: 'center', mdrmCode: profile?.mdrmCode || '' };
+      currentRelatedGroupedReports = groupedReports || currentRelatedGroupedReports;
+      syncRuleLineageChrome(currentRulesPayload);
+      if (!options.force && currentAnalysisTab !== 'related') {
         return;
       }
       if (!node) {
-        panel.innerHTML = '<div class="text-muted small">Select a node to view details.</div>';
+        setAnalysisDetailPane('Selection details', 'Select a related MDRM node to view details.', '<div class="text-muted small p-3">Select a related MDRM node to view details.</div>');
         return;
       }
       if (node.type === 'center') {
-        panel.innerHTML = `
-          <div class="related-detail-card">
-            <div class="related-detail-title">Selected MDRM</div>
-            <div class="related-detail-row"><span class="k">MDRM</span><span>${escapeHtml(profile.mdrmCode || '-')}</span></div>
-            <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(profile.latestStatus || '-')}</span></div>
-            <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(profile.itemType || '-')}</span></div>
-            <div class="related-detail-row"><span class="k">Reports</span><span>${escapeHtml(profile.relatedReportCount || 0)}</span></div>
-            <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(profile.relatedMdrmCount || 0)}</span></div>
-          </div>
-        `;
+        setAnalysisDetailPane(
+          `Related MDRM view for ${profile?.mdrmCode || '-'}`,
+          `Reports=${profile?.relatedReportCount || 0} | related MDRMs=${profile?.relatedMdrmCount || 0}`,
+          `
+            <div class="mdrm-analysis-detail-grid single-column">
+              <section class="mdrm-selection-summary-card">
+                <div class="related-detail-card">
+                  <div class="related-detail-title">Selected MDRM</div>
+                  <div class="related-detail-row"><span class="k">MDRM</span><span class="mono">${escapeHtml(profile?.mdrmCode || '-')}</span></div>
+                  <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(profile?.latestStatus || '-')}</span></div>
+                  <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(profile?.itemType || '-')}</span></div>
+                  <div class="related-detail-row"><span class="k">Reports</span><span>${escapeHtml(profile?.relatedReportCount || 0)}</span></div>
+                  <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(profile?.relatedMdrmCount || 0)}</span></div>
+                </div>
+              </section>
+            </div>
+          `
+        );
         return;
       }
       if (node.type === 'report') {
         const members = (groupedReports.get(node.report) || [])
           .slice()
           .sort((a, b) => String(a.mdrmCode || '').localeCompare(String(b.mdrmCode || ''), undefined, { sensitivity: 'base' }));
-        panel.innerHTML = `
-          <div class="related-detail-card">
-            <div class="related-detail-title">Report Node</div>
-            <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
-            <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(members.length)}</span></div>
-            <div class="report-member-list">
-              ${members.map(member => `
-                <div class="report-member-item">
-                  <div class="report-member-main">
-                    <a href="${escapeHtml(buildMdrmProfileLink(member.mdrmCode || ''))}">${escapeHtml(member.mdrmCode || '-')}</a>
-                  </div>
-                  <div class="report-member-meta">
-                    <span>${statusCapsule(member.status || '-')}</span>
-                    <span>${escapeHtml(member.itemType || '-')}</span>
+        setAnalysisDetailPane(
+          `Report node ${node.report || '-'}`,
+          `Related MDRMs=${members.length}`,
+          `
+            <div class="mdrm-analysis-detail-grid single-column">
+              <section class="mdrm-selection-summary-card">
+                <div class="related-detail-card">
+                  <div class="related-detail-title">Report Node</div>
+                  <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
+                  <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(members.length)}</span></div>
+                  <div class="report-member-list">
+                    ${members.map(member => `
+                      <div class="report-member-item">
+                        <div class="report-member-main">
+                          <a href="${escapeHtml(buildMdrmProfileLink(member.mdrmCode || ''))}">${escapeHtml(member.mdrmCode || '-')}</a>
+                        </div>
+                        <div class="report-member-meta">
+                          <span>${statusCapsule(member.status || '-')}</span>
+                          <span>${escapeHtml(member.itemType || '-')}</span>
+                        </div>
+                      </div>
+                    `).join('')}
                   </div>
                 </div>
-              `).join('')}
+              </section>
             </div>
-          </div>
-        `;
+          `
+        );
         return;
       }
-      panel.innerHTML = `
-        <div class="related-detail-card">
-          <div class="related-detail-title">Related MDRM</div>
-          <div class="related-detail-row"><span class="k">MDRM</span><span><a href="${escapeHtml(buildMdrmProfileLink(node.mdrmCode || ''))}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
-          <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
-          <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
-          <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(node.itemType || '-')}</span></div>
-        </div>
-      `;
+      setAnalysisDetailPane(
+        `Related MDRM ${node.mdrmCode || '-'}`,
+        `Report=${node.report || '-'} | status=${node.status || '-'}`,
+        `
+          <div class="mdrm-analysis-detail-grid single-column">
+            <section class="mdrm-selection-summary-card">
+              <div class="related-detail-card">
+                <div class="related-detail-title">Related MDRM</div>
+                <div class="related-detail-row"><span class="k">MDRM</span><span><a href="${escapeHtml(buildMdrmProfileLink(node.mdrmCode || ''))}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
+                <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
+                <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
+                <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(node.itemType || '-')}</span></div>
+              </div>
+            </section>
+          </div>
+        `
+      );
     }
 
     function renderRelatedMdrms(profile) {
+      const relatedMdrmContainer = document.getElementById('relatedMdrmContainer');
+      if (!relatedMdrmContainer) {
+        return;
+      }
       const centerCode = profile && profile.mdrmCode ? profile.mdrmCode : '';
       const allRows = profile && Array.isArray(profile.relatedMdrms) ? profile.relatedMdrms : [];
       const rows = includeInactiveGraphNodes
         ? allRows
         : allRows.filter(row => String(row && row.status ? row.status : '').trim().toLowerCase() === 'active');
+
       if (!Array.isArray(rows) || !rows.length) {
         relatedMdrmContainer.innerHTML = `
           <div class="relationship-shell">
@@ -1705,15 +2330,19 @@
             <div class="text-muted small p-3">No related MDRMs found for this filter. Try enabling inactive.</div>
           </div>
         `;
-        const toggle = document.getElementById('graphIncludeInactiveToggle');
-        if (toggle) {
-          toggle.addEventListener('change', () => {
-            includeInactiveGraphNodes = !!toggle.checked;
-            renderRelatedMdrms(profile);
-          });
+        currentRelatedGroupedReports = new Map();
+        currentRelatedSelection = { type: 'center', mdrmCode: centerCode };
+        document.getElementById('graphIncludeInactiveToggle')?.addEventListener('change', event => {
+          includeInactiveGraphNodes = !!event.target.checked;
+          renderRelatedMdrms(profile);
+        });
+        if (currentAnalysisTab === 'related') {
+          setAnalysisDetailPane('Related MDRM details', 'No related MDRMs found for this filter.', '<div class="text-muted small p-3">No related MDRMs found for this filter. Try enabling inactive.</div>');
         }
+        syncRuleLineageChrome(currentRulesPayload);
         return;
       }
+
       const grouped = new Map();
       rows.forEach(row => {
         const report = normalizeReportLabel(row.reportingForm);
@@ -1722,6 +2351,8 @@
         }
         grouped.get(report).push(row);
       });
+      currentRelatedGroupedReports = grouped;
+
       const reports = Array.from(grouped.entries());
       const width = 980;
       const height = 640;
@@ -1757,8 +2388,15 @@
         });
       });
 
+      const selectedKey = buildRelatedSelectionKey(currentRelatedSelection);
+      const hasSelectedReport = selectedKey.startsWith('report:') && grouped.has(String(selectedKey.slice(7)));
+      const hasSelectedMdrm = selectedKey.startsWith('mdrm:') && rows.some(row => String(row.mdrmCode || '') === String(selectedKey.slice(5)));
+      if (!currentRelatedSelection || (!hasSelectedReport && !hasSelectedMdrm && selectedKey !== 'center')) {
+        currentRelatedSelection = { type: 'center', mdrmCode: centerCode };
+      }
+
       relatedMdrmContainer.innerHTML = `
-        <div class="relationship-shell">
+        <div class="relationship-shell relationship-shell-graph-only">
           <div class="relationship-controls">
             <label class="form-check">
               <input id="graphIncludeInactiveToggle" class="form-check-input" type="checkbox" ${includeInactiveGraphNodes ? 'checked' : ''}>
@@ -1771,24 +2409,20 @@
             <span><i class="dot active"></i> Active MDRMs (${rows.filter(row => String(row.status || '').toLowerCase() === 'active').length})</span>
             ${includeInactiveGraphNodes ? `<span><i class="dot inactive"></i> Inactive MDRMs (${rows.filter(row => String(row.status || '').toLowerCase() === 'inactive').length})</span>` : ''}
           </div>
-          <div class="relationship-layout">
-            <div id="relationshipGraphHost" class="relationship-graph-host"></div>
-            <aside id="relationshipDetailPanel" class="relationship-detail-panel"></aside>
-          </div>
+          <div id="relationshipGraphHost" class="relationship-graph-host"></div>
         </div>
       `;
 
       const host = document.getElementById('relationshipGraphHost');
-      const toggle = document.getElementById('graphIncludeInactiveToggle');
-      if (toggle) {
-        toggle.addEventListener('change', () => {
-          includeInactiveGraphNodes = !!toggle.checked;
-          renderRelatedMdrms(profile);
-        });
-      }
+      document.getElementById('graphIncludeInactiveToggle')?.addEventListener('change', event => {
+        includeInactiveGraphNodes = !!event.target.checked;
+        renderRelatedMdrms(profile);
+      });
       if (!host || !window.d3) {
         return;
       }
+
+      const activeSelectionKey = buildRelatedSelectionKey(currentRelatedSelection);
       const svg = d3.select(host)
         .append('svg')
         .attr('viewBox', `0 0 ${width} ${height}`)
@@ -1816,9 +2450,12 @@
 
       const centerNode = { type: 'center', mdrmCode: centerCode, x: cx, y: cy };
       const centerGroup = svg.append('g')
-        .attr('class', 'graph-center node-clickable')
+        .attr('class', `graph-center node-clickable ${activeSelectionKey === 'center' ? 'is-selected' : ''}`.trim())
         .attr('transform', `translate(${cx}, ${cy})`)
-        .on('click', () => renderRelationshipDetail(centerNode, profile, grouped));
+        .on('click', () => {
+          currentRelatedSelection = { type: 'center', mdrmCode: centerCode };
+          renderRelatedMdrms(profile);
+        });
       centerGroup.append('circle').attr('r', 48);
       centerGroup.append('text').attr('text-anchor', 'middle').attr('y', -6).text('Selected MDRM');
       centerGroup.append('text').attr('text-anchor', 'middle').attr('y', 14).attr('class', 'code').text(centerCode || 'MDRM');
@@ -1828,9 +2465,12 @@
         .data(reportNodes)
         .enter()
         .append('g')
-        .attr('class', 'node-clickable')
+        .attr('class', d => `node-clickable ${activeSelectionKey === buildRelatedSelectionKey({ type: 'report', report: d.report }) ? 'is-selected' : ''}`.trim())
         .attr('transform', d => `translate(${d.x}, ${d.y})`)
-        .on('click', (_, d) => renderRelationshipDetail({ type: 'report', report: d.report }, profile, grouped));
+        .on('click', (_, d) => {
+          currentRelatedSelection = { type: 'report', report: d.report };
+          renderRelatedMdrms(profile);
+        });
       reportNodesSel.append('circle').attr('r', 22);
       reportNodesSel.append('text').attr('text-anchor', 'middle').attr('dy', 4).text(d => d.report);
 
@@ -1839,32 +2479,30 @@
         .data(mdrmNodes)
         .enter()
         .append('g')
-        .attr('class', d => `graph-mdrm node-clickable ${d.statusClass}`)
+        .attr('class', d => `graph-mdrm node-clickable ${d.statusClass} ${activeSelectionKey === buildRelatedSelectionKey({ type: 'mdrm', mdrmCode: d.mdrmCode }) ? 'is-selected' : ''}`.trim())
         .attr('transform', d => `translate(${d.x}, ${d.y})`)
-        .on('click', (_, d) => renderRelationshipDetail({ type: 'mdrm', ...d }, profile, grouped));
+        .on('click', (_, d) => {
+          currentRelatedSelection = { type: 'mdrm', ...d };
+          renderRelatedMdrms(profile);
+        });
       mdrmNodesSel.append('circle').attr('r', 13);
       mdrmNodesSel.append('text').attr('text-anchor', 'middle').attr('dy', -18).text(d => d.mdrmCode || '-');
       mdrmNodesSel.append('title').text(d => `${d.mdrmCode || '-'} | Report: ${d.report} | Status: ${d.status || '-'} | Type: ${d.itemType || '-'}`);
 
-      renderRelationshipDetail(centerNode, profile, grouped);
+      renderRelationshipDetail(currentRelatedSelection || centerNode, profile, grouped, { force: currentAnalysisTab === 'related' });
     }
 
     function renderHeader(profile) {
       const code = profile.mdrmCode || '-';
+      const primaryDefinition = String(profile.definition || profile.description || '').trim();
+      const fallbackDefinition = `Item code family ${profile.itemCode || '-'} with ${profile.timelineCount || 0} timeline events and ${profile.associationCount || 0} report mappings.`;
       elementCodeLabel.textContent = code;
       crumbMdrmCode.textContent = code;
-      elementDefinition.textContent = `Item code family ${profile.itemCode || '-'} with ${profile.timelineCount || 0} timeline events and ${profile.associationCount || 0} report mappings.`;
+      elementDefinition.innerHTML = renderExpandableBlock(primaryDefinition || fallbackDefinition, { lineClamp: 4 });
       if (copyMdrmLinkBtn) {
         copyMdrmLinkBtn.disabled = !code || code === '-';
       }
       setBookmarkMdrmButtonState(!!currentProfileBookmarkId && code !== '-');
-
-      elementTagRow.innerHTML = `
-        <span class="tag">Status: ${statusCapsule(profile.latestStatus || 'Unknown')}</span>
-        <span class="tag">Item Type: ${escapeHtml(profile.itemType || '-')}</span>
-        <span class="tag">Related MDRMs: ${escapeHtml(profile.relatedMdrmCount || 0)}</span>
-        <span class="tag">Reports In Graph: ${escapeHtml(profile.relatedReportCount || 0)}</span>
-      `;
     }
 
     async function loadMdrmProfile(mdrmCode) {
@@ -1911,8 +2549,6 @@
 
         renderHeader(payload);
         renderSnapshot(payload);
-        renderOverview(payload);
-        renderFieldChanges(payload.fieldChanges || []);
         renderTimeline(payload.timeline || []);
         renderAssociations(payload.associations || []);
         currentProfilePayload = payload;
@@ -1961,18 +2597,6 @@
         });
       });
     }
-
-    const tabsRoot = document.getElementById('profileTabs');
-    if (tabsRoot) {
-      tabsRoot.addEventListener('click', event => {
-        const button = event.target.closest('.tab-chip');
-        if (!button) {
-          return;
-        }
-        activateTab(button.dataset.tab);
-      });
-    }
-
     if (authLoginBtn) {
       authLoginBtn.addEventListener('click', () => login().catch(error => setAuthStatus(error.message, 'err')));
     }
@@ -1994,9 +2618,53 @@
     if (authModeResetBtn) {
       authModeResetBtn.addEventListener('click', () => setAuthMode('reset'));
     }
-	    if (authShowPasswordInput) {
+    if (authShowPasswordInput) {
 	      authShowPasswordInput.addEventListener('change', () => setPasswordVisibility(authShowPasswordInput.checked));
 	    }
+	    document.addEventListener('click', event => {
+	      const expandableToggle = event.target.closest('.expandable-text-toggle');
+	      if (!expandableToggle) {
+	        return;
+	      }
+	      event.preventDefault();
+	      const container = expandableToggle.closest('.expandable-text');
+	      if (!container) {
+	        return;
+	      }
+	      const expanded = container.getAttribute('data-expanded') === 'true';
+	      container.setAttribute('data-expanded', expanded ? 'false' : 'true');
+	      expandableToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+	      expandableToggle.textContent = expanded ? 'Read more' : 'Read less';
+	      if (ruleLineageGridApi && typeof ruleLineageGridApi.onRowHeightChanged === 'function') {
+	        ruleLineageGridApi.onRowHeightChanged();
+	      }
+	    });
+	    document.addEventListener('click', event => {
+	      const expandableToggle = event.target.closest('.expandable-block-toggle');
+	      if (!expandableToggle) {
+	        return;
+	      }
+	      event.preventDefault();
+	      const container = expandableToggle.closest('.expandable-block');
+	      if (!container) {
+	        return;
+	      }
+	      const expanded = container.getAttribute('data-expanded') === 'true';
+	      container.setAttribute('data-expanded', expanded ? 'false' : 'true');
+	      expandableToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+	      expandableToggle.textContent = expanded ? 'Read more' : 'Read less';
+	      if (ruleLineageGridApi && typeof ruleLineageGridApi.onRowHeightChanged === 'function') {
+	        ruleLineageGridApi.onRowHeightChanged();
+	      }
+	    });
+	    document.addEventListener('click', event => {
+	      const timelineCell = event.target.closest('.timeline-activity-cell');
+	      if (!timelineCell) {
+	        return;
+	      }
+	      event.preventDefault();
+	      showTimelineRunDetail(timelineCell.dataset.timelineIndex);
+	    });
 	    document.addEventListener('fullscreenchange', () => {
 	      syncRuleLineageFullscreenButton();
 	    });
@@ -2007,6 +2675,14 @@
 
     const params = new URLSearchParams(window.location.search);
     const selectedMdrm = params.get('mdrm');
+    const requestedTab = String(params.get('tab') || '').trim().toLowerCase();
+    const embedMode = String(params.get('embed') || '').trim().toLowerCase();
+    if (requestedTab === 'related') {
+      currentAnalysisTab = 'related';
+    }
+    if (embedMode === 'analysis') {
+      document.body.classList.add('mdrm-analysis-modal-mode');
+    }
     const returnTo = resolveReturnUrl(params.get('returnTo'));
     if (backToJourneyLink && returnTo) {
       backToJourneyLink.href = returnTo;

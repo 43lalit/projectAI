@@ -176,7 +176,7 @@
       setLatestRunIdForSelectedReport(null);
       setLatestReportTablePayload(null);
       if (el.reportDescriptionLabel) {
-        el.reportDescriptionLabel.textContent = '';
+        el.reportDescriptionLabel.innerHTML = '';
         el.reportDescriptionLabel.classList.add('is-collapsed');
       }
       if (el.reportDescriptionToggleBtn) {
@@ -225,6 +225,12 @@
       if (!el.reportDescriptionLabel || !el.reportDescriptionToggleBtn) {
         return;
       }
+      if (el.reportDescriptionLabel.querySelector('.expandable-text')) {
+        el.reportDescriptionToggleBtn.style.display = 'none';
+        el.reportDescriptionToggleBtn.textContent = 'Read more';
+        setIsReportDescriptionExpanded(false);
+        return;
+      }
       const text = String(el.reportDescriptionLabel.textContent || '').trim();
       if (!text) {
         el.reportDescriptionLabel.classList.add('is-collapsed');
@@ -238,7 +244,7 @@
         el.reportDescriptionToggleBtn.textContent = 'Read less';
         return;
       }
-      const shouldToggle = el.reportDescriptionLabel.scrollHeight > el.reportDescriptionLabel.clientHeight + 2;
+      const shouldToggle = text.length > 100;
       el.reportDescriptionToggleBtn.style.display = shouldToggle ? '' : 'none';
       if (!shouldToggle) {
         el.reportDescriptionLabel.classList.add('is-collapsed');
@@ -266,10 +272,11 @@
         el.reportFullNameLabel.textContent = fullName;
       }
       if (el.reportDescriptionLabel) {
-        el.reportDescriptionLabel.textContent = description;
-        el.reportDescriptionLabel.classList.add('is-collapsed');
+        el.reportDescriptionLabel.innerHTML = deps.renderExpandableText(description, { maxLength: 100, emptyValue: '' });
+        el.reportDescriptionLabel.classList.remove('is-collapsed');
       }
       if (el.reportDescriptionToggleBtn) {
+        el.reportDescriptionToggleBtn.style.display = 'none';
         el.reportDescriptionToggleBtn.textContent = 'Read more';
       }
       setIsReportDescriptionExpanded(false);
@@ -461,7 +468,9 @@
             field: 'description',
             flex: 1,
             minWidth: 340,
-            valueFormatter: params => String(params.value || '-')
+            wrapText: true,
+            autoHeight: true,
+            cellRenderer: params => deps.renderExpandableText(params.value || '-', { maxLength: 100 })
           },
           {
             headerName: 'Favorite',

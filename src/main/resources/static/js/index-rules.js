@@ -2,6 +2,183 @@
   function createRulesManager(deps) {
     const el = deps.elements;
     let latestReportRules = [];
+    let reportRulesGridApi = null;
+    let reportRulesGridHost = null;
+
+    function renderExpandableBlock(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      const lineClamp = Math.max(1, Number(options.lineClamp || 2));
+      const approxCharsPerLine = Math.max(30, Number(options.approxCharsPerLine || 72));
+      if (!text) {
+        return `<span>${deps.escapeHtml(emptyValue)}</span>`;
+      }
+      if (text.length <= lineClamp * approxCharsPerLine) {
+        return `<span>${deps.escapeHtml(text)}</span>`;
+      }
+      return `
+        <div class="expandable-block" data-expanded="false" style="--expandable-line-clamp:${lineClamp};">
+          <div class="expandable-block-content">${deps.escapeHtml(text)}</div>
+          <button class="expandable-block-toggle" type="button" aria-expanded="false">Read more</button>
+        </div>
+      `;
+    }
+
+    function renderGridClampText(value, options = {}) {
+      return `
+        <div class="grid-clamp-text">
+          ${renderExpandableBlock(value, options)}
+        </div>
+      `;
+    }
+
+    function renderMdrmLink(value) {
+      const code = String(value || '').trim().toUpperCase();
+      if (!code || code === '-') {
+        return '<span>-</span>';
+      }
+      return `<button class="ontology-ref-link mono" type="button" data-mdrm-insight="${deps.escapeHtml(code)}">${deps.escapeHtml(code)}</button>`;
+    }
+
+    function applyReportRulesGridTheme(theme) {
+      const host = document.getElementById('reportRulesAgGrid');
+      if (!host) {
+        return;
+      }
+      const dark = theme === 'dark';
+      host.classList.toggle('ag-theme-quartz-dark', dark);
+      host.classList.toggle('ag-theme-quartz', !dark);
+    }
+
+    function destroyReportRulesGrid() {
+      if (reportRulesGridApi && typeof reportRulesGridApi.destroy === 'function') {
+        reportRulesGridApi.destroy();
+      }
+      reportRulesGridApi = null;
+      reportRulesGridHost = null;
+    }
+
+    function refreshReportRulesGridHeights() {
+      if (reportRulesGridApi && typeof reportRulesGridApi.onRowHeightChanged === 'function') {
+        reportRulesGridApi.onRowHeightChanged();
+      }
+    }
+
+    function ensureReportRulesGrid() {
+      if (!el.reportRulesContainer || !window.agGrid) {
+        return null;
+      }
+      let host = document.getElementById('reportRulesAgGrid');
+      if (!host) {
+        el.reportRulesContainer.innerHTML = '<div id="reportRulesAgGrid" class="mdrm-ag-grid report-rules-grid ag-theme-quartz"></div>';
+        host = document.getElementById('reportRulesAgGrid');
+      }
+      if (!host) {
+        return null;
+      }
+      if (reportRulesGridApi && (!reportRulesGridHost || reportRulesGridHost !== host || !reportRulesGridHost.isConnected)) {
+        destroyReportRulesGrid();
+      }
+      if (reportRulesGridApi) {
+        applyReportRulesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        return reportRulesGridApi;
+      }
+      applyReportRulesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+      reportRulesGridApi = agGrid.createGrid(host, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false,
+          minWidth: 110,
+          flex: 1,
+          tooltipValueGetter: params => {
+            const value = params?.value;
+            return value == null ? '' : String(value);
+          }
+        },
+        suppressCellFocus: true,
+        rowSelection: {
+          mode: 'singleRow',
+          enableClickSelection: false
+        },
+        rowHeight: 32,
+        headerHeight: 34,
+        animateRows: true,
+        tooltipShowDelay: 150,
+        tooltipMouseTrack: true,
+        overlayNoRowsTemplate: '<span class="ag-overlay-loading-center">No rules associated with this report.</span>',
+        columnDefs: [
+          {
+            headerName: 'Rule',
+            field: 'ruleNumber',
+            minWidth: 120,
+            maxWidth: 150,
+            pinned: 'left'
+          },
+          {
+            headerName: 'Description',
+            field: 'ruleText',
+            minWidth: 240,
+            flex: 1.4,
+            wrapText: true,
+            autoHeight: true,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => renderGridClampText(params.value || '-', { lineClamp: 2, approxCharsPerLine: 72 })
+          },
+          {
+            headerName: 'Alg Edit Test',
+            field: 'ruleExpression',
+            minWidth: 280,
+            flex: 1.6,
+            wrapText: true,
+            autoHeight: true,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => renderGridClampText(params.value || '-', { lineClamp: 2, approxCharsPerLine: 80 })
+          },
+          {
+            headerName: 'Schedule',
+            field: 'scheduleName',
+            minWidth: 120
+          },
+          {
+            headerName: 'Type',
+            field: 'ruleType',
+            minWidth: 110
+          },
+          {
+            headerName: 'Primary MDRM',
+            field: 'primaryMdrmCode',
+            minWidth: 130,
+            cellRenderer: params => renderMdrmLink(params.value)
+          },
+          {
+            headerName: 'Dependencies',
+            field: 'dependencyCount',
+            minWidth: 110,
+            maxWidth: 130
+          },
+          {
+            headerName: 'Lineage Status',
+            field: 'lineageStatus',
+            minWidth: 140,
+            cellRenderer: params => statusBadge(params.value || '-')
+          },
+          {
+            headerName: 'Effective Start',
+            field: 'effectiveStartDate',
+            minWidth: 120
+          },
+          {
+            headerName: 'Effective End',
+            field: 'effectiveEndDate',
+            minWidth: 120
+          }
+        ]
+      });
+      reportRulesGridHost = host;
+      return reportRulesGridApi;
+    }
 
     function statusBadge(status) {
       const raw = String(status || 'VALID').trim();
@@ -47,12 +224,12 @@
               <tr>
                 <td>
                   <div class="fw-semibold">${deps.escapeHtml(row.ruleNumber || String(row.ruleId || '-'))}</div>
-                  <div class="small text-muted">${deps.escapeHtml((row.ruleText || row.ruleExpression || '-').slice(0, 180))}</div>
+                  <div class="small text-muted">${deps.renderExpandableText(row.ruleText || row.ruleExpression || '-', { maxLength: 100 })}</div>
                 </td>
                 ${reportCell(row)}
                 <td>${deps.escapeHtml(row.scheduleName || '-')}</td>
                 <td>${deps.escapeHtml(row.ruleType || '-')}</td>
-                <td class="mono">${deps.escapeHtml(row.primaryMdrmCode || '-')}</td>
+                <td>${renderMdrmLink(row.primaryMdrmCode || '-')}</td>
                 <td>${deps.escapeHtml(String(row.dependencyCount ?? 0))}</td>
                 <td>${statusBadge(row.lineageStatus)}</td>
               </tr>
@@ -176,10 +353,29 @@
         el.reportRulesMeta.textContent = meta || `Associated rules: ${deps.formatCount(visibleRows.length)}`;
       }
       if (el.reportRulesContainer) {
-        el.reportRulesContainer.innerHTML = renderRuleRows(visibleRows, {
-          includeReport: false,
-          emptyMessage: discrepancyOnly ? 'No discrepancy rules for this report.' : 'No rules associated with this report.'
-        });
+        const gridApi = ensureReportRulesGrid();
+        if (!gridApi) {
+          el.reportRulesContainer.innerHTML = `<div class="text-danger small p-3">Rule grid is unavailable.</div>`;
+          return;
+        }
+        gridApi.setGridOption('rowData', visibleRows.map(row => ({
+          ruleId: row.ruleId,
+          ruleNumber: String(row.ruleNumber || row.ruleId || '-'),
+          ruleText: String(row.ruleText || '-'),
+          ruleExpression: String(row.ruleExpression || '-'),
+          scheduleName: String(row.scheduleName || '-'),
+          ruleType: String(row.ruleType || '-'),
+          primaryMdrmCode: String(row.primaryMdrmCode || '-'),
+          dependencyCount: Number(row.dependencyCount || 0),
+          lineageStatus: String(row.lineageStatus || '-'),
+          effectiveStartDate: String(row.effectiveStartDate || '-'),
+          effectiveEndDate: String(row.effectiveEndDate || '-')
+        })));
+        if (visibleRows.length) {
+          gridApi.hideOverlay();
+        } else {
+          gridApi.showNoRowsOverlay();
+        }
       }
     }
 
@@ -187,6 +383,7 @@
       const form = String(reportingForm || '').trim();
       if (!form) {
         latestReportRules = [];
+        destroyReportRulesGrid();
         if (el.reportRulesContainer) {
           el.reportRulesContainer.innerHTML = '<div class="text-muted small p-3">Select a report to inspect associated rules.</div>';
         }
@@ -195,7 +392,7 @@
         }
         return;
       }
-      if (el.reportRulesContainer) {
+      if (el.reportRulesContainer && !reportRulesGridApi) {
         el.reportRulesContainer.innerHTML = '<div class="text-muted small p-3">Loading report rules...</div>';
       }
       try {
@@ -208,6 +405,7 @@
         renderReportRules(rows, `Associated rules: ${deps.formatCount(rows.length)} | discrepancies=${deps.formatCount(payload?.discrepancyCount || 0)} | as of ${payload?.asOfDate || 'latest'}`);
       } catch (error) {
         latestReportRules = [];
+        destroyReportRulesGrid();
         if (el.reportRulesMeta) {
           el.reportRulesMeta.textContent = 'Unable to load report rules';
         }
@@ -226,7 +424,9 @@
       loadRulesWorkbook,
       runDiscoveryRuleSearch,
       loadReportRules,
-      refreshReportRulesFilter
+      refreshReportRulesFilter,
+      applyReportRulesGridTheme,
+      refreshReportRulesGridHeights
     };
   }
 

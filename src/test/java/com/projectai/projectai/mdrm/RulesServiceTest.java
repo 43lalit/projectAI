@@ -7,9 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -65,5 +67,13 @@ class RulesServiceTest {
 
         assertEquals(2L, directBhckb529Rules);
         assertEquals(2L, reportBhckb529Rules);
+    }
+
+    @Test
+    void shouldNormalizeQuarterSuffixedMdrmTokens() {
+        assertEquals("BHCK2170", ReflectionTestUtils.invokeMethod(rulesService, "normalizeMdrmCode", "BHCK2170-Q4"));
+        assertEquals("BHCK2170", ReflectionTestUtils.invokeMethod(rulesService, "normalizeMdrmCode", "bhck2170-q1"));
+        assertEquals("BHCK2170", ReflectionTestUtils.invokeMethod(rulesService, "normalizeMdrmCode", "BHCK2170"));
+        assertNull(ReflectionTestUtils.invokeMethod(rulesService, "normalizeMdrmCode", "BHCK2170-X4"));
     }
 }

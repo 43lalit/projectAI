@@ -218,6 +218,27 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - New Spring Boot services/controllers support workbook ingestion, rule search, rule detail, report/MDRM association, lineage graph, and discrepancy analysis
   - The core data model is generic (`rules`, `rule_dependencies`, `rule_loads`, `rule_import_warnings`) even though the first loaded source is FR Y-9C edits
   - `rule_category` supports future non-regulatory sources such as internal rules
+
+## Latest Updates (2026-03-13)
+- MDRM profile redesign and lineage-first workflow:
+  - MDRM page restructured into a cleaner 3-pane layout with a left support drawer, right analysis tabs, and a bottom rules/detail pane
+  - Rule lineage is the primary investigation surface, with `Rule Based Lineage` and `Related MDRM` as analysis tabs
+  - Drawer-launched MDRM analysis now opens in modal workspaces so users stay on the current screen
+- Lineage interaction and completeness improvements:
+  - Fullscreen/expand behavior stabilized for lineage interactions
+  - Node completeness dots added and aligned to associated-rule validity
+  - `PARSE_WARNING` now propagates into lineage graph rule-node status
+  - Selected lineage-node rules panel now focuses on primary MDRM rules to better match node completeness
+  - Resizable detail pane, graph overlays, and modal expand/restore controls refined
+- Rules ingestion and discrepancy accuracy:
+  - Quarter-suffixed MDRM references like `BHCK2170-Q4` normalize to the base MDRM code
+  - Rules data was reprocessed and relinked after normalization changes
+  - One-shot backend utility added to reload rule SQL helper functions without a full app restart
+- Grid and drawer consistency:
+  - Additional rules surfaces converted to AG Grid with compact multiline cells and `Read more / Read less`
+  - Console-side MDRM references in rule grids open the shared MDRM drawer again
+  - Report rules grid lifecycle fixes applied so rule panels recover correctly when containers are rebuilt
+- Session notes for this work were saved in [prompts/2026-03-13-session-notes.md](/Users/lalitgupta/Desktop/2024/JavaMasterclass/spring-boot-rest/ProjectAI/prompts/2026-03-13-session-notes.md)
 - Rules workbook ingestion behavior:
   - Reads the configured workbook from `mdrm.rules-file-path`
   - Stores `Edit Test` as business-facing rule text

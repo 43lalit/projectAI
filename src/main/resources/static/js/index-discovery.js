@@ -711,14 +711,13 @@
             field: 'descriptionRaw',
             flex: 1.4,
             minWidth: 320,
+            wrapText: true,
+            autoHeight: true,
             tooltipValueGetter: params => {
               const value = String(params.value || '');
               return value.length > 100 ? value : '';
             },
-            valueFormatter: params => {
-              const value = String(params.value || '');
-              return value.length > 100 ? value.slice(0, 100) + '...' : (value || '-');
-            }
+            cellRenderer: params => deps.renderExpandableText(params.value || '-', { maxLength: 100 })
           },
           {
             headerName: 'Reporting Form',

@@ -1034,6 +1034,125 @@ body {
   font-size: 0.95rem;
 }
 
+.mdrm-three-pane-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+body.mdrm-analysis-modal-mode .shell {
+  padding: 0;
+}
+
+body.mdrm-analysis-modal-mode .topbar,
+body.mdrm-analysis-modal-mode .crumbs,
+body.mdrm-analysis-modal-mode #detailStatus,
+body.mdrm-analysis-modal-mode .mdrm-context-pane {
+  display: none;
+}
+
+body.mdrm-analysis-modal-mode .mdrm-three-pane-shell {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+body.mdrm-analysis-modal-mode .mdrm-three-pane-layout {
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-top: 0 !important;
+}
+
+body.mdrm-analysis-modal-mode .mdrm-analysis-pane,
+body.mdrm-analysis-modal-mode .mdrm-analysis-workspace {
+  min-height: 100vh;
+}
+
+body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
+  display: none;
+}
+
+.mdrm-context-pane,
+.mdrm-analysis-pane {
+  min-width: 0;
+}
+
+.mdrm-context-pane {
+  position: sticky;
+  top: 86px;
+  align-self: start;
+}
+
+.mdrm-context-drawer {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 14px 34px rgba(8, 18, 35, 0.08);
+  overflow: hidden;
+  min-height: calc(100vh - 130px);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.mdrm-context-drawer-head {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklab, var(--panel-soft) 68%, var(--panel));
+}
+
+.mdrm-context-snapshot {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  gap: 14px;
+}
+
+.mdrm-context-section-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mdrm-context-subsection {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.mdrm-context-associations {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.mdrm-context-drawer-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.mdrm-support-panel {
+  display: none;
+  gap: 12px;
+}
+
+.mdrm-support-panel.active {
+  display: grid;
+}
+
+.mdrm-primary-definition {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .snapshot-list {
   margin-top: 8px;
 }
@@ -1650,7 +1769,7 @@ body {
   width: 100%;
   height: 440px;
   border-top: 1px solid var(--line);
-  --ag-font-size: 12px;
+  --ag-font-size: 11px;
   --ag-font-family: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
   --ag-border-color: var(--line);
   --ag-row-border-color: var(--line);
@@ -1679,9 +1798,125 @@ body {
   letter-spacing: 0.02em;
 }
 
+.rule-lineage-rules-grid .ag-cell,
+.rule-lineage-rules-grid .ag-cell-value {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.report-rules-grid .ag-cell,
+.report-rules-grid .ag-cell-value {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.rule-lineage-rules-grid .ag-cell.ag-cell-auto-height {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.report-rules-grid .ag-cell.ag-cell-auto-height {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.rule-lineage-rules-grid .ag-cell-wrapper {
+  align-items: flex-start;
+}
+
+.report-rules-grid .ag-cell-wrapper {
+  align-items: flex-start;
+}
+
 .mdrm-ag-grid .ag-paging-panel {
   justify-content: flex-end;
   border-top: 1px solid var(--line);
+}
+
+.expandable-text {
+  display: inline;
+}
+
+.expandable-text-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.expandable-text[data-expanded="false"] .expandable-text-full {
+  display: none;
+}
+
+.expandable-text[data-expanded="true"] .expandable-text-collapsed {
+  display: none;
+}
+
+.expandable-text-toggle {
+  border: 0;
+  background: none;
+  color: var(--brand);
+  padding: 0;
+  margin-left: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.expandable-text-toggle:hover {
+  text-decoration: underline;
+}
+
+.expandable-text-toggle:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--brand) 55%, white);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.expandable-block {
+  display: grid;
+  gap: 6px;
+}
+
+.expandable-block-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.expandable-block[data-expanded="false"] .expandable-block-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--expandable-line-clamp, 4);
+  overflow: hidden;
+}
+
+.expandable-block-toggle {
+  border: 0;
+  background: none;
+  color: var(--brand);
+  padding: 0;
+  width: fit-content;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.expandable-block-toggle:hover {
+  text-decoration: underline;
+}
+
+.expandable-block-toggle:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--brand) 55%, white);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.rule-lineage-rules-grid {
+  height: 520px;
+  border-top: 0;
+}
+
+.report-rules-grid {
+  height: 520px;
+  border-top: 0;
 }
 
 :root[data-theme="dark"] .mdrm-ag-grid.ag-theme-quartz-dark {
@@ -1932,103 +2167,117 @@ body {
   font-weight: 700;
 }
 
-.timeline-graph {
-  position: relative;
-  padding: 10px 12px 10px 26px;
-}
-
-.timeline-graph::before {
-  content: "";
-  position: absolute;
-  left: 14px;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  background: color-mix(in oklab, var(--brand) 40%, var(--line));
-}
-
-.timeline-item {
-  position: relative;
+.timeline-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-.timeline-item:last-child {
-  margin-bottom: 0;
-}
-
-.timeline-dot {
-  position: absolute;
-  left: -18px;
-  top: 14px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in oklab, var(--brand) 65%, var(--line));
-  background: var(--panel);
-}
-
-.timeline-item.changed .timeline-dot {
-  border-color: color-mix(in oklab, var(--err) 48%, var(--brand));
-  background: color-mix(in oklab, var(--err) 25%, var(--panel));
-}
-
-.timeline-item.no-change .timeline-dot {
-  border-color: color-mix(in oklab, var(--ok) 52%, var(--brand));
-  background: color-mix(in oklab, var(--ok) 22%, var(--panel));
-}
-
-.timeline-card {
+.timeline-summary-pill {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--panel-soft);
+  background: var(--panel);
   padding: 10px;
+  display: grid;
+  gap: 4px;
 }
 
-.timeline-card.changed {
-  border-color: color-mix(in oklab, var(--err) 38%, var(--line));
-  background: color-mix(in oklab, var(--err) 8%, var(--panel-soft));
-}
-
-.timeline-card.no-change {
-  border-color: color-mix(in oklab, var(--ok) 34%, var(--line));
-  background: color-mix(in oklab, var(--ok) 8%, var(--panel-soft));
-}
-
-.timeline-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-}
-
-.timeline-run {
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.timeline-date {
-  font-size: 0.76rem;
+.timeline-summary-label {
+  font-size: 0.72rem;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.timeline-meta {
-  margin-top: 8px;
+.timeline-summary-value {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.timeline-activity-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-activity-map {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.timeline-month-group {
+  min-width: 96px;
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-month-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.timeline-month-cells {
+  display: grid;
+  grid-template-columns: repeat(5, 12px);
+  grid-auto-rows: 12px;
+  gap: 4px;
+  align-content: start;
+}
+
+.timeline-activity-cell,
+.timeline-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+
+.timeline-activity-cell {
+  padding: 0;
+  background: color-mix(in oklab, var(--panel-soft) 85%, var(--panel));
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.timeline-activity-cell:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--brand) 40%, var(--line));
+}
+
+.timeline-activity-cell.level-0,
+.timeline-legend-dot.level-0 {
+  background: color-mix(in oklab, var(--panel-soft) 82%, var(--panel));
+}
+
+.timeline-activity-cell.level-1,
+.timeline-legend-dot.level-1 {
+  background: color-mix(in oklab, var(--ok) 24%, var(--panel));
+}
+
+.timeline-activity-cell.level-2,
+.timeline-legend-dot.level-2 {
+  background: color-mix(in oklab, var(--ok) 44%, var(--panel));
+}
+
+.timeline-activity-cell.level-3,
+.timeline-legend-dot.level-3 {
+  background: color-mix(in oklab, var(--ok) 62%, var(--panel));
+}
+
+.timeline-activity-cell.level-4,
+.timeline-legend-dot.level-4 {
+  background: color-mix(in oklab, var(--ok) 78%, var(--panel));
+}
+
+.timeline-activity-legend {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  flex-wrap: wrap;
-}
-
-.timeline-details {
-  border-top: 1px dashed var(--line);
-  padding-top: 8px;
-}
-
-.timeline-details > summary {
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--brand);
 }
 
 .timeline-change-table-wrap {
@@ -2036,6 +2285,26 @@ body {
   border-radius: 10px;
   overflow: hidden;
   background: var(--panel);
+}
+
+.timeline-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timeline-modal-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-soft);
+  padding: 12px;
+}
+
+.timeline-modal-card-title {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 10px;
 }
 
 .related-mdrm-cards {
@@ -2081,6 +2350,221 @@ body {
   padding: 10px;
   display: grid;
   gap: 10px;
+}
+
+.mdrm-analysis-workspace {
+  --lineage-rules-height: 280px;
+  display: grid;
+  gap: 12px;
+  min-height: 860px;
+}
+
+.mdrm-analysis-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mdrm-analysis-copy {
+  display: grid;
+  gap: 4px;
+  max-width: 760px;
+}
+
+.mdrm-analysis-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.mdrm-analysis-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mdrm-analysis-tabbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mdrm-analysis-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mdrm-analysis-tab.active {
+  background: color-mix(in oklab, var(--brand) 14%, var(--panel));
+  border-color: color-mix(in oklab, var(--brand) 38%, var(--line));
+  color: var(--text);
+}
+
+.mdrm-analysis-top-pane {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 12px;
+  min-height: 560px;
+}
+
+.mdrm-analysis-panel {
+  display: none;
+  gap: 10px;
+  min-height: 100%;
+}
+
+.mdrm-analysis-panel.active {
+  display: grid;
+}
+
+.lineage-graph-stage {
+  position: relative;
+}
+
+.lineage-analysis-graph-host,
+.relationship-shell-graph-only .relationship-graph-host {
+  min-height: 620px;
+}
+
+.lineage-node-overlay {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: min(320px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow: auto;
+  border: 1px solid color-mix(in oklab, var(--line) 78%, var(--brand));
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--panel) 86%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 28px rgba(8, 18, 35, 0.18);
+  padding: 12px;
+  z-index: 2;
+}
+
+.lineage-overlay-card {
+  display: grid;
+  gap: 8px;
+}
+
+.relationship-shell-graph-only {
+  padding: 0;
+}
+
+.mdrm-analysis-detail-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  min-height: 0;
+  height: var(--lineage-rules-height);
+}
+
+.mdrm-analysis-detail-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mdrm-analysis-detail-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.mdrm-analysis-detail-body {
+  padding: 14px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mdrm-analysis-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-height: 100%;
+}
+
+.mdrm-analysis-detail-grid.single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mdrm-selection-summary-card,
+.mdrm-selection-rules-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  min-height: 0;
+}
+
+.mdrm-selection-summary-card {
+  padding: 12px;
+}
+
+.mdrm-selection-rules-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.mdrm-selection-rules-card.only-rules {
+  min-height: 100%;
+}
+
+.mdrm-selection-rules-card .table-shell {
+  min-height: 0;
+}
+
+.lineage-workspace-shell {
+  gap: 12px;
+  --lineage-inspector-width: 340px;
+  --lineage-rules-height: 260px;
+}
+
+.lineage-workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lineage-workspace-copy {
+  display: grid;
+  gap: 4px;
+  max-width: 760px;
+}
+
+.lineage-workspace-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.lineage-workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lineage-workspace-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .relationship-controls {
@@ -2137,10 +2621,65 @@ body {
   align-items: start;
 }
 
+.lineage-workspace-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12px minmax(280px, var(--lineage-inspector-width));
+  gap: 12px;
+  align-items: start;
+}
+
 .relationship-graph-pane {
   min-width: 0;
   display: grid;
   gap: 8px;
+}
+
+.lineage-canvas-pane {
+  min-height: 0;
+}
+
+.lineage-pane-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: none;
+  color: var(--muted);
+}
+
+.lineage-pane-handle span {
+  display: block;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--line) 78%, var(--brand));
+}
+
+.lineage-pane-handle.vertical {
+  cursor: col-resize;
+  min-height: 100%;
+}
+
+.lineage-pane-handle.vertical span {
+  width: 4px;
+  height: 84px;
+}
+
+.lineage-pane-handle.horizontal {
+  cursor: row-resize;
+  min-height: 14px;
+  margin: -4px 0;
+  position: relative;
+  z-index: 3;
+}
+
+.lineage-pane-handle.horizontal span {
+  width: 64px;
+  height: 3px;
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.is-resizing-lineage-pane {
+  cursor: grabbing !important;
 }
 
 .lineage-graph-toolbar {
@@ -2162,6 +2701,10 @@ body {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: color-mix(in oklab, var(--panel-soft) 78%, var(--panel));
+}
+
+.lineage-canvas-pane .relationship-graph-host {
+  min-height: 680px;
 }
 
 .relationship-graph {
@@ -2235,6 +2778,12 @@ body {
   cursor: pointer;
 }
 
+.relationship-graph .is-selected circle,
+.relationship-graph .graph-mdrm.is-selected circle {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--brand) 26%, transparent));
+}
+
 .rule-lineage-graph {
   width: 100%;
   height: 620px;
@@ -2247,19 +2796,57 @@ body {
   cursor: grabbing;
 }
 
-.relationship-graph-pane:fullscreen {
+#ruleLineageWorkspace:fullscreen {
   padding: 14px;
   background: var(--panel);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  grid-template-rows: auto auto auto minmax(0, 1fr) minmax(220px, 32vh);
+  box-sizing: border-box;
 }
 
-.relationship-graph-pane:fullscreen .relationship-graph-host {
+#ruleLineageWorkspace:fullscreen .lineage-workspace-main {
+  grid-template-columns: minmax(0, 1fr) 12px minmax(280px, var(--lineage-inspector-width));
+  min-height: 0;
+  align-items: stretch;
+}
+
+#ruleLineageWorkspace:fullscreen .lineage-canvas-pane {
+  min-height: 0;
+}
+
+#ruleLineageWorkspace:fullscreen .relationship-graph-host {
   height: 100%;
+  min-height: 0;
 }
 
-.relationship-graph-pane:fullscreen .rule-lineage-graph {
-  height: calc(100vh - 120px);
+#ruleLineageWorkspace:fullscreen .rule-lineage-graph {
+  height: 100%;
+  min-height: 0;
+}
+
+#ruleLineageWorkspace:fullscreen .lineage-inspector-pane {
+  position: static;
+  width: auto;
+  max-height: none;
+  overflow: auto;
+  box-shadow: none;
+  background: var(--panel);
+  backdrop-filter: none;
+  min-height: 0;
+}
+
+#ruleLineageWorkspace:fullscreen .lineage-rules-dock {
+  position: static;
+  height: var(--lineage-rules-height);
+  min-height: 0;
+  box-shadow: none;
+  background: var(--panel);
+  backdrop-filter: none;
+}
+
+#ruleLineageWorkspace:fullscreen .rule-lineage-rules-grid {
+  height: 100%;
 }
 
 .rule-lineage-graph .lineage-link {
@@ -2299,6 +2886,23 @@ body {
   font-size: 9px;
   font-weight: 700;
   opacity: 0.8;
+}
+
+.rule-lineage-tree .lineage-node-completeness {
+  stroke: var(--panel);
+  stroke-width: 1.5;
+}
+
+.rule-lineage-tree .lineage-node-completeness.complete {
+  fill: color-mix(in oklab, var(--ok) 86%, white);
+}
+
+.rule-lineage-tree .lineage-node-completeness.incomplete {
+  fill: color-mix(in oklab, var(--err) 82%, white);
+}
+
+.rule-lineage-tree .lineage-node-completeness.unknown {
+  fill: color-mix(in oklab, var(--line) 72%, var(--panel));
 }
 
 .rule-lineage-tree .lineage-node.warn rect,
@@ -2361,9 +2965,92 @@ body {
   min-height: 220px;
 }
 
+.lineage-inspector-pane {
+  min-height: 100%;
+}
+
+.lineage-rules-dock {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.lineage-rules-dock-head {
+  padding: 12px 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.lineage-rules-dock-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.lineage-rules-dock .table-shell {
+  min-height: 0;
+}
+
+.lineage-workspace-shell.inspector-collapsed .lineage-workspace-main {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lineage-workspace-shell.inspector-collapsed .lineage-inspector-pane,
+.lineage-workspace-shell.inspector-collapsed #ruleLineageInspectorHandle {
+  display: none;
+}
+
+.lineage-workspace-shell.rules-collapsed .lineage-rules-dock,
+.lineage-workspace-shell.rules-collapsed #ruleLineageRulesHandle {
+  display: none;
+}
+
+.mdrm-analysis-workspace.rules-collapsed .mdrm-analysis-detail-pane,
+.mdrm-analysis-workspace.rules-collapsed #ruleLineageRulesHandle {
+  display: none;
+}
+
+#ruleLineageWorkspace:fullscreen {
+  padding: 14px;
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto minmax(180px, var(--lineage-rules-height));
+  box-sizing: border-box;
+}
+
+#ruleLineageWorkspace:fullscreen .mdrm-analysis-top-pane,
+#ruleLineageWorkspace:fullscreen .mdrm-analysis-panel,
+#ruleLineageWorkspace:fullscreen .relationship-shell-graph-only,
+#ruleLineageWorkspace:fullscreen .relationship-graph-host,
+#ruleLineageWorkspace:fullscreen .lineage-analysis-graph-host,
+#ruleLineageWorkspace:fullscreen .mdrm-analysis-detail-pane,
+#ruleLineageWorkspace:fullscreen .mdrm-selection-rules-card,
+#ruleLineageWorkspace:fullscreen .rule-lineage-rules-grid {
+  min-height: 0;
+  height: 100%;
+}
+
 .related-detail-card {
   display: grid;
   gap: 8px;
+}
+
+.grid-clamp-text {
+  min-width: 0;
+}
+
+.grid-clamp-text .expandable-block {
+  gap: 2px;
+}
+
+.grid-clamp-text .expandable-block-content {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.grid-clamp-text .expandable-block-toggle {
+  font-size: 0.68rem;
+  line-height: 1;
 }
 
 .related-detail-title {
@@ -2752,7 +3439,7 @@ body {
   position: fixed;
   top: 0;
   right: 0;
-  width: min(460px, 96vw);
+  width: min(580px, 96vw);
   height: 100vh;
   background: var(--panel);
   border-left: 1px solid var(--line);
@@ -2784,9 +3471,9 @@ body {
 
 .ontology-insight-body {
   overflow: auto;
-  padding: 12px;
+  padding: 14px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .ontology-insight-card {
@@ -2807,6 +3494,182 @@ body {
 .ontology-insight-row .k {
   color: var(--muted);
   font-weight: 700;
+}
+
+.ontology-insight-mdrm-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.ontology-insight-mdrm-hero {
+  display: grid;
+  gap: 12px;
+}
+
+.ontology-insight-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ontology-insight-action-btn {
+  border: 1px solid color-mix(in oklab, var(--line) 74%, var(--brand));
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 84%, white), color-mix(in oklab, var(--panel) 90%, var(--panel-soft)));
+  color: var(--text);
+  padding: 14px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  box-shadow: 0 8px 20px rgba(8, 18, 35, 0.08);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.ontology-insight-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(8, 18, 35, 0.12);
+}
+
+.ontology-insight-action-btn.primary {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--brand) 16%, white), color-mix(in oklab, var(--brand) 8%, var(--panel)));
+  border-color: color-mix(in oklab, var(--brand) 44%, var(--line));
+}
+
+.ontology-insight-action-btn.secondary {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 76%, white), color-mix(in oklab, var(--panel) 94%, var(--panel-soft)));
+}
+
+.ontology-insight-action-btn:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--brand) 56%, white);
+  outline-offset: 2px;
+}
+
+.ontology-insight-action-kicker {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ontology-insight-action-label {
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.ontology-insight-action-copy {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.mdrm-analysis-modal-dialog {
+  max-width: min(1320px, 96vw);
+}
+
+.app-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 14px;
+}
+
+.app-modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.app-modal-header-btn {
+  border: 1px solid color-mix(in oklab, var(--line) 72%, var(--brand));
+  background: color-mix(in oklab, var(--panel-soft) 78%, var(--panel));
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.77rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(8, 18, 35, 0.06);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.app-modal-header-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(8, 18, 35, 0.1);
+  border-color: color-mix(in oklab, var(--brand) 44%, var(--line));
+}
+
+.app-modal-header-btn[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--brand) 13%, var(--panel));
+  border-color: color-mix(in oklab, var(--brand) 42%, var(--line));
+}
+
+.app-modal-header-btn.dismiss {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.app-modal-header-btn.dismiss:hover {
+  color: var(--text);
+  background: color-mix(in oklab, var(--panel-soft) 80%, var(--panel));
+}
+
+.mdrm-analysis-modal-actions {
+  margin-left: auto;
+}
+
+.mdrm-analysis-modal-content {
+  min-height: min(88vh, 980px);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.mdrm-analysis-modal-frame {
+  width: 100%;
+  height: min(82vh, 900px);
+  border: 0;
+  background: var(--panel);
+}
+
+#mdrmAnalysisModal.is-maximized .mdrm-analysis-modal-dialog {
+  max-width: 100vw;
+  width: 100vw;
+  margin: 0;
+  min-height: 100vh;
+}
+
+#mdrmAnalysisModal.is-maximized .mdrm-analysis-modal-content {
+  min-height: 100vh;
+  height: 100vh;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+#mdrmAnalysisModal.is-maximized .mdrm-analysis-modal-frame {
+  height: calc(100vh - 74px);
+}
+
+@media (max-width: 720px) {
+  .app-modal-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-modal-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ontology-insight-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ontology-ref-link {
@@ -3360,12 +4223,69 @@ body :where(
     max-height: 320px;
   }
 
+  .mdrm-three-pane-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mdrm-context-pane {
+    position: static;
+  }
+
+  .mdrm-context-drawer {
+    min-height: 0;
+  }
+
+  .mdrm-analysis-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mdrm-analysis-header,
+  .mdrm-analysis-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mdrm-analysis-top-pane {
+    min-height: 480px;
+  }
+
+  .lineage-node-overlay {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin-bottom: 10px;
+  }
+
+  .timeline-summary-strip,
+  .timeline-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
   .overview-grid {
     grid-template-columns: 1fr;
   }
 
   .relationship-layout {
     grid-template-columns: 1fr;
+  }
+
+  .lineage-workspace-header,
+  .lineage-workspace-meta,
+  .lineage-workspace-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lineage-workspace-main {
+    grid-template-columns: 1fr;
+  }
+
+  .lineage-pane-handle.vertical {
+    display: none;
+  }
+
+  .lineage-canvas-pane .relationship-graph-host {
+    min-height: 520px;
   }
 
   .ontology-layout {
@@ -3401,6 +4321,10 @@ body :where(
 
   .relationship-graph {
     height: 520px;
+  }
+
+  #ruleLineageWorkspace:fullscreen {
+    grid-template-rows: auto auto minmax(0, 1fr) auto minmax(180px, 34vh);
   }
 
   .ontology-graph {

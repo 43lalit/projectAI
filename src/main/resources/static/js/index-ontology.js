@@ -2,6 +2,8 @@
   function createOntologyManager(deps) {
     const el = deps.elements;
     const ONTOLOGY_PANE_HEIGHT_KEY = 'mdrm-ontology-top-pane-height-v1';
+    let currentOntologyInsightTimelineRows = [];
+    let currentOntologyInsightTimelineModal = null;
 
     function getOntologyInfoNoteEl() {
       return deps.getOntologyInfoNoteEl();
@@ -431,10 +433,10 @@
         <tr>
           <td>
             <div class="fw-semibold">${deps.escapeHtml(rule.ruleNumber || String(rule.ruleId || '-'))}</div>
-            <div class="small text-muted">${deps.escapeHtml((rule.ruleText || rule.ruleExpression || '-').slice(0, 180))}</div>
+            <div class="small text-muted">${deps.renderExpandableText(rule.ruleText || rule.ruleExpression || '-', { maxLength: 100 })}</div>
           </td>
           <td>${deps.escapeHtml(rule.scheduleName || '-')}</td>
-          <td class="mono">${deps.escapeHtml(rule.primaryMdrmCode || '-')}</td>
+          <td>${renderOntologyMdrmLink(rule.primaryMdrmCode || '-')}</td>
           <td>${deps.statusCapsule(rule.lineageStatus || 'VALID')}</td>
           <td class="text-end">
             <button class="btn btn-sm btn-outline-primary ontology-open-rule-btn" type="button" data-rule-id="${deps.escapeHtml(rule.ruleId)}">Open</button>
@@ -599,6 +601,14 @@
       syncOntologyManageActions();
     }
 
+    function renderOntologyMdrmLink(value) {
+      const code = String(value || '').trim().toUpperCase();
+      if (!code || code === '-') {
+        return '-';
+      }
+      return `<button class="ontology-ref-link mono" type="button" data-mdrm-insight="${deps.escapeHtml(code)}">${deps.escapeHtml(code)}</button>`;
+    }
+
     function openOntologyInsightShell(title, bodyHtml) {
       if (el.ontologyInsightTitle) el.ontologyInsightTitle.textContent = title;
       if (el.ontologyInsightBody) el.ontologyInsightBody.innerHTML = bodyHtml || '';
@@ -647,6 +657,251 @@
       openOntologyInsightShell(`Report: ${reportingForm}`, html);
     }
 
+    function renderExpandableBlock(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      const lineClamp = Math.max(1, Number(options.lineClamp || 4));
+      const approxCharsPerLine = Math.max(30, Number(options.approxCharsPerLine || 82));
+      if (!text) {
+        return `<span>${deps.escapeHtml(emptyValue)}</span>`;
+      }
+      if (text.length <= lineClamp * approxCharsPerLine) {
+        return `<span>${deps.escapeHtml(text)}</span>`;
+      }
+      return `
+        <div class="expandable-block" data-expanded="false" style="--expandable-line-clamp:${lineClamp};">
+          <div class="expandable-block-content">${deps.escapeHtml(text)}</div>
+          <button class="expandable-block-toggle" type="button" aria-expanded="false">Read more</button>
+        </div>
+      `;
+    }
+
+    function buildMdrmAnalysisUrl(mdrmCode, tab = 'lineage') {
+      const params = new URLSearchParams();
+      const normalizedCode = String(mdrmCode || '').trim().toUpperCase();
+      if (normalizedCode) {
+        params.set('mdrm', normalizedCode);
+      }
+      const runId = deps.getRunContextId ? deps.getRunContextId() : null;
+      if (runId) {
+        params.set('runId', String(runId));
+      }
+      params.set('returnTo', `${window.location.pathname}${window.location.search}`);
+      params.set('embed', 'analysis');
+      if (String(tab || '').trim().toLowerCase() === 'related') {
+        params.set('tab', 'related');
+      }
+      return `/mdrm.html?${params.toString()}`;
+    }
+
+    function formatRunDatetime(epochMillis) {
+      const value = Number(epochMillis || 0);
+      if (!value) {
+        return '-';
+      }
+      return new Date(value).toLocaleString();
+    }
+
+    function formatTimelineMonth(epochMillis) {
+      const value = Number(epochMillis || 0);
+      if (!value) {
+        return 'Unknown';
+      }
+      return new Date(value).toLocaleString(undefined, { month: 'short', year: 'numeric' });
+    }
+
+    function timelineHeatLevel(changedCount) {
+      const count = Math.max(0, Number(changedCount || 0));
+      if (!count) {
+        return 0;
+      }
+      if (count <= 2) {
+        return 1;
+      }
+      if (count <= 5) {
+        return 2;
+      }
+      if (count <= 10) {
+        return 3;
+      }
+      return 4;
+    }
+
+    function renderMdrmInsightSnapshot(payload) {
+      const items = [
+        ['MDRM', payload?.mdrmCode || '-'],
+        ['Item Code', payload?.itemCode || '-'],
+        ['Mnemonic', payload?.mnemonic || '-'],
+        ['Item Type', payload?.itemType || '-'],
+        ['Status', payload?.latestStatus || payload?.status || '-'],
+        ['Latest File', payload?.latestFileName || '-']
+      ];
+      return items.map(([key, value]) => `
+        <div class="kv">
+          <div class="k">${deps.escapeHtml(key)}</div>
+          <div class="v">${key === 'Status' ? deps.statusCapsule(value) : deps.escapeHtml(value)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderMdrmInsightAssociations(rows) {
+      if (!Array.isArray(rows) || !rows.length) {
+        return '<div class="text-muted small p-3">No latest-run report associations found.</div>';
+      }
+      return `
+        <table class="table table-sm table-striped table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Report</th>
+              <th>Schedule</th>
+              <th>Line</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                <td>${deps.escapeHtml(row.reportingForm || '-')}</td>
+                <td>${deps.escapeHtml(row.schedule || '-')}</td>
+                <td>${deps.escapeHtml(row.line || '-')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderMdrmInsightTimeline(rows) {
+      if (!Array.isArray(rows) || !rows.length) {
+        currentOntologyInsightTimelineRows = [];
+        return '<div class="text-muted small p-3">No run timeline found for this MDRM.</div>';
+      }
+      currentOntologyInsightTimelineRows = rows
+        .slice()
+        .sort((left, right) => Number(left?.runDatetime || 0) - Number(right?.runDatetime || 0))
+        .map((row, index) => ({ ...row, __timelineIndex: index }));
+
+      const changedRuns = currentOntologyInsightTimelineRows.filter(row => Number(row.changedFieldCount || 0) > 0).length;
+      const latestRow = currentOntologyInsightTimelineRows[currentOntologyInsightTimelineRows.length - 1] || null;
+      const groupedRows = currentOntologyInsightTimelineRows.reduce((map, row) => {
+        const monthKey = formatTimelineMonth(row.runDatetime);
+        if (!map.has(monthKey)) {
+          map.set(monthKey, []);
+        }
+        map.get(monthKey).push(row);
+        return map;
+      }, new Map());
+
+      return `
+        <div class="timeline-summary-strip">
+          <div class="timeline-summary-pill">
+            <div class="timeline-summary-label">Runs</div>
+            <div class="timeline-summary-value">${deps.escapeHtml(currentOntologyInsightTimelineRows.length)}</div>
+          </div>
+          <div class="timeline-summary-pill">
+            <div class="timeline-summary-label">Changed Runs</div>
+            <div class="timeline-summary-value">${deps.escapeHtml(changedRuns)}</div>
+          </div>
+          <div class="timeline-summary-pill">
+            <div class="timeline-summary-label">Latest Run</div>
+            <div class="timeline-summary-value">${deps.escapeHtml(latestRow?.runId || '-')}</div>
+          </div>
+        </div>
+        <div class="timeline-activity-shell">
+          <div class="timeline-activity-map">
+            ${Array.from(groupedRows.entries()).map(([monthKey, monthRows]) => `
+              <div class="timeline-month-group">
+                <div class="timeline-month-label">${deps.escapeHtml(monthKey)}</div>
+                <div class="timeline-month-cells">
+                  ${monthRows.map(row => `
+                    <button
+                      class="timeline-activity-cell ontology-timeline-activity-cell level-${timelineHeatLevel(row.changedFieldCount)}"
+                      type="button"
+                      data-timeline-index="${deps.escapeHtml(row.__timelineIndex)}"
+                      title="${deps.escapeHtml(`Run ${row.runId || '-'} | ${formatRunDatetime(row.runDatetime)} | ${row.changedFieldCount || 0} field changes`)}"
+                    ></button>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="timeline-activity-legend small text-muted">
+            <span>Less</span>
+            <i class="timeline-legend-dot level-0"></i>
+            <i class="timeline-legend-dot level-1"></i>
+            <i class="timeline-legend-dot level-2"></i>
+            <i class="timeline-legend-dot level-3"></i>
+            <i class="timeline-legend-dot level-4"></i>
+            <span>More</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function ensureOntologyTimelineModal() {
+      if (!el.ontologyTimelineRunModalEl || !window.bootstrap || !bootstrap.Modal) {
+        return null;
+      }
+      if (!currentOntologyInsightTimelineModal) {
+        currentOntologyInsightTimelineModal = bootstrap.Modal.getOrCreateInstance(el.ontologyTimelineRunModalEl);
+      }
+      return currentOntologyInsightTimelineModal;
+    }
+
+    function openOntologyTimelineRunDetail(index) {
+      const row = currentOntologyInsightTimelineRows[Number(index)];
+      if (!row || !el.ontologyTimelineRunModalTitle || !el.ontologyTimelineRunModalMeta || !el.ontologyTimelineRunModalBody) {
+        return;
+      }
+      const changeRows = Array.isArray(row.fieldChanges) ? row.fieldChanges : [];
+      const changedCount = Number(row.changedFieldCount || 0);
+      el.ontologyTimelineRunModalTitle.textContent = `Run ${row.runId || '-'}`;
+      el.ontologyTimelineRunModalMeta.textContent = `${formatRunDatetime(row.runDatetime)} | ${changedCount} field changes | ${row.reportCount || 0} reports`;
+      el.ontologyTimelineRunModalBody.innerHTML = `
+        <div class="timeline-modal-grid">
+          <div class="timeline-modal-card">
+            <div class="timeline-modal-card-title">Run summary</div>
+            <div class="related-detail-row"><span class="k">Run ID</span><span>${deps.escapeHtml(row.runId || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Status</span><span>${deps.statusCapsule(row.status || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Rows</span><span>${deps.escapeHtml(row.rowCount || 0)}</span></div>
+            <div class="related-detail-row"><span class="k">Reports</span><span>${deps.escapeHtml(row.reportCount || 0)}</span></div>
+            <div class="related-detail-row"><span class="k">Fields changed</span><span>${deps.escapeHtml(changedCount)}</span></div>
+            <div class="related-detail-row"><span class="k">Date range</span><span>${deps.escapeHtml(row.minStartDateUtc || '-')} to ${deps.escapeHtml(row.maxEndDateUtc || '-')}</span></div>
+          </div>
+          <div class="timeline-modal-card">
+            <div class="timeline-modal-card-title">Source context</div>
+            <div class="related-detail-row"><span class="k">File</span><span>${deps.renderExpandableText(row.fileName || '-', { maxLength: 160 })}</span></div>
+            <div class="related-detail-row"><span class="k">Forms</span><span>${deps.renderExpandableText(row.reportingForms || '-', { maxLength: 160 })}</span></div>
+          </div>
+        </div>
+        <div class="timeline-modal-card mt-3">
+          <div class="timeline-modal-card-title">Field changes</div>
+          ${changeRows.length ? `
+            <div class="timeline-change-table-wrap mt-2">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Previous</th>
+                    <th>Current</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${changeRows.map(change => `
+                    <tr>
+                      <td>${deps.escapeHtml(change.fieldName || '-')}</td>
+                      <td>${deps.renderExpandableText(change.previousValue || '-', { maxLength: 140 })}</td>
+                      <td>${deps.renderExpandableText(change.currentValue || '-', { maxLength: 140 })}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : '<div class="text-muted small mt-2">No field changes were recorded for this run.</div>'}
+        </div>
+      `;
+      ensureOntologyTimelineModal()?.show();
+    }
+
     async function loadOntologyMdrmInsight(mdrmCode) {
       const encoded = encodeURIComponent(mdrmCode);
       const response = await fetch(deps.appendRunContext(`/api/mdrm/profile?mdrm=${encoded}`));
@@ -654,31 +909,60 @@
       if (!response.ok) {
         throw new Error(payload?.message || `HTTP ${response.status}`);
       }
-      const timeline = Array.isArray(payload?.timeline) ? payload.timeline : [];
-      const previewTimeline = timeline.slice(0, 4).map(entry => `
-        <div class="ontology-insight-row">
-          <span class="k">Run ${deps.escapeHtml(entry?.runId || '-')}</span>
-          <span>${deps.escapeHtml(entry?.status || '-')}${entry?.reportingForms ? ` | ${deps.escapeHtml(entry.reportingForms)}` : ''}</span>
-        </div>
-      `).join('');
+      const normalizedCode = String(payload?.mdrmCode || mdrmCode || '').trim().toUpperCase();
+      const summaryDefinition = String(payload?.definition || payload?.description || '').trim();
+      const snapshotHtml = renderMdrmInsightSnapshot(payload);
+      const associationsHtml = renderMdrmInsightAssociations(Array.isArray(payload?.associations) ? payload.associations : []);
+      const timelineHtml = renderMdrmInsightTimeline(Array.isArray(payload?.timeline) ? payload.timeline : []);
       const html = `
-        <div class="ontology-insight-card">
-          <div class="ontology-insight-row"><span class="k">MDRM</span><span class="mono">${deps.escapeHtml(payload?.mdrmCode || mdrmCode)}</span></div>
-          <div class="ontology-insight-row"><span class="k">Status</span><span>${deps.escapeHtml(payload?.status || '-')}</span></div>
-          <div class="ontology-insight-row"><span class="k">Type</span><span>${deps.escapeHtml(payload?.itemType || '-')}</span></div>
-          <div class="ontology-insight-row"><span class="k">Associations</span><span>${deps.escapeHtml(deps.formatCount(payload?.associationsCount || 0))}</span></div>
-          <div class="ontology-insight-row"><span class="k">Related Reports</span><span>${deps.escapeHtml(deps.formatCount(payload?.relatedReportsCount || 0))}</span></div>
-          <div class="small text-muted mt-1">${deps.escapeHtml(payload?.description || payload?.definition || 'No description available.')}</div>
-          <div class="mt-2">
-            <a class="btn btn-sm btn-outline-primary" href="${deps.escapeHtml(deps.buildMdrmProfileUrl(mdrmCode))}">View Full Details</a>
-          </div>
-        </div>
-        <div class="ontology-insight-card">
-          <div class="small fw-semibold mb-1">Recent Timeline</div>
-          ${previewTimeline || '<div class="small text-muted">No timeline entries.</div>'}
+        <div class="ontology-insight-mdrm-shell">
+          <section class="ontology-insight-card ontology-insight-mdrm-hero">
+            <div>
+              <h2 class="mb-0"><span class="mono">${deps.escapeHtml(normalizedCode || '-')}</span></h2>
+              <div class="mdrm-primary-definition mt-2">${renderExpandableBlock(summaryDefinition || 'No definition available.', { lineClamp: 4 })}</div>
+            </div>
+            <div class="ontology-insight-actions">
+              <button
+                class="ontology-insight-action-btn primary open-mdrm-analysis-btn"
+                type="button"
+                data-analysis-url="${deps.escapeHtml(buildMdrmAnalysisUrl(normalizedCode, 'lineage'))}"
+                data-analysis-title="Rule Based Lineage"
+                data-analysis-meta="${deps.escapeHtml(normalizedCode)}"
+              >
+                <span class="ontology-insight-action-kicker">Graph Workspace</span>
+                <span class="ontology-insight-action-label">Rule Based Lineage</span>
+                <span class="ontology-insight-action-copy">Open the lineage graph with rules, dependency details, and graph panes in a modal.</span>
+              </button>
+              <button
+                class="ontology-insight-action-btn secondary open-mdrm-analysis-btn"
+                type="button"
+                data-analysis-url="${deps.escapeHtml(buildMdrmAnalysisUrl(normalizedCode, 'related'))}"
+                data-analysis-title="Related MDRM"
+                data-analysis-meta="${deps.escapeHtml(normalizedCode)}"
+              >
+                <span class="ontology-insight-action-kicker">Graph Workspace</span>
+                <span class="ontology-insight-action-label">Related MDRM</span>
+                <span class="ontology-insight-action-copy">Open the relationship graph in a modal without leaving the current report or search context.</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="mdrm-context-snapshot">
+            <div class="mdrm-context-section-title">Latest Snapshot</div>
+            <div class="snapshot-list">${snapshotHtml}</div>
+            <div class="mdrm-context-subsection">
+              <div class="mdrm-context-section-title">Report Associations</div>
+              <div class="table-shell mdrm-context-associations">${associationsHtml}</div>
+            </div>
+          </section>
+
+          <section class="ontology-insight-card">
+            <div class="mdrm-context-section-title">Timeline</div>
+            <div class="table-shell">${timelineHtml}</div>
+          </section>
         </div>
       `;
-      openOntologyInsightShell(`MDRM: ${mdrmCode}`, html);
+      openOntologyInsightShell(`MDRM: ${normalizedCode}`, html);
     }
 
     async function openOntologyInsight(type, value) {
@@ -1978,9 +2262,11 @@
         setOntologySelectedMdrmsState([]);
         setOntologyFocusedReport(selected.length === 1 ? selected[0] : '');
         setOntologyFocusedMdrm('');
+        setActiveOntologyInspectorTab(selected.length ? 'reports' : 'summary');
       } else {
         setOntologySelectedMdrmsState(selected);
         setOntologyFocusedMdrm(selected.length === 1 ? String(selected[0] || '').trim().toUpperCase() : '');
+        setActiveOntologyInspectorTab(selected.length ? 'mdrms' : ((getOntologySelectedReportsState() || []).length ? 'reports' : 'summary'));
       }
       closeOntologySelector();
       await loadOntologyGraph(true);
@@ -2071,6 +2357,7 @@
       openOntologyInsightShell,
       closeOntologyInsight,
       openOntologyInsight,
+      openOntologyTimelineRunDetail,
       loadOntologyReportInsight,
       loadOntologyMdrmInsight,
       selectedOntologyReportForManage,
