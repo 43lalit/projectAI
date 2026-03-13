@@ -238,7 +238,12 @@ ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL wi
   - Additional rules surfaces converted to AG Grid with compact multiline cells and `Read more / Read less`
   - Console-side MDRM references in rule grids open the shared MDRM drawer again
   - Report rules grid lifecycle fixes applied so rule panels recover correctly when containers are rebuilt
+- Console stabilization follow-up:
+  - Fixed a stale `reportRulesDiscrepancyOnly` bootstrap reference that was breaking console startup in the browser
+  - Disabled unintended AG Grid selection checkboxes in the report rules grid
+  - Added a favicon link and refreshed static asset version strings for safer browser cache invalidation
 - Session notes for this work were saved in [prompts/2026-03-13-session-notes.md](/Users/lalitgupta/Desktop/2024/JavaMasterclass/spring-boot-rest/ProjectAI/prompts/2026-03-13-session-notes.md)
+- User prompts for this debugging session were saved in [prompts/2026-03-13-chat.md](/Users/lalitgupta/Desktop/2024/JavaMasterclass/spring-boot-rest/ProjectAI/prompts/2026-03-13-chat.md)
 - Rules workbook ingestion behavior:
   - Reads the configured workbook from `mdrm.rules-file-path`
   - Stores `Edit Test` as business-facing rule text

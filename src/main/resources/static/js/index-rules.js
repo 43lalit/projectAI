@@ -4,6 +4,7 @@
     let latestReportRules = [];
     let reportRulesGridApi = null;
     let reportRulesGridHost = null;
+    let reportRulesRequestId = 0;
 
     function renderExpandableBlock(value, options = {}) {
       const text = String(value ?? '').trim();
@@ -19,7 +20,7 @@
       return `
         <div class="expandable-block" data-expanded="false" style="--expandable-line-clamp:${lineClamp};">
           <div class="expandable-block-content">${deps.escapeHtml(text)}</div>
-          <button class="expandable-block-toggle" type="button" aria-expanded="false">Read more</button>
+          <span class="expandable-block-toggle" role="button" tabindex="0" aria-expanded="false">Read more</span>
         </div>
       `;
     }
@@ -100,6 +101,8 @@
         suppressCellFocus: true,
         rowSelection: {
           mode: 'singleRow',
+          checkboxes: false,
+          headerCheckbox: false,
           enableClickSelection: false
         },
         rowHeight: 32,
@@ -345,12 +348,8 @@
 
     function renderReportRules(rows, meta) {
       latestReportRules = Array.isArray(rows) ? rows : [];
-      const discrepancyOnly = !!el.reportRulesDiscrepancyOnly?.checked;
-      const visibleRows = discrepancyOnly
-        ? latestReportRules.filter(row => String(row.lineageStatus || '').toUpperCase() !== 'VALID')
-        : latestReportRules;
       if (el.reportRulesMeta) {
-        el.reportRulesMeta.textContent = meta || `Associated rules: ${deps.formatCount(visibleRows.length)}`;
+        el.reportRulesMeta.textContent = meta || `Associated rules: ${deps.formatCount(latestReportRules.length)}`;
       }
       if (el.reportRulesContainer) {
         const gridApi = ensureReportRulesGrid();
@@ -358,7 +357,7 @@
           el.reportRulesContainer.innerHTML = `<div class="text-danger small p-3">Rule grid is unavailable.</div>`;
           return;
         }
-        gridApi.setGridOption('rowData', visibleRows.map(row => ({
+        gridApi.setGridOption('rowData', latestReportRules.map(row => ({
           ruleId: row.ruleId,
           ruleNumber: String(row.ruleNumber || row.ruleId || '-'),
           ruleText: String(row.ruleText || '-'),
@@ -371,7 +370,7 @@
           effectiveStartDate: String(row.effectiveStartDate || '-'),
           effectiveEndDate: String(row.effectiveEndDate || '-')
         })));
-        if (visibleRows.length) {
+        if (latestReportRules.length) {
           gridApi.hideOverlay();
         } else {
           gridApi.showNoRowsOverlay();
@@ -381,19 +380,26 @@
 
     async function loadReportRules(reportingForm) {
       const form = String(reportingForm || '').trim();
+      const requestId = ++reportRulesRequestId;
       if (!form) {
         latestReportRules = [];
         destroyReportRulesGrid();
+        if (el.reportKpiRules) {
+          el.reportKpiRules.textContent = '0';
+        }
         if (el.reportRulesContainer) {
           el.reportRulesContainer.innerHTML = '<div class="text-muted small p-3">Select a report to inspect associated rules.</div>';
         }
         if (el.reportRulesMeta) {
           el.reportRulesMeta.textContent = 'Associated rules for the selected report.';
         }
-        return;
+        return { reportingForm: '', totalRules: 0 };
       }
       if (el.reportRulesContainer && !reportRulesGridApi) {
         el.reportRulesContainer.innerHTML = '<div class="text-muted small p-3">Loading report rules...</div>';
+      }
+      if (el.reportKpiRules) {
+        el.reportKpiRules.textContent = '...';
       }
       try {
         const response = await fetch(deps.appendRunContext(`/api/mdrm/rules/by-report?reportingForm=${encodeURIComponent(form)}`));
@@ -401,17 +407,37 @@
         if (!response.ok) {
           throw new Error(payload?.message || `HTTP ${response.status}`);
         }
+        if (requestId !== reportRulesRequestId || String(deps.getSelectedReportingForm?.() || '').trim() !== form) {
+          return;
+        }
         const rows = Array.isArray(payload?.rules) ? payload.rules : [];
+        if (el.reportKpiRules) {
+          el.reportKpiRules.textContent = deps.formatCount(Number(payload?.totalRules || rows.length));
+        }
         renderReportRules(rows, `Associated rules: ${deps.formatCount(rows.length)} | discrepancies=${deps.formatCount(payload?.discrepancyCount || 0)} | as of ${payload?.asOfDate || 'latest'}`);
+        return {
+          reportingForm: form,
+          totalRules: Number(payload?.totalRules || rows.length)
+        };
       } catch (error) {
+        if (requestId !== reportRulesRequestId || String(deps.getSelectedReportingForm?.() || '').trim() !== form) {
+          return { reportingForm: form, totalRules: 0 };
+        }
         latestReportRules = [];
         destroyReportRulesGrid();
+        if (el.reportKpiRules) {
+          el.reportKpiRules.textContent = '0';
+        }
         if (el.reportRulesMeta) {
           el.reportRulesMeta.textContent = 'Unable to load report rules';
         }
         if (el.reportRulesContainer) {
           el.reportRulesContainer.innerHTML = `<div class="text-danger small p-3">Unable to load report rules: ${deps.escapeHtml(error.message || error)}</div>`;
         }
+        return {
+          reportingForm: form,
+          totalRules: 0
+        };
       }
     }
 

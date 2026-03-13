@@ -1,6 +1,8 @@
 (function () {
   function createReportingManager(deps) {
     const el = deps.elements;
+    let currentReportTabId = 'timelineTab';
+    let lastLoadedReportingForm = '';
 
     function getFormsLoaded() {
       return deps.getFormsLoaded();
@@ -173,6 +175,7 @@
       if (el.reportKpiLatestRun) el.reportKpiLatestRun.textContent = '-';
       if (el.reportKpiActive) el.reportKpiActive.textContent = '-';
       if (el.reportKpiNetChange) el.reportKpiNetChange.textContent = '-';
+      if (el.reportKpiRules) el.reportKpiRules.textContent = '0';
       setLatestRunIdForSelectedReport(null);
       setLatestReportTablePayload(null);
       if (el.reportDescriptionLabel) {
@@ -195,6 +198,8 @@
       if (el.reportMetadataRefreshBtn) {
         el.reportMetadataRefreshBtn.disabled = !deps.isAdminUser() || !getSelectedReportingForm();
       }
+      currentReportTabId = 'timelineTab';
+      lastLoadedReportingForm = '';
       switchReportTab('');
       syncReportEmptyState();
       deps.syncCopyLinkButtons();
@@ -937,12 +942,10 @@
 
     function switchReportTab(targetTabId) {
       const normalizedTarget = String(targetTabId || '').trim();
-      el.tabPanels.forEach(panel => panel.classList.toggle('active', !!normalizedTarget && panel.id === normalizedTarget));
-      el.tabButtons.forEach(button => {
-        const active = button.dataset.tab === normalizedTarget;
-        button.classList.toggle('active', active);
-        button.setAttribute('aria-selected', String(active));
-      });
+      currentReportTabId = normalizedTarget || currentReportTabId;
+      if (typeof deps.syncReportTabUi === 'function') {
+        deps.syncReportTabUi(normalizedTarget);
+      }
     }
 
     async function refreshForms() {
@@ -997,6 +1000,7 @@
       if (!reportingForm) {
         return;
       }
+      const isNewSelection = reportingForm !== lastLoadedReportingForm;
       await deps.recordRecentItem({
         type: 'report',
         key: reportingForm,
@@ -1012,7 +1016,10 @@
       deps.syncReportMetadataRefreshAccess();
       syncReportEmptyState();
       clearReportData();
-      switchReportTab('timelineTab');
+      if (isNewSelection) {
+        currentReportTabId = 'timelineTab';
+      }
+      switchReportTab(currentReportTabId || 'timelineTab');
       if (el.reportDescriptionLabel) {
         el.reportDescriptionLabel.textContent = '';
       }
@@ -1044,6 +1051,7 @@
         }
         renderRunHistory(historyPayload);
         renderTable(detailsPayload);
+        lastLoadedReportingForm = reportingForm;
       } catch (error) {
         el.summaryTableContainer.innerHTML = '';
         el.tableContainer.innerHTML = '';

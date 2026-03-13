@@ -4,6 +4,17 @@
     const ONTOLOGY_PANE_HEIGHT_KEY = 'mdrm-ontology-top-pane-height-v1';
     let currentOntologyInsightTimelineRows = [];
     let currentOntologyInsightTimelineModal = null;
+    let ontologyTimelineFieldChangesGridApi = null;
+    let ontologyTimelineFieldChangesGridHost = null;
+    let currentOntologyInsightRulePayload = null;
+    let currentOntologyInsightRuleMdrmCode = '';
+    let currentOntologyInsightRulesModal = null;
+    let ontologyInsightRulesGridApi = null;
+    let ontologyInsightRulesGridHost = null;
+    let ontologyInsightRulesModalInitialized = false;
+    let currentOntologyInsightRuleModalTab = 'primary';
+    let currentOntologyInsightPrimaryRules = [];
+    let currentOntologyInsightSecondaryRules = [];
 
     function getOntologyInfoNoteEl() {
       return deps.getOntologyInfoNoteEl();
@@ -522,7 +533,8 @@
     }
 
     function buildOntologyUrl(path, { summaryOnly = false, includeReportFilters = true, includeMdrmFilters = true } = {}) {
-      const params = new URLSearchParams();
+      const target = new URL(String(path || ''), window.location.origin);
+      const params = new URLSearchParams(target.search);
       const runId = deps.getRunContextId();
       if (runId) {
         params.set('runId', String(runId));
@@ -537,7 +549,7 @@
         (getOntologySelectedMdrmsState() || []).forEach(mdrm => params.append('mdrm', mdrm));
       }
       const query = params.toString();
-      return query ? `${path}?${query}` : path;
+      return query ? `${target.pathname}?${query}` : target.pathname;
     }
 
     function buildOntologyBaseSummaryUrl() {
@@ -671,9 +683,408 @@
       return `
         <div class="expandable-block" data-expanded="false" style="--expandable-line-clamp:${lineClamp};">
           <div class="expandable-block-content">${deps.escapeHtml(text)}</div>
-          <button class="expandable-block-toggle" type="button" aria-expanded="false">Read more</button>
+          <span class="expandable-block-toggle" role="button" tabindex="0" aria-expanded="false">Read more</span>
         </div>
       `;
+    }
+
+    function destroyOntologyTimelineFieldChangesGrid() {
+      if (ontologyTimelineFieldChangesGridApi && typeof ontologyTimelineFieldChangesGridApi.destroy === 'function') {
+        ontologyTimelineFieldChangesGridApi.destroy();
+      }
+      ontologyTimelineFieldChangesGridApi = null;
+      ontologyTimelineFieldChangesGridHost = null;
+    }
+
+    function refreshOntologyTimelineFieldChangesGridHeights() {
+      if (ontologyTimelineFieldChangesGridApi && typeof ontologyTimelineFieldChangesGridApi.onRowHeightChanged === 'function') {
+        ontologyTimelineFieldChangesGridApi.onRowHeightChanged();
+      }
+    }
+
+    function applyOntologyTimelineFieldChangesGridTheme(theme) {
+      const host = ontologyTimelineFieldChangesGridHost || document.getElementById('ontologyTimelineFieldChangesGrid');
+      if (!host) {
+        return;
+      }
+      const dark = theme === 'dark';
+      host.classList.toggle('ag-theme-quartz-dark', dark);
+      host.classList.toggle('ag-theme-quartz', !dark);
+      if (ontologyTimelineFieldChangesGridApi) {
+        ontologyTimelineFieldChangesGridApi.refreshHeader();
+        ontologyTimelineFieldChangesGridApi.refreshCells({ force: true });
+      }
+    }
+
+    function createTimelineFieldValueCellRenderer(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      const lineClamp = Math.max(1, Number(options.lineClamp || 2));
+      const content = document.createElement('div');
+      content.className = 'grid-clamp-text';
+      if (!text) {
+        const fallback = document.createElement('span');
+        fallback.className = 'grid-clamp-fallback';
+        fallback.textContent = emptyValue;
+        content.appendChild(fallback);
+        return content;
+      }
+
+      const block = document.createElement('div');
+      block.className = 'expandable-block';
+      block.setAttribute('data-expanded', 'false');
+      block.style.setProperty('--expandable-line-clamp', String(lineClamp));
+
+      const body = document.createElement('div');
+      body.className = 'expandable-block-content';
+      body.textContent = text;
+
+      const toggle = document.createElement('span');
+      toggle.className = 'expandable-block-toggle';
+      toggle.setAttribute('role', 'button');
+      toggle.tabIndex = 0;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = 'Read more';
+      toggle.hidden = true;
+
+      block.appendChild(body);
+      block.appendChild(toggle);
+      content.appendChild(block);
+
+      const syncOverflow = () => {
+        const isOverflowing = body.scrollHeight > body.clientHeight + 1;
+        toggle.hidden = !isOverflowing;
+      };
+      requestAnimationFrame(syncOverflow);
+      setTimeout(syncOverflow, 0);
+
+      return content;
+    }
+
+    function ensureOntologyTimelineFieldChangesGrid(host) {
+      if (!host || !window.agGrid) {
+        return null;
+      }
+      if (ontologyTimelineFieldChangesGridApi && (!ontologyTimelineFieldChangesGridHost || ontologyTimelineFieldChangesGridHost !== host || !ontologyTimelineFieldChangesGridHost.isConnected)) {
+        destroyOntologyTimelineFieldChangesGrid();
+      }
+      if (ontologyTimelineFieldChangesGridApi) {
+        applyOntologyTimelineFieldChangesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        return ontologyTimelineFieldChangesGridApi;
+      }
+
+      ontologyTimelineFieldChangesGridHost = host;
+      applyOntologyTimelineFieldChangesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+      ontologyTimelineFieldChangesGridApi = agGrid.createGrid(host, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false,
+          flex: 1,
+          minWidth: 140,
+          wrapText: true,
+          autoHeight: true,
+          tooltipValueGetter: params => {
+            const value = params?.value;
+            return value == null ? '' : String(value);
+          }
+        },
+        suppressCellFocus: true,
+        animateRows: true,
+        rowHeight: 34,
+        headerHeight: 34,
+        tooltipShowDelay: 150,
+        tooltipMouseTrack: true,
+        overlayNoRowsTemplate: '<span class="ag-overlay-loading-center">No field changes were recorded for this run.</span>',
+        onFirstDataRendered: params => {
+          if (params?.api) {
+            params.api.sizeColumnsToFit();
+          }
+        },
+        columnDefs: [
+          {
+            headerName: 'Field',
+            field: 'fieldName',
+            minWidth: 180,
+            maxWidth: 240,
+            flex: 0.8,
+            pinned: 'left'
+          },
+          {
+            headerName: 'Previous',
+            field: 'previousValue',
+            minWidth: 260,
+            flex: 1.2,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => createTimelineFieldValueCellRenderer(params.value, { lineClamp: 2 })
+          },
+          {
+            headerName: 'Current',
+            field: 'currentValue',
+            minWidth: 260,
+            flex: 1.2,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => createTimelineFieldValueCellRenderer(params.value, { lineClamp: 2 })
+          }
+        ]
+      });
+      return ontologyTimelineFieldChangesGridApi;
+    }
+
+    function ensureOntologyInsightRulesModal() {
+      if (!el.ontologyMdrmRulesModalEl || !window.bootstrap || !bootstrap.Modal) {
+        return null;
+      }
+      if (!currentOntologyInsightRulesModal) {
+        currentOntologyInsightRulesModal = bootstrap.Modal.getOrCreateInstance(el.ontologyMdrmRulesModalEl);
+      }
+      return currentOntologyInsightRulesModal;
+    }
+
+    function initializeOntologyInsightRulesModalControls() {
+      if (ontologyInsightRulesModalInitialized) {
+        return;
+      }
+      el.ontologyMdrmRulesPrimaryTab?.addEventListener('click', () => {
+        currentOntologyInsightRuleModalTab = 'primary';
+        renderOntologyInsightRulesModalGrid();
+      });
+      el.ontologyMdrmRulesSecondaryTab?.addEventListener('click', () => {
+        currentOntologyInsightRuleModalTab = 'secondary';
+        renderOntologyInsightRulesModalGrid();
+      });
+      ontologyInsightRulesModalInitialized = true;
+    }
+
+    function destroyOntologyInsightRulesGrid() {
+      if (ontologyInsightRulesGridApi && typeof ontologyInsightRulesGridApi.destroy === 'function') {
+        ontologyInsightRulesGridApi.destroy();
+      }
+      ontologyInsightRulesGridApi = null;
+      ontologyInsightRulesGridHost = null;
+    }
+
+    function refreshOntologyInsightRulesGridHeights() {
+      if (ontologyInsightRulesGridApi && typeof ontologyInsightRulesGridApi.onRowHeightChanged === 'function') {
+        ontologyInsightRulesGridApi.onRowHeightChanged();
+      }
+    }
+
+    function applyOntologyInsightRulesGridTheme(theme) {
+      const host = ontologyInsightRulesGridHost || el.ontologyMdrmRulesGrid;
+      if (!host) {
+        return;
+      }
+      const dark = theme === 'dark';
+      host.classList.toggle('ag-theme-quartz-dark', dark);
+      host.classList.toggle('ag-theme-quartz', !dark);
+      if (ontologyInsightRulesGridApi) {
+        ontologyInsightRulesGridApi.refreshHeader();
+        ontologyInsightRulesGridApi.refreshCells({ force: true });
+      }
+    }
+
+    function buildOntologyInsightRuleGridRows(rules) {
+      return (Array.isArray(rules) ? rules : []).map(rule => ({
+        ruleId: Number(rule?.ruleId || 0),
+        ruleNumber: String(rule?.ruleNumber || rule?.ruleId || '-'),
+        report: String(rule?.reportingForm || rule?.reportSeries || '-'),
+        scheduleName: String(rule?.scheduleName || '-'),
+        ruleType: String(rule?.ruleType || '-'),
+        targetItemLabel: String(rule?.targetItemLabel || '-'),
+        primaryMdrmCode: String(rule?.primaryMdrmCode || '-'),
+        ruleText: String(rule?.ruleText || '-'),
+        ruleExpression: String(rule?.ruleExpression || '-'),
+        dependencyCount: Number(rule?.dependencyCount || 0),
+        lineageStatus: String(rule?.lineageStatus || '-'),
+        effectiveStartDate: String(rule?.effectiveStartDate || '-'),
+        effectiveEndDate: String(rule?.effectiveEndDate || '-')
+      }));
+    }
+
+    function syncOntologyInsightRulesModalTabs() {
+      const primaryCount = currentOntologyInsightPrimaryRules.length;
+      const secondaryCount = currentOntologyInsightSecondaryRules.length;
+      if (el.ontologyMdrmRulesPrimaryTab) {
+        const active = currentOntologyInsightRuleModalTab === 'primary';
+        el.ontologyMdrmRulesPrimaryTab.textContent = `Primary (${deps.formatCount(primaryCount)})`;
+        el.ontologyMdrmRulesPrimaryTab.classList.toggle('active', active);
+        el.ontologyMdrmRulesPrimaryTab.setAttribute('aria-selected', String(active));
+      }
+      if (el.ontologyMdrmRulesSecondaryTab) {
+        const active = currentOntologyInsightRuleModalTab === 'secondary';
+        el.ontologyMdrmRulesSecondaryTab.textContent = `Referenced (${deps.formatCount(secondaryCount)})`;
+        el.ontologyMdrmRulesSecondaryTab.classList.toggle('active', active);
+        el.ontologyMdrmRulesSecondaryTab.setAttribute('aria-selected', String(active));
+      }
+      if (el.ontologyMdrmRulesSectionMeta) {
+        el.ontologyMdrmRulesSectionMeta.textContent = currentOntologyInsightRuleModalTab === 'secondary'
+          ? 'Rules where this MDRM is referenced as a dependency, not the primary MDRM.'
+          : 'Rules where this MDRM is the primary MDRM.';
+      }
+    }
+
+    function ensureOntologyInsightRulesGrid(host) {
+      if (!host || !window.agGrid) {
+        return null;
+      }
+      if (ontologyInsightRulesGridApi && (!ontologyInsightRulesGridHost || ontologyInsightRulesGridHost !== host || !ontologyInsightRulesGridHost.isConnected)) {
+        destroyOntologyInsightRulesGrid();
+      }
+      if (ontologyInsightRulesGridApi) {
+        applyOntologyInsightRulesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+        return ontologyInsightRulesGridApi;
+      }
+
+      ontologyInsightRulesGridHost = host;
+      applyOntologyInsightRulesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+      ontologyInsightRulesGridApi = agGrid.createGrid(host, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false,
+          minWidth: 110,
+          flex: 1,
+          tooltipValueGetter: params => {
+            const value = params?.value;
+            return value == null ? '' : String(value);
+          }
+        },
+        suppressCellFocus: true,
+        animateRows: true,
+        rowHeight: 34,
+        headerHeight: 34,
+        tooltipShowDelay: 150,
+        tooltipMouseTrack: true,
+        overlayNoRowsTemplate: '<span class="ag-overlay-loading-center">No rules found in this section.</span>',
+        onFirstDataRendered: params => {
+          if (params?.api) {
+            params.api.sizeColumnsToFit();
+          }
+        },
+        columnDefs: [
+          {
+            headerName: 'Rule',
+            field: 'ruleNumber',
+            minWidth: 120,
+            maxWidth: 150,
+            pinned: 'left'
+          },
+          {
+            headerName: 'Description',
+            field: 'ruleText',
+            minWidth: 260,
+            flex: 1.5,
+            wrapText: true,
+            autoHeight: true,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => createTimelineFieldValueCellRenderer(params.value || '-', { lineClamp: 2 })
+          },
+          {
+            headerName: 'Alg Edit Test',
+            field: 'ruleExpression',
+            minWidth: 320,
+            flex: 1.8,
+            wrapText: true,
+            autoHeight: true,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => createTimelineFieldValueCellRenderer(params.value || '-', { lineClamp: 2 })
+          },
+          {
+            headerName: 'Target',
+            field: 'targetItemLabel',
+            minWidth: 150
+          },
+          {
+            headerName: 'Primary MDRM',
+            field: 'primaryMdrmCode',
+            minWidth: 130,
+            cellRenderer: params => renderOntologyMdrmLink(params.value)
+          },
+          {
+            headerName: 'Report',
+            field: 'report',
+            minWidth: 110,
+            maxWidth: 130
+          },
+          {
+            headerName: 'Schedule',
+            field: 'scheduleName',
+            minWidth: 120
+          },
+          {
+            headerName: 'Type',
+            field: 'ruleType',
+            minWidth: 110
+          },
+          {
+            headerName: 'Dependencies',
+            field: 'dependencyCount',
+            minWidth: 110,
+            maxWidth: 130
+          },
+          {
+            headerName: 'Lineage Status',
+            field: 'lineageStatus',
+            minWidth: 140,
+            cellRenderer: params => deps.statusCapsule(params.value || '-')
+          },
+          {
+            headerName: 'Effective Start',
+            field: 'effectiveStartDate',
+            minWidth: 120
+          },
+          {
+            headerName: 'Effective End',
+            field: 'effectiveEndDate',
+            minWidth: 120
+          }
+        ]
+      });
+      return ontologyInsightRulesGridApi;
+    }
+
+    function renderOntologyInsightRulesModalGrid() {
+      syncOntologyInsightRulesModalTabs();
+      const rules = currentOntologyInsightRuleModalTab === 'secondary'
+        ? currentOntologyInsightSecondaryRules
+        : currentOntologyInsightPrimaryRules;
+      const gridApi = ensureOntologyInsightRulesGrid(el.ontologyMdrmRulesGrid);
+      if (!gridApi) {
+        return null;
+      }
+      gridApi.setGridOption('rowData', buildOntologyInsightRuleGridRows(rules));
+      if (rules.length) {
+        gridApi.hideOverlay();
+      } else {
+        gridApi.showNoRowsOverlay();
+      }
+      return gridApi;
+    }
+
+    function openOntologyInsightRulesModal() {
+      const payload = currentOntologyInsightRulePayload;
+      const rules = Array.isArray(payload?.rules) ? payload.rules : [];
+      if (!el.ontologyMdrmRulesModalTitle || !el.ontologyMdrmRulesGrid) {
+        return;
+      }
+      initializeOntologyInsightRulesModalControls();
+      const mdrmCode = currentOntologyInsightRuleMdrmCode || String(payload?.scopeValue || '').trim().toUpperCase() || '-';
+      currentOntologyInsightPrimaryRules = rules.filter(rule => String(rule?.primaryMdrmCode || '').trim().toUpperCase() === mdrmCode);
+      currentOntologyInsightSecondaryRules = rules.filter(rule => String(rule?.primaryMdrmCode || '').trim().toUpperCase() !== mdrmCode);
+      currentOntologyInsightRuleModalTab = 'primary';
+      el.ontologyMdrmRulesModalTitle.textContent = `Rules for ${mdrmCode}`;
+      const gridApi = renderOntologyInsightRulesModalGrid();
+      ensureOntologyInsightRulesModal()?.show();
+      if (gridApi) {
+        setTimeout(() => {
+          gridApi.sizeColumnsToFit();
+          gridApi.refreshCells({ force: true });
+          gridApi.onRowHeightChanged();
+        }, 120);
+      }
     }
 
     function buildMdrmAnalysisUrl(mdrmCode, tab = 'lineage') {
@@ -852,6 +1263,8 @@
       if (!row || !el.ontologyTimelineRunModalTitle || !el.ontologyTimelineRunModalMeta || !el.ontologyTimelineRunModalBody) {
         return;
       }
+      destroyOntologyTimelineFieldChangesGrid();
+      let fieldChangesGridApi = null;
       const changeRows = Array.isArray(row.fieldChanges) ? row.fieldChanges : [];
       const changedCount = Number(row.changedFieldCount || 0);
       el.ontologyTimelineRunModalTitle.textContent = `Run ${row.runId || '-'}`;
@@ -876,44 +1289,56 @@
         <div class="timeline-modal-card mt-3">
           <div class="timeline-modal-card-title">Field changes</div>
           ${changeRows.length ? `
-            <div class="timeline-change-table-wrap mt-2">
-              <table class="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Previous</th>
-                    <th>Current</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${changeRows.map(change => `
-                    <tr>
-                      <td>${deps.escapeHtml(change.fieldName || '-')}</td>
-                      <td>${deps.renderExpandableText(change.previousValue || '-', { maxLength: 140 })}</td>
-                      <td>${deps.renderExpandableText(change.currentValue || '-', { maxLength: 140 })}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
+            <div id="ontologyTimelineFieldChangesGrid" class="mdrm-ag-grid timeline-field-changes-grid ag-theme-quartz mt-2"></div>
           ` : '<div class="text-muted small mt-2">No field changes were recorded for this run.</div>'}
         </div>
       `;
+      if (changeRows.length) {
+        const gridHost = document.getElementById('ontologyTimelineFieldChangesGrid');
+        fieldChangesGridApi = ensureOntologyTimelineFieldChangesGrid(gridHost);
+        if (fieldChangesGridApi) {
+          fieldChangesGridApi.setGridOption('rowData', changeRows.map(change => ({
+            fieldName: String(change?.fieldName || '-'),
+            previousValue: String(change?.previousValue || '-'),
+            currentValue: String(change?.currentValue || '-')
+          })));
+        }
+      }
       ensureOntologyTimelineModal()?.show();
+      if (fieldChangesGridApi) {
+        setTimeout(() => {
+          fieldChangesGridApi.sizeColumnsToFit();
+          fieldChangesGridApi.refreshCells({ force: true });
+          fieldChangesGridApi.onRowHeightChanged();
+        }, 120);
+      }
     }
 
     async function loadOntologyMdrmInsight(mdrmCode) {
-      const encoded = encodeURIComponent(mdrmCode);
-      const response = await fetch(deps.appendRunContext(`/api/mdrm/profile?mdrm=${encoded}`));
+      const normalizedInput = String(mdrmCode || '').trim().toUpperCase();
+      const encoded = encodeURIComponent(normalizedInput);
+      const rulesUrl = buildOntologyRuleSummaryUrl('', normalizedInput);
+      const [response, rulesResponse] = await Promise.all([
+        fetch(deps.appendRunContext(`/api/mdrm/profile?mdrm=${encoded}`)),
+        rulesUrl ? fetch(rulesUrl) : Promise.resolve(null)
+      ]);
       const payload = await response.json().catch(() => ({}));
+      const rawRulesPayload = rulesResponse
+        ? await rulesResponse.json().catch(() => ({}))
+        : null;
       if (!response.ok) {
         throw new Error(payload?.message || `HTTP ${response.status}`);
       }
       const normalizedCode = String(payload?.mdrmCode || mdrmCode || '').trim().toUpperCase();
+      currentOntologyInsightRuleMdrmCode = normalizedCode;
+      currentOntologyInsightRulePayload = rulesResponse?.ok
+        ? normalizeOntologyRuleSummaryPayload('mdrm', normalizedCode, rawRulesPayload)
+        : null;
       const summaryDefinition = String(payload?.definition || payload?.description || '').trim();
       const snapshotHtml = renderMdrmInsightSnapshot(payload);
       const associationsHtml = renderMdrmInsightAssociations(Array.isArray(payload?.associations) ? payload.associations : []);
       const timelineHtml = renderMdrmInsightTimeline(Array.isArray(payload?.timeline) ? payload.timeline : []);
+      const rulesCount = Number(currentOntologyInsightRulePayload?.totalRules || 0);
       const html = `
         <div class="ontology-insight-mdrm-shell">
           <section class="ontology-insight-card ontology-insight-mdrm-hero">
@@ -929,9 +1354,9 @@
                 data-analysis-title="Rule Based Lineage"
                 data-analysis-meta="${deps.escapeHtml(normalizedCode)}"
               >
-                <span class="ontology-insight-action-kicker">Graph Workspace</span>
+                <span class="ontology-insight-action-kicker">Analysis</span>
                 <span class="ontology-insight-action-label">Rule Based Lineage</span>
-                <span class="ontology-insight-action-copy">Open the lineage graph with rules, dependency details, and graph panes in a modal.</span>
+                <span class="ontology-insight-action-copy">Trace dependency flow</span>
               </button>
               <button
                 class="ontology-insight-action-btn secondary open-mdrm-analysis-btn"
@@ -940,9 +1365,18 @@
                 data-analysis-title="Related MDRM"
                 data-analysis-meta="${deps.escapeHtml(normalizedCode)}"
               >
-                <span class="ontology-insight-action-kicker">Graph Workspace</span>
+                <span class="ontology-insight-action-kicker">Analysis</span>
                 <span class="ontology-insight-action-label">Related MDRM</span>
-                <span class="ontology-insight-action-copy">Open the relationship graph in a modal without leaving the current report or search context.</span>
+                <span class="ontology-insight-action-copy">View relationship graph</span>
+              </button>
+              <button
+                class="ontology-insight-action-btn tertiary open-ontology-mdrm-rules-btn"
+                type="button"
+                ${rulesCount ? '' : 'disabled'}
+              >
+                <span class="ontology-insight-action-kicker">Data</span>
+                <span class="ontology-insight-action-label">Rules (${deps.escapeHtml(deps.formatCount(rulesCount))})</span>
+                <span class="ontology-insight-action-copy">Primary and referenced rules</span>
               </button>
             </div>
           </section>
@@ -2358,6 +2792,11 @@
       closeOntologyInsight,
       openOntologyInsight,
       openOntologyTimelineRunDetail,
+      refreshOntologyTimelineFieldChangesGridHeights,
+      applyOntologyTimelineFieldChangesGridTheme,
+      refreshOntologyInsightRulesGridHeights,
+      applyOntologyInsightRulesGridTheme,
+      openOntologyInsightRulesModal,
       loadOntologyReportInsight,
       loadOntologyMdrmInsight,
       selectedOntologyReportForManage,

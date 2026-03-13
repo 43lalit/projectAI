@@ -643,7 +643,7 @@ public class RulesService {
                             WHEN p_run_id IS NOT NULL AND ms_primary.mdrm_code IS NULL THEN 'MISSING_PRIMARY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.has_active = 0 AND ms_secondary.has_inactive = 1) > 0 THEN 'INACTIVE_DEPENDENCY'
-                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
+                            WHEN COUNT(*) FILTER (WHERE d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS lineage_status
                     FROM candidate_rules r
@@ -781,14 +781,14 @@ public class RulesService {
                         CASE
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive') > 0 THEN 'INACTIVE_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
-                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
+                            WHEN COUNT(*) FILTER (WHERE d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS target_status,
                         'MDRM_HAS_RULE' AS relation,
                         CASE
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive') > 0 THEN 'INACTIVE_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
-                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
+                            WHEN COUNT(*) FILTER (WHERE d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS edge_status
                     FROM relevant_rules rr
@@ -804,7 +804,7 @@ public class RulesService {
                         CASE
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive' THEN 'INACTIVE_DEPENDENCY'
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL THEN 'MISSING_DEPENDENCY'
-                            WHEN d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
+                            WHEN d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS source_status,
                         'mdrm:' || COALESCE(d.secondary_mdrm_code, d.secondary_token_raw, 'UNKNOWN') AS target_id,
@@ -815,7 +815,7 @@ public class RulesService {
                         CASE
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_status = 'Inactive' THEN 'INACTIVE_DEPENDENCY'
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL THEN 'MISSING_DEPENDENCY'
-                            WHEN d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
+                            WHEN d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS edge_status
                     FROM relevant_rules rr
@@ -893,7 +893,7 @@ public class RulesService {
                             WHEN p_run_id IS NOT NULL AND ms_primary.mdrm_code IS NULL THEN 'MISSING_PRIMARY'
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL THEN 'MISSING_DEPENDENCY'
                             WHEN d.secondary_mdrm_code IS NOT NULL AND ms_secondary.has_active = 0 AND ms_secondary.has_inactive = 1 THEN 'INACTIVE_DEPENDENCY'
-                            WHEN d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
+                            WHEN d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS lineage_status
                     FROM applicable_rules r
@@ -1153,6 +1153,15 @@ public class RulesService {
                     firstNonBlank(ruleExpression, "")
             ).getBytes(StandardCharsets.UTF_8));
 
+            String sanitizedSecondaryMdrms = sanitizeSecondaryMdrms(
+                    primaryMdrm,
+                    cellValue(row, headerMap, formatter, "secondary_mdrms"),
+                    rowHash,
+                    sourceSheet,
+                    rowNum + 1,
+                    warnings
+            );
+
             RuleImportRow importRow = new RuleImportRow(
                     sourceSheet,
                     rowNum + 1,
@@ -1171,7 +1180,7 @@ public class RulesService {
                     ruleText,
                     ruleExpression,
                     rowHash,
-                    cellValue(row, headerMap, formatter, "secondary_mdrms")
+                    sanitizedSecondaryMdrms
             );
             rules.add(importRow);
             if (detectedReportSeries == null) {
@@ -1274,6 +1283,48 @@ public class RulesService {
             warnings.add(new WarningImportRow(rule.rowHash(), rule.sourceSheet(), rule.sourceRowNumber(), "NO_DEPENDENCIES_DERIVED", "No secondary MDRMs were derived from expression text", rule.ruleExpression()));
         }
         return rows;
+    }
+
+    private String sanitizeSecondaryMdrms(
+            String primaryMdrm,
+            String rawSecondaryMdrms,
+            String ruleRowHash,
+            String sourceSheet,
+            int sourceRowNumber,
+            List<WarningImportRow> warnings
+    ) {
+        List<String> candidates = splitCandidates(rawSecondaryMdrms);
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        String normalizedPrimary = normalizeMdrmCode(primaryMdrm);
+        List<String> sanitized = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String candidate : candidates) {
+            String trimmed = blankToNull(candidate);
+            if (trimmed == null) {
+                continue;
+            }
+            String normalizedCandidate = normalizeMdrmCode(trimmed);
+            if (normalizedPrimary != null && Objects.equals(normalizedPrimary, normalizedCandidate)) {
+                warnings.add(new WarningImportRow(
+                        ruleRowHash,
+                        sourceSheet,
+                        sourceRowNumber,
+                        "SELF_REFERENCE_SKIPPED",
+                        "Primary MDRM was removed from the secondary MDRM column during rule parsing",
+                        trimmed
+                ));
+                continue;
+            }
+
+            String dedupeKey = firstNonBlank(normalizedCandidate, trimmed.toUpperCase(Locale.ROOT));
+            if (seen.add(dedupeKey)) {
+                sanitized.add(trimmed);
+            }
+        }
+        return sanitized.isEmpty() ? null : String.join(", ", sanitized);
     }
 
     private void appendDerivedDependency(
@@ -1552,7 +1603,7 @@ public class RulesService {
                     d.parse_confidence,
                     d.is_self_reference,
                     CASE
-                        WHEN d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
+                        WHEN d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH' THEN 'PARSE_WARNING'
                         WHEN ? IS NULL THEN 'VALID'
                         WHEN d.secondary_mdrm_code IS NOT NULL AND ms.status IS NULL THEN 'MISSING_DEPENDENCY'
                         WHEN d.secondary_mdrm_code IS NOT NULL AND ms.status = 'Inactive' THEN 'INACTIVE_DEPENDENCY'
@@ -1562,6 +1613,10 @@ public class RulesService {
                 FROM __RULE_DEPS__ d
                 LEFT JOIN mdrm_status ms ON ms.mdrm_code = normalize_mdrm_text(d.secondary_mdrm_code)
                 WHERE d.rule_id = ?
+                  AND NOT (
+                      d.secondary_mdrm_code IS NOT NULL
+                      AND normalize_mdrm_text(d.secondary_mdrm_code) = normalize_mdrm_text(d.primary_mdrm_code)
+                  )
                 ORDER BY d.dependency_id
                 """
                 .replace("__MASTER__", MdrmConstants.DEFAULT_MASTER_TABLE)
@@ -1666,7 +1721,7 @@ public class RulesService {
                             WHEN ? IS NOT NULL AND ms_primary.mdrm_code IS NULL THEN 'MISSING_PRIMARY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.has_active = 0 AND ms_secondary.has_inactive = 1) > 0 THEN 'INACTIVE_DEPENDENCY'
-                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
+                            WHEN COUNT(*) FILTER (WHERE d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS lineage_status
                     FROM candidate_rules r
@@ -1784,7 +1839,7 @@ public class RulesService {
                             WHEN ? IS NOT NULL AND ms_primary.mdrm_code IS NULL THEN 'MISSING_PRIMARY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.mdrm_code IS NULL) > 0 THEN 'MISSING_DEPENDENCY'
                             WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NOT NULL AND ms_secondary.has_active = 0 AND ms_secondary.has_inactive = 1) > 0 THEN 'INACTIVE_DEPENDENCY'
-                            WHEN COUNT(*) FILTER (WHERE d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
+                            WHEN COUNT(*) FILTER (WHERE d.dependency_id IS NOT NULL AND d.secondary_mdrm_code IS NULL AND UPPER(COALESCE(d.parse_confidence, '')) <> 'HIGH') > 0 THEN 'PARSE_WARNING'
                             ELSE 'VALID'
                         END AS lineage_status
                     FROM candidate_rules r

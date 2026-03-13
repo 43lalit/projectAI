@@ -1075,6 +1075,10 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   display: none;
 }
 
+body.mdrm-analysis-modal-mode .mdrm-analysis-tabbar {
+  display: none;
+}
+
 .mdrm-context-pane,
 .mdrm-analysis-pane {
   min-width: 0;
@@ -1853,12 +1857,17 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
 .expandable-text-toggle {
   border: 0;
   background: none;
+  appearance: none;
+  -webkit-appearance: none;
   color: var(--brand);
   padding: 0;
   margin-left: 6px;
   font-size: 0.78rem;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .expandable-text-toggle:hover {
@@ -1891,12 +1900,17 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
 .expandable-block-toggle {
   border: 0;
   background: none;
+  appearance: none;
+  -webkit-appearance: none;
   color: var(--brand);
   padding: 0;
   width: fit-content;
   font-size: 0.78rem;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .expandable-block-toggle:hover {
@@ -1939,7 +1953,7 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
 
 .report-kpis {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1950,11 +1964,36 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   padding: 8px 10px;
 }
 
+.report-view-tile {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+}
+
 #reportKpiRunsTile,
 #reportKpiCompareTile,
 #reportKpiActiveTile,
-#reportKpiNetChangeTile {
+#reportKpiNetChangeTile,
+#reportKpiRulesTile {
   cursor: pointer;
+}
+
+.report-view-tile:hover {
+  border-color: color-mix(in oklab, var(--brand) 34%, var(--line));
+  box-shadow: 0 8px 18px rgba(8, 18, 35, 0.08);
+}
+
+.report-view-tile.active {
+  border-color: color-mix(in oklab, var(--brand) 44%, var(--line));
+  background:
+    radial-gradient(circle at top right, color-mix(in oklab, var(--brand) 14%, transparent), transparent 48%),
+    linear-gradient(180deg, color-mix(in oklab, var(--brand) 7%, white), color-mix(in oklab, var(--panel) 96%, var(--panel-soft)));
+  box-shadow: 0 10px 22px rgba(8, 18, 35, 0.1);
+}
+
+.report-view-tile:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--brand) 56%, white);
+  outline-offset: 2px;
 }
 
 .kpi-tile-label {
@@ -2300,6 +2339,46 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   padding: 12px;
 }
 
+.timeline-field-changes-grid {
+  height: min(46vh, 380px);
+  min-height: 280px;
+  width: 100%;
+}
+
+.timeline-field-changes-grid .ag-cell {
+  display: flex;
+  align-items: flex-start;
+}
+
+.timeline-field-changes-grid .ag-cell-value {
+  width: 100%;
+}
+
+.ontology-mdrm-rules-grid {
+  height: min(68vh, 620px);
+  min-height: 320px;
+  width: 100%;
+}
+
+.ontology-mdrm-rules-grid .ag-cell,
+.ontology-mdrm-rules-grid .ag-cell-value {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.ontology-mdrm-rules-grid .ag-cell.ag-cell-auto-height {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.ontology-mdrm-rules-grid .ag-cell-wrapper {
+  align-items: flex-start;
+}
+
+.expandable-block-toggle[hidden] {
+  display: none !important;
+}
+
 .timeline-modal-card-title {
   font-size: 0.84rem;
   font-weight: 800;
@@ -2432,6 +2511,10 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   position: relative;
 }
 
+.related-graph-stage {
+  position: relative;
+}
+
 .lineage-analysis-graph-host,
 .relationship-shell-graph-only .relationship-graph-host {
   min-height: 620px;
@@ -2451,6 +2534,17 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   box-shadow: 0 14px 28px rgba(8, 18, 35, 0.18);
   padding: 12px;
   z-index: 2;
+}
+
+.related-graph-overlay {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: min(340px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow: auto;
+  z-index: 2;
+  box-shadow: 0 18px 42px color-mix(in oklab, var(--text) 12%, transparent);
 }
 
 .lineage-overlay-card {
@@ -3009,6 +3103,11 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   display: none;
 }
 
+.mdrm-analysis-workspace.related-tab-active .mdrm-analysis-detail-pane,
+.mdrm-analysis-workspace.related-tab-active #ruleLineageRulesHandle {
+  display: none;
+}
+
 #ruleLineageWorkspace:fullscreen {
   padding: 14px;
   background: var(--panel);
@@ -3051,6 +3150,16 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
 .grid-clamp-text .expandable-block-toggle {
   font-size: 0.68rem;
   line-height: 1;
+}
+
+.mdrm-ag-grid button.ontology-ref-link,
+.mdrm-ag-grid .expandable-text-toggle,
+.mdrm-ag-grid .expandable-block-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .related-detail-title {
@@ -3508,35 +3617,50 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
 
 .ontology-insight-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 .ontology-insight-action-btn {
   border: 1px solid color-mix(in oklab, var(--line) 74%, var(--brand));
-  border-radius: 16px;
-  background: linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 84%, white), color-mix(in oklab, var(--panel) 90%, var(--panel-soft)));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 88%, white), color-mix(in oklab, var(--panel) 92%, var(--panel-soft)));
   color: var(--text);
-  padding: 14px;
+  padding: 11px 12px;
   display: grid;
-  gap: 4px;
+  gap: 2px;
   text-align: left;
-  box-shadow: 0 8px 20px rgba(8, 18, 35, 0.08);
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  min-height: 88px;
+  box-shadow: 0 6px 16px rgba(8, 18, 35, 0.06);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .ontology-insight-action-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(8, 18, 35, 0.12);
+  box-shadow: 0 10px 22px rgba(8, 18, 35, 0.1);
 }
 
 .ontology-insight-action-btn.primary {
-  background: linear-gradient(180deg, color-mix(in oklab, var(--brand) 16%, white), color-mix(in oklab, var(--brand) 8%, var(--panel)));
+  background:
+    radial-gradient(circle at top right, color-mix(in oklab, var(--brand) 16%, transparent), transparent 48%),
+    linear-gradient(180deg, color-mix(in oklab, var(--brand) 11%, white), color-mix(in oklab, var(--brand) 5%, var(--panel)));
   border-color: color-mix(in oklab, var(--brand) 44%, var(--line));
 }
 
 .ontology-insight-action-btn.secondary {
-  background: linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 76%, white), color-mix(in oklab, var(--panel) 94%, var(--panel-soft)));
+  background:
+    radial-gradient(circle at top right, color-mix(in oklab, var(--brand) 10%, transparent), transparent 48%),
+    linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 80%, white), color-mix(in oklab, var(--panel) 95%, var(--panel-soft)));
+}
+
+.ontology-insight-action-btn.tertiary {
+  background:
+    radial-gradient(circle at top right, color-mix(in oklab, var(--ok) 12%, transparent), transparent 52%),
+    linear-gradient(180deg, color-mix(in oklab, var(--panel-soft) 90%, white), color-mix(in oklab, var(--panel) 94%, var(--panel-soft)));
+  border-color: color-mix(in oklab, var(--ok) 30%, var(--line));
 }
 
 .ontology-insight-action-btn:focus-visible {
@@ -3544,24 +3668,65 @@ body.mdrm-analysis-modal-mode #ruleLineageFullscreenBtn {
   outline-offset: 2px;
 }
 
+.ontology-insight-action-btn:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .ontology-insight-action-kicker {
-  font-size: 0.68rem;
+  font-size: 0.63rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .ontology-insight-action-label {
-  font-size: 0.96rem;
+  font-size: 0.86rem;
   font-weight: 800;
   color: var(--text);
+  line-height: 1.25;
 }
 
 .ontology-insight-action-copy {
-  font-size: 0.76rem;
-  line-height: 1.35;
+  font-size: 0.71rem;
+  line-height: 1.3;
   color: var(--muted);
+}
+
+.ontology-rules-modal-tabbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ontology-rules-modal-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--panel-soft) 82%, var(--panel));
+  color: var(--muted);
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.ontology-rules-modal-tab.active {
+  background: color-mix(in oklab, var(--brand) 16%, var(--panel));
+  border-color: color-mix(in oklab, var(--brand) 46%, var(--line));
+  color: var(--text);
+}
+
+.ontology-rules-modal-tab:hover {
+  color: var(--text);
+  border-color: color-mix(in oklab, var(--brand) 34%, var(--line));
+}
+
+.ontology-rules-modal-tab:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--brand) 56%, white);
+  outline-offset: 2px;
 }
 
 .mdrm-analysis-modal-dialog {
@@ -4254,6 +4419,13 @@ body :where(
     width: 100%;
     max-height: none;
     margin-bottom: 10px;
+  }
+
+  .related-graph-overlay {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin-top: 12px;
   }
 
   .timeline-summary-strip,

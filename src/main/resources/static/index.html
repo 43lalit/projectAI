@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MDRM Search & Discovery Console</title>
+  <link rel="icon" type="image/svg+xml" href="/brand/logo-networked-ledger.svg">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -34,7 +35,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.css">
-  <link rel="stylesheet" href="/css/mdrm-console.css">
+  <link rel="stylesheet" href="/css/mdrm-console.css?v=20260313c">
 </head>
 <body class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100">
   <main class="shell !px-4 md:!px-6 !py-5">
@@ -383,42 +384,38 @@
               </div>
             </div>
             <div class="report-kpis">
-              <div id="reportKpiRunsTile" class="kpi-tile">
+              <button id="reportKpiRunsTile" class="kpi-tile report-view-tile active" type="button" data-report-tab-target="timelineTab" aria-selected="true">
                 <div class="kpi-tile-label">Runs</div>
                 <div id="reportKpiRuns" class="kpi-tile-value">-</div>
-              </div>
-              <div id="reportKpiCompareTile" class="kpi-tile">
+              </button>
+              <button id="reportKpiCompareTile" class="kpi-tile report-view-tile" type="button" data-report-tab-target="compareTab" aria-selected="false">
                 <div class="kpi-tile-label">Run Compare</div>
                 <div id="reportKpiCompare" class="kpi-tile-value">View</div>
-              </div>
+              </button>
               <div class="kpi-tile">
                 <div class="kpi-tile-label">Latest Run</div>
                 <div id="reportKpiLatestRun" class="kpi-tile-value">-</div>
               </div>
-              <div id="reportKpiActiveTile" class="kpi-tile">
+              <button id="reportKpiActiveTile" class="kpi-tile report-view-tile" type="button" data-report-tab-target="activeMdrmTab" aria-selected="false">
                 <div class="kpi-tile-label">Active MDRMs</div>
                 <div id="reportKpiActive" class="kpi-tile-value">-</div>
-              </div>
-              <div id="reportKpiNetChangeTile" class="kpi-tile">
+              </button>
+              <button id="reportKpiNetChangeTile" class="kpi-tile report-view-tile" type="button" data-report-tab-target="netChangeTab" aria-selected="false">
                 <div class="kpi-tile-label">Net Change</div>
                 <div id="reportKpiNetChange" class="kpi-tile-value">-</div>
-              </div>
+              </button>
+              <button id="reportKpiRulesTile" class="kpi-tile report-view-tile" type="button" data-report-tab-target="rulesTab" aria-selected="false">
+                <div class="kpi-tile-label">Rules</div>
+                <div id="reportKpiRules" class="kpi-tile-value">-</div>
+              </button>
             </div>
           </div>
 
-          <div class="tab-row mt-3" role="tablist" aria-label="Report detail tabs">
-            <button id="tabTimelineBtn" class="tab-link active" type="button" data-tab="timelineTab" aria-selected="true">Timeline</button>
-            <button id="tabCompareBtn" class="tab-link" type="button" data-tab="compareTab" aria-selected="false">Compare</button>
-            <button id="tabActiveBtn" class="tab-link" type="button" data-tab="activeMdrmTab" aria-selected="false">Active MDRMs</button>
-            <button id="tabNetChangeBtn" class="tab-link" type="button" data-tab="netChangeTab" aria-selected="false">Net Change</button>
-            <button id="tabRulesBtn" class="tab-link" type="button" data-tab="rulesTab" aria-selected="false">Rules</button>
-          </div>
-
-          <section id="timelineTab" class="tab-panel active" role="tabpanel" aria-labelledby="tabTimelineBtn">
+          <section id="timelineTab" class="tab-panel active" role="tabpanel" aria-labelledby="reportKpiRunsTile">
             <div id="summaryTableContainer" class="table-shell card-shell"></div>
           </section>
 
-          <section id="compareTab" class="tab-panel" role="tabpanel" aria-labelledby="tabCompareBtn">
+          <section id="compareTab" class="tab-panel" role="tabpanel" aria-labelledby="reportKpiCompareTile">
             <div class="card-shell p-3">
               <div class="row g-2">
                 <div class="col-md-6">
@@ -458,14 +455,10 @@
             </div>
           </section>
 
-          <section id="rulesTab" class="tab-panel" role="tabpanel" aria-labelledby="tabRulesBtn">
+          <section id="rulesTab" class="tab-panel" role="tabpanel" aria-labelledby="reportKpiRulesTile">
             <div class="card-shell p-3">
               <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                 <div id="reportRulesMeta" class="small text-muted">Associated rules for the selected report.</div>
-                <label class="small text-muted d-flex align-items-center gap-2 mb-0">
-                  <input id="reportRulesDiscrepancyOnly" type="checkbox">
-                  <span>Only discrepancies</span>
-                </label>
               </div>
               <div id="reportRulesContainer" class="table-shell"></div>
             </div>
@@ -573,6 +566,29 @@
           </div>
         </div>
         <div class="modal-body" id="ontologyTimelineRunModalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="ontologyMdrmRulesModal" tabindex="-1" aria-labelledby="ontologyMdrmRulesModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header app-modal-header">
+          <div>
+            <h3 class="modal-title h5 mb-0" id="ontologyMdrmRulesModalTitle">Rules</h3>
+          </div>
+          <div class="app-modal-header-actions">
+            <button type="button" class="app-modal-header-btn dismiss" data-bs-dismiss="modal" aria-label="Close modal">Close</button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <div class="ontology-rules-modal-tabbar" role="tablist" aria-label="Rule grouping">
+            <button id="ontologyMdrmRulesPrimaryTab" class="ontology-rules-modal-tab active" type="button" aria-selected="true">Primary (0)</button>
+            <button id="ontologyMdrmRulesSecondaryTab" class="ontology-rules-modal-tab" type="button" aria-selected="false">Referenced (0)</button>
+          </div>
+          <div id="ontologyMdrmRulesSectionMeta" class="small text-muted mt-2 mb-2">Rules where this MDRM is primary.</div>
+          <div id="ontologyMdrmRulesGrid" class="mdrm-ag-grid ontology-mdrm-rules-grid ag-theme-quartz"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -701,13 +717,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
-  <script src="/js/index-shell-modules.js"></script>
-  <script src="/js/index-auth-bookmarks.js"></script>
-  <script src="/js/index-discovery.js"></script>
-  <script src="/js/index-reporting.js"></script>
-  <script src="/js/index-load.js"></script>
-  <script src="/js/index-rules.js"></script>
-  <script src="/js/index-ontology.js"></script>
+  <script src="/js/index-shell-modules.js?v=20260313c"></script>
+  <script src="/js/index-auth-bookmarks.js?v=20260313c"></script>
+  <script src="/js/index-discovery.js?v=20260313c"></script>
+  <script src="/js/index-reporting.js?v=20260313c"></script>
+  <script src="/js/index-load.js?v=20260313c"></script>
+  <script src="/js/index-rules.js?v=20260313c"></script>
+  <script src="/js/index-ontology.js?v=20260313c"></script>
   <script>
     const menuButtons = Array.from(document.querySelectorAll('.menu-link'));
     const views = Array.from(document.querySelectorAll('.view'));
@@ -912,9 +928,12 @@
     const reportKpiActive = document.getElementById('reportKpiActive');
     const reportKpiNetChange = document.getElementById('reportKpiNetChange');
     const reportKpiNetChangeTile = document.getElementById('reportKpiNetChangeTile');
+    const reportKpiRules = document.getElementById('reportKpiRules');
+    const reportKpiRulesTile = document.getElementById('reportKpiRulesTile');
+    const reportViewTiles = Array.from(document.querySelectorAll('.report-view-tile'));
+    const reportTabPanels = Array.from(document.querySelectorAll('#view-reporting .tab-panel'));
     const reportRulesMeta = document.getElementById('reportRulesMeta');
     const reportRulesContainer = document.getElementById('reportRulesContainer');
-    const reportRulesDiscrepancyOnly = document.getElementById('reportRulesDiscrepancyOnly');
     const ontologyWorkspace = document.getElementById('ontologyWorkspace');
     const ontologyTopPane = document.getElementById('ontologyTopPane');
     const ontologyResizeHandle = document.getElementById('ontologyResizeHandle');
@@ -959,6 +978,12 @@
     const ontologyTimelineRunModalTitle = document.getElementById('ontologyTimelineRunModalTitle');
     const ontologyTimelineRunModalMeta = document.getElementById('ontologyTimelineRunModalMeta');
     const ontologyTimelineRunModalBody = document.getElementById('ontologyTimelineRunModalBody');
+    const ontologyMdrmRulesModalEl = document.getElementById('ontologyMdrmRulesModal');
+    const ontologyMdrmRulesModalTitle = document.getElementById('ontologyMdrmRulesModalTitle');
+    const ontologyMdrmRulesPrimaryTab = document.getElementById('ontologyMdrmRulesPrimaryTab');
+    const ontologyMdrmRulesSecondaryTab = document.getElementById('ontologyMdrmRulesSecondaryTab');
+    const ontologyMdrmRulesSectionMeta = document.getElementById('ontologyMdrmRulesSectionMeta');
+    const ontologyMdrmRulesGrid = document.getElementById('ontologyMdrmRulesGrid');
     const mdrmAnalysisModalEl = document.getElementById('mdrmAnalysisModal');
     const mdrmAnalysisModalTitle = document.getElementById('mdrmAnalysisModalTitle');
     const mdrmAnalysisModalMeta = document.getElementById('mdrmAnalysisModalMeta');
@@ -1342,10 +1367,17 @@
             reportHeaderStatusPill,
             reportEmptyState,
             reportMetadataRefreshBtn,
+            reportKpiRunsTile,
+            reportKpiCompareTile,
             reportKpiRuns,
             reportKpiLatestRun,
+            reportKpiActiveTile,
             reportKpiActive,
+            reportKpiNetChangeTile,
             reportKpiNetChange,
+            reportKpiRulesTile,
+            reportKpiRules,
+            reportViewTiles,
             activeMdrmQuickFilterInput,
             activeMdrmGrid,
             netChangeInfoLabel,
@@ -1365,6 +1397,7 @@
             profileMenu,
             profileMenuBtn
           },
+          syncReportTabUi: targetTabId => syncReportTabUi(targetTabId),
           getFormsLoaded: () => formsLoaded,
           setFormsLoaded: value => { formsLoaded = value; },
           getAllForms: () => allForms,
@@ -1449,13 +1482,14 @@
             discoveryRuleResults,
             discoveryRuleMeta,
             discoveryRuleTable,
+            reportKpiRules,
             reportRulesMeta,
-            reportRulesContainer,
-            reportRulesDiscrepancyOnly
+            reportRulesContainer
           },
           isAdminUser: () => isAdminUser(),
           apiFetch: (url, options) => apiFetch(url, options),
           appendRunContext: url => appendRunContext(url),
+          getSelectedReportingForm: () => selectedReportingForm,
           escapeHtml: value => escapeHtml(value),
           renderExpandableText: (value, options) => renderExpandableText(value, options),
           buildMdrmProfileUrl: mdrmCode => buildMdrmProfileUrl(mdrmCode),
@@ -1505,6 +1539,12 @@
             ontologyTimelineRunModalTitle,
             ontologyTimelineRunModalMeta,
             ontologyTimelineRunModalBody,
+            ontologyMdrmRulesModalEl,
+            ontologyMdrmRulesModalTitle,
+            ontologyMdrmRulesPrimaryTab,
+            ontologyMdrmRulesSecondaryTab,
+            ontologyMdrmRulesSectionMeta,
+            ontologyMdrmRulesGrid,
             ontologyManageModalEl,
             ontologyManageOperation,
             ontologyManageReportInput,
@@ -1719,7 +1759,7 @@
         <span class="expandable-text" data-expanded="false">
           <span class="expandable-text-collapsed expandable-text-content">${escapeHtml(preview)}</span>
           <span class="expandable-text-full expandable-text-content">${escapeHtml(text)}</span>
-          <button class="expandable-text-toggle" type="button" aria-expanded="false">Read more</button>
+          <span class="expandable-text-toggle" role="button" tabindex="0" aria-expanded="false">Read more</span>
         </span>
       `;
     }
@@ -1862,6 +1902,12 @@
       applyActiveMdrmGridTheme(nextTheme);
       applyNetChangeGridTheme(nextTheme);
       applyReportRulesGridTheme(nextTheme);
+      if (ontologyManager && typeof ontologyManager.applyOntologyTimelineFieldChangesGridTheme === 'function') {
+        ontologyManager.applyOntologyTimelineFieldChangesGridTheme(nextTheme);
+      }
+      if (ontologyManager && typeof ontologyManager.applyOntologyInsightRulesGridTheme === 'function') {
+        ontologyManager.applyOntologyInsightRulesGridTheme(nextTheme);
+      }
       localStorage.setItem(THEME_KEY, nextTheme);
       if (themeIconBtn) {
         themeIconBtn.textContent = nextTheme === 'dark' ? '☀' : '☾';
@@ -2882,9 +2928,20 @@
     }
 
     function switchReportTab(targetTabId) {
+      syncReportTabUi(targetTabId);
       if (reportingManager) {
         reportingManager.switchReportTab(targetTabId);
       }
+    }
+
+    function syncReportTabUi(targetTabId) {
+      const normalizedTarget = String(targetTabId || '').trim();
+      reportTabPanels.forEach(panel => panel.classList.toggle('active', !!normalizedTarget && panel.id === normalizedTarget));
+      reportViewTiles.forEach(tile => {
+        const active = tile.dataset.reportTabTarget === normalizedTarget;
+        tile.classList.toggle('active', active);
+        tile.setAttribute('aria-selected', String(active));
+      });
     }
 
     async function runLoad() {
@@ -2924,11 +2981,17 @@
     }
 
     async function loadTable(reportingForm) {
+      const tasks = [];
       if (reportingManager) {
-        await reportingManager.loadTable(reportingForm);
+        tasks.push(reportingManager.loadTable(reportingForm));
       }
       if (rulesManager) {
-        await rulesManager.loadReportRules(reportingForm);
+        tasks.push(rulesManager.loadReportRules(reportingForm));
+      }
+      const results = await Promise.allSettled(tasks);
+      const ruleResult = results[results.length - 1];
+      if (reportKpiRules && rulesManager && ruleResult?.status === 'fulfilled' && ruleResult.value && String(selectedReportingForm || '').trim() === String(reportingForm || '').trim()) {
+        reportKpiRules.textContent = formatCount(Number(ruleResult.value.totalRules || 0));
       }
     }
 
@@ -2954,14 +3017,6 @@
     }
     uploadFileBtn.addEventListener('click', uploadFile);
     uploadFileInput.addEventListener('change', updateLoadButtonStates);
-    if (reportRulesDiscrepancyOnly) {
-      reportRulesDiscrepancyOnly.addEventListener('change', () => {
-        if (rulesManager) {
-          rulesManager.refreshReportRulesFilter();
-        }
-      });
-    }
-
     reportSearchInput.addEventListener('input', filterAndRenderReportList);
     reportSearchInput.addEventListener('keydown', event => {
       if (event.key !== 'Enter') {
@@ -3174,31 +3229,25 @@
         });
       });
     }
-    if (reportKpiRunsTile) {
-      reportKpiRunsTile.addEventListener('click', () => {
-        switchReportTab('timelineTab');
-      });
-    }
-    if (reportKpiCompareTile) {
-      reportKpiCompareTile.addEventListener('click', () => {
-        switchReportTab('compareTab');
-      });
-    }
-    if (reportKpiActiveTile) {
-      reportKpiActiveTile.addEventListener('click', () => {
-        switchReportTab('activeMdrmTab');
-        renderActiveMdrmPanel();
-      });
-    }
-    if (reportKpiNetChangeTile) {
-      reportKpiNetChangeTile.addEventListener('click', async () => {
-        if (!latestRunIdForSelectedReport) {
+    reportViewTiles.forEach(tile => {
+      tile.addEventListener('click', async () => {
+        const targetTab = String(tile.dataset.reportTabTarget || '').trim();
+        if (!targetTab) {
           return;
         }
-        switchReportTab('netChangeTab');
-        await renderNetChangePanel();
+        if (targetTab === 'netChangeTab' && !latestRunIdForSelectedReport) {
+          return;
+        }
+        switchReportTab(targetTab);
+        if (targetTab === 'activeMdrmTab') {
+          renderActiveMdrmPanel();
+          return;
+        }
+        if (targetTab === 'netChangeTab') {
+          await renderNetChangePanel();
+        }
       });
-    }
+    });
     if (activeMdrmQuickFilterInput) {
       activeMdrmQuickFilterInput.addEventListener('input', () => {
         if (!activeMdrmGridApi) {
@@ -3226,13 +3275,6 @@
     if (compareRunBSelect) {
       compareRunBSelect.addEventListener('change', renderRunCompare);
     }
-    tabButtons.forEach(button => {
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        switchReportTab(button.dataset.tab);
-      });
-    });
-
     reportListContainer.addEventListener('click', event => {
       if (leftNavMode.value !== 'reports') {
         return;
@@ -3535,6 +3577,12 @@
         if (rulesManager) {
           rulesManager.refreshReportRulesGridHeights();
         }
+        if (ontologyManager && typeof ontologyManager.refreshOntologyTimelineFieldChangesGridHeights === 'function') {
+          ontologyManager.refreshOntologyTimelineFieldChangesGridHeights();
+        }
+        if (ontologyManager && typeof ontologyManager.refreshOntologyInsightRulesGridHeights === 'function') {
+          ontologyManager.refreshOntologyInsightRulesGridHeights();
+        }
         return;
       }
 
@@ -3556,6 +3604,12 @@
         });
         if (rulesManager) {
           rulesManager.refreshReportRulesGridHeights();
+        }
+        if (ontologyManager && typeof ontologyManager.refreshOntologyTimelineFieldChangesGridHeights === 'function') {
+          ontologyManager.refreshOntologyTimelineFieldChangesGridHeights();
+        }
+        if (ontologyManager && typeof ontologyManager.refreshOntologyInsightRulesGridHeights === 'function') {
+          ontologyManager.refreshOntologyInsightRulesGridHeights();
         }
         applyReportRulesGridTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
         return;
@@ -3591,6 +3645,15 @@
         return;
       }
 
+      const ontologyRulesLaunchBtn = event.target.closest('.open-ontology-mdrm-rules-btn');
+      if (ontologyRulesLaunchBtn) {
+        event.preventDefault();
+        if (ontologyManager && typeof ontologyManager.openOntologyInsightRulesModal === 'function') {
+          ontologyManager.openOntologyInsightRulesModal();
+        }
+        return;
+      }
+
       const mdrmLink = event.target.closest('a[href*=\"/mdrm.html?mdrm=\"]');
       if (!mdrmLink) {
         return;
@@ -3611,6 +3674,18 @@
       } catch (error) {
         // noop
       }
+    });
+
+    document.addEventListener('keydown', event => {
+      const toggle = event.target.closest('.expandable-text-toggle, .expandable-block-toggle');
+      if (!toggle) {
+        return;
+      }
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      event.preventDefault();
+      toggle.click();
     });
 
     bookmarkItemsContainer.addEventListener('click', event => {

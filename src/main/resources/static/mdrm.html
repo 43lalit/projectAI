@@ -324,6 +324,8 @@
     let currentRelatedGroupedReports = new Map();
     let currentTimelineRows = [];
     let currentTimelineModal = null;
+    let timelineFieldChangesGridApi = null;
+    let timelineFieldChangesGridHost = null;
     let analysisWorkspaceInitialized = false;
     const lineageRulePayloadCache = new Map();
     const lineageRuleDetailCache = new Map();
@@ -352,7 +354,7 @@
         <span class="expandable-text" data-expanded="false">
           <span class="expandable-text-collapsed expandable-text-content">${escapeHtml(preview)}</span>
           <span class="expandable-text-full expandable-text-content">${escapeHtml(text)}</span>
-          <button class="expandable-text-toggle" type="button" aria-expanded="false">Read more</button>
+          <span class="expandable-text-toggle" role="button" tabindex="0" aria-expanded="false">Read more</span>
         </span>
       `;
     }
@@ -371,7 +373,7 @@
       return `
         <div class="expandable-block" data-expanded="false" style="--expandable-line-clamp:${lineClamp};">
           <div class="expandable-block-content">${escapeHtml(text)}</div>
-          <button class="expandable-block-toggle" type="button" aria-expanded="false">Read more</button>
+          <span class="expandable-block-toggle" role="button" tabindex="0" aria-expanded="false">Read more</span>
         </div>
       `;
     }
@@ -431,6 +433,7 @@
         themeIconBtn.setAttribute('aria-label', nextTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
       }
       syncRuleLineageGridTheme();
+      syncTimelineFieldChangesGridTheme();
     }
 
     function initTheme() {
@@ -1023,11 +1026,157 @@
       return currentTimelineModal;
     }
 
+    function destroyTimelineFieldChangesGrid() {
+      if (timelineFieldChangesGridApi && typeof timelineFieldChangesGridApi.destroy === 'function') {
+        timelineFieldChangesGridApi.destroy();
+      }
+      timelineFieldChangesGridApi = null;
+      timelineFieldChangesGridHost = null;
+    }
+
+    function refreshTimelineFieldChangesGridHeights() {
+      if (timelineFieldChangesGridApi && typeof timelineFieldChangesGridApi.onRowHeightChanged === 'function') {
+        timelineFieldChangesGridApi.onRowHeightChanged();
+      }
+    }
+
+    function syncTimelineFieldChangesGridTheme() {
+      const gridEl = timelineFieldChangesGridHost || document.getElementById('timelineFieldChangesGrid');
+      if (!gridEl) {
+        return;
+      }
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      gridEl.classList.toggle('ag-theme-quartz-dark', dark);
+      gridEl.classList.toggle('ag-theme-quartz', !dark);
+      if (timelineFieldChangesGridApi) {
+        timelineFieldChangesGridApi.refreshHeader();
+        timelineFieldChangesGridApi.refreshCells({ force: true });
+      }
+    }
+
+    function createTimelineFieldValueCellRenderer(value, options = {}) {
+      const text = String(value ?? '').trim();
+      const emptyValue = Object.prototype.hasOwnProperty.call(options, 'emptyValue') ? options.emptyValue : '-';
+      const lineClamp = Math.max(1, Number(options.lineClamp || 2));
+      const content = document.createElement('div');
+      content.className = 'grid-clamp-text';
+      if (!text) {
+        const fallback = document.createElement('span');
+        fallback.className = 'grid-clamp-fallback';
+        fallback.textContent = emptyValue;
+        content.appendChild(fallback);
+        return content;
+      }
+
+      const block = document.createElement('div');
+      block.className = 'expandable-block';
+      block.setAttribute('data-expanded', 'false');
+      block.style.setProperty('--expandable-line-clamp', String(lineClamp));
+
+      const body = document.createElement('div');
+      body.className = 'expandable-block-content';
+      body.textContent = text;
+
+      const toggle = document.createElement('span');
+      toggle.className = 'expandable-block-toggle';
+      toggle.setAttribute('role', 'button');
+      toggle.tabIndex = 0;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = 'Read more';
+      toggle.hidden = true;
+
+      block.appendChild(body);
+      block.appendChild(toggle);
+      content.appendChild(block);
+
+      const syncOverflow = () => {
+        const isOverflowing = body.scrollHeight > body.clientHeight + 1;
+        toggle.hidden = !isOverflowing;
+      };
+      requestAnimationFrame(syncOverflow);
+      setTimeout(syncOverflow, 0);
+
+      return content;
+    }
+
+    function ensureTimelineFieldChangesGrid(host) {
+      if (!host || !window.agGrid) {
+        return null;
+      }
+      if (timelineFieldChangesGridApi && (!timelineFieldChangesGridHost || timelineFieldChangesGridHost !== host || !timelineFieldChangesGridHost.isConnected)) {
+        destroyTimelineFieldChangesGrid();
+      }
+      if (timelineFieldChangesGridApi) {
+        syncTimelineFieldChangesGridTheme();
+        return timelineFieldChangesGridApi;
+      }
+
+      timelineFieldChangesGridHost = host;
+      syncTimelineFieldChangesGridTheme();
+      timelineFieldChangesGridApi = agGrid.createGrid(host, {
+        defaultColDef: {
+          sortable: true,
+          filter: true,
+          resizable: true,
+          floatingFilter: false,
+          flex: 1,
+          minWidth: 140,
+          wrapText: true,
+          autoHeight: true,
+          tooltipValueGetter: params => {
+            const fieldValue = params?.value;
+            return fieldValue == null ? '' : String(fieldValue);
+          }
+        },
+        suppressCellFocus: true,
+        animateRows: true,
+        rowHeight: 34,
+        headerHeight: 34,
+        tooltipShowDelay: 150,
+        tooltipMouseTrack: true,
+        overlayNoRowsTemplate: '<span class="ag-overlay-loading-center">No field changes were recorded for this run.</span>',
+        onFirstDataRendered: params => {
+          if (params?.api) {
+            params.api.sizeColumnsToFit();
+          }
+        },
+        columnDefs: [
+          {
+            headerName: 'Field',
+            field: 'fieldName',
+            minWidth: 180,
+            maxWidth: 240,
+            flex: 0.8,
+            pinned: 'left'
+          },
+          {
+            headerName: 'Previous',
+            field: 'previousValue',
+            minWidth: 260,
+            flex: 1.2,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => createTimelineFieldValueCellRenderer(params.value, { lineClamp: 2 })
+          },
+          {
+            headerName: 'Current',
+            field: 'currentValue',
+            minWidth: 260,
+            flex: 1.2,
+            cellClass: 'ag-cell-clamped-text',
+            cellRenderer: params => createTimelineFieldValueCellRenderer(params.value, { lineClamp: 2 })
+          }
+        ]
+      });
+      return timelineFieldChangesGridApi;
+    }
+
     function showTimelineRunDetail(index) {
       const row = currentTimelineRows[Number(index)];
       if (!row || !timelineRunModalTitle || !timelineRunModalMeta || !timelineRunModalBody) {
         return;
       }
+      destroyTimelineFieldChangesGrid();
+      let fieldChangesGridApi = null;
       const changeRows = Array.isArray(row.fieldChanges) ? row.fieldChanges : [];
       const changedCount = Number(row.changedFieldCount || 0);
       timelineRunModalTitle.textContent = `Run ${row.runId || '-'}`;
@@ -1052,30 +1201,29 @@
         <div class="timeline-modal-card mt-3">
           <div class="timeline-modal-card-title">Field changes</div>
           ${changeRows.length ? `
-            <div class="timeline-change-table-wrap mt-2">
-              <table class="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Previous</th>
-                    <th>Current</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${changeRows.map(change => `
-                    <tr>
-                      <td>${escapeHtml(change.fieldName || '-')}</td>
-                      <td>${renderExpandableText(change.previousValue || '-', { maxLength: 140 })}</td>
-                      <td>${renderExpandableText(change.currentValue || '-', { maxLength: 140 })}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
+            <div id="timelineFieldChangesGrid" class="mdrm-ag-grid timeline-field-changes-grid ag-theme-quartz mt-2"></div>
           ` : '<div class="text-muted small mt-2">No field changes were recorded for this run.</div>'}
         </div>
       `;
+      if (changeRows.length) {
+        const gridHost = document.getElementById('timelineFieldChangesGrid');
+        fieldChangesGridApi = ensureTimelineFieldChangesGrid(gridHost);
+        if (fieldChangesGridApi) {
+          fieldChangesGridApi.setGridOption('rowData', changeRows.map(change => ({
+            fieldName: String(change?.fieldName || '-'),
+            previousValue: String(change?.previousValue || '-'),
+            currentValue: String(change?.currentValue || '-')
+          })));
+        }
+      }
       ensureTimelineModal()?.show();
+      if (fieldChangesGridApi) {
+        setTimeout(() => {
+          fieldChangesGridApi.sizeColumnsToFit();
+          fieldChangesGridApi.refreshCells({ force: true });
+          fieldChangesGridApi.onRowHeightChanged();
+        }, 120);
+      }
     }
 
     function renderTimeline(rows) {
@@ -1475,6 +1623,14 @@
       }
     }
 
+    function setRelatedGraphOverlay(bodyMarkup) {
+      const overlayEl = document.getElementById('relatedGraphOverlay');
+      if (!overlayEl) {
+        return;
+      }
+      overlayEl.innerHTML = bodyMarkup || '<div class="text-muted small">Select a related MDRM node to view details.</div>';
+    }
+
     function setLineageNodeOverlay(bodyMarkup) {
       const overlay = document.getElementById('ruleLineageNodeOverlay');
       if (!overlay) {
@@ -1753,6 +1909,7 @@
       }
       const toggleDetailsBtn = document.getElementById('ruleLineageToggleDetailsBtn');
       if (toggleDetailsBtn) {
+        toggleDetailsBtn.style.display = currentAnalysisTab === 'related' ? 'none' : '';
         toggleDetailsBtn.textContent = currentLineageRulesCollapsed ? 'Show Details' : 'Hide Details';
         toggleDetailsBtn.setAttribute('aria-pressed', currentLineageRulesCollapsed ? 'true' : 'false');
       }
@@ -1768,6 +1925,7 @@
       const safeRulesHeight = Math.max(180, Math.min(currentLineageRulesHeight || 260, 420));
       workspace.style.setProperty('--lineage-rules-height', `${safeRulesHeight}px`);
       workspace.classList.toggle('rules-collapsed', !!currentLineageRulesCollapsed);
+      workspace.classList.toggle('related-tab-active', currentAnalysisTab === 'related');
     }
 
     function toggleLineageRulesPanel() {
@@ -2230,81 +2388,54 @@
         return;
       }
       if (!node) {
-        setAnalysisDetailPane('Selection details', 'Select a related MDRM node to view details.', '<div class="text-muted small p-3">Select a related MDRM node to view details.</div>');
+        setRelatedGraphOverlay('<div class="text-muted small">Select a related MDRM node to view details.</div>');
         return;
       }
       if (node.type === 'center') {
-        setAnalysisDetailPane(
-          `Related MDRM view for ${profile?.mdrmCode || '-'}`,
-          `Reports=${profile?.relatedReportCount || 0} | related MDRMs=${profile?.relatedMdrmCount || 0}`,
-          `
-            <div class="mdrm-analysis-detail-grid single-column">
-              <section class="mdrm-selection-summary-card">
-                <div class="related-detail-card">
-                  <div class="related-detail-title">Selected MDRM</div>
-                  <div class="related-detail-row"><span class="k">MDRM</span><span class="mono">${escapeHtml(profile?.mdrmCode || '-')}</span></div>
-                  <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(profile?.latestStatus || '-')}</span></div>
-                  <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(profile?.itemType || '-')}</span></div>
-                  <div class="related-detail-row"><span class="k">Reports</span><span>${escapeHtml(profile?.relatedReportCount || 0)}</span></div>
-                  <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(profile?.relatedMdrmCount || 0)}</span></div>
-                </div>
-              </section>
-            </div>
-          `
-        );
+        setRelatedGraphOverlay(`
+          <div class="related-detail-card">
+            <div class="related-detail-row"><span class="k">MDRM</span><span class="mono">${escapeHtml(profile?.mdrmCode || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(profile?.latestStatus || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(profile?.itemType || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Reports</span><span>${escapeHtml(profile?.relatedReportCount || 0)}</span></div>
+            <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(profile?.relatedMdrmCount || 0)}</span></div>
+          </div>
+        `);
         return;
       }
       if (node.type === 'report') {
         const members = (groupedReports.get(node.report) || [])
           .slice()
           .sort((a, b) => String(a.mdrmCode || '').localeCompare(String(b.mdrmCode || ''), undefined, { sensitivity: 'base' }));
-        setAnalysisDetailPane(
-          `Report node ${node.report || '-'}`,
-          `Related MDRMs=${members.length}`,
-          `
-            <div class="mdrm-analysis-detail-grid single-column">
-              <section class="mdrm-selection-summary-card">
-                <div class="related-detail-card">
-                  <div class="related-detail-title">Report Node</div>
-                  <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
-                  <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(members.length)}</span></div>
-                  <div class="report-member-list">
-                    ${members.map(member => `
-                      <div class="report-member-item">
-                        <div class="report-member-main">
-                          <a href="${escapeHtml(buildMdrmProfileLink(member.mdrmCode || ''))}">${escapeHtml(member.mdrmCode || '-')}</a>
-                        </div>
-                        <div class="report-member-meta">
-                          <span>${statusCapsule(member.status || '-')}</span>
-                          <span>${escapeHtml(member.itemType || '-')}</span>
-                        </div>
-                      </div>
-                    `).join('')}
+        setRelatedGraphOverlay(`
+          <div class="related-detail-card">
+            <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
+            <div class="related-detail-row"><span class="k">Related MDRMs</span><span>${escapeHtml(members.length)}</span></div>
+            <div class="report-member-list">
+              ${members.map(member => `
+                <div class="report-member-item">
+                  <div class="report-member-main">
+                    <a href="${escapeHtml(buildMdrmProfileLink(member.mdrmCode || ''))}">${escapeHtml(member.mdrmCode || '-')}</a>
+                  </div>
+                  <div class="report-member-meta">
+                    <span>${statusCapsule(member.status || '-')}</span>
+                    <span>${escapeHtml(member.itemType || '-')}</span>
                   </div>
                 </div>
-              </section>
+              `).join('')}
             </div>
-          `
-        );
+          </div>
+        `);
         return;
       }
-      setAnalysisDetailPane(
-        `Related MDRM ${node.mdrmCode || '-'}`,
-        `Report=${node.report || '-'} | status=${node.status || '-'}`,
-        `
-          <div class="mdrm-analysis-detail-grid single-column">
-            <section class="mdrm-selection-summary-card">
-              <div class="related-detail-card">
-                <div class="related-detail-title">Related MDRM</div>
-                <div class="related-detail-row"><span class="k">MDRM</span><span><a href="${escapeHtml(buildMdrmProfileLink(node.mdrmCode || ''))}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
-                <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
-                <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
-                <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(node.itemType || '-')}</span></div>
-              </div>
-            </section>
-          </div>
-        `
-      );
+      setRelatedGraphOverlay(`
+        <div class="related-detail-card">
+          <div class="related-detail-row"><span class="k">MDRM</span><span><a href="${escapeHtml(buildMdrmProfileLink(node.mdrmCode || ''))}">${escapeHtml(node.mdrmCode || '-')}</a></span></div>
+          <div class="related-detail-row"><span class="k">Report</span><span>${escapeHtml(node.report || '-')}</span></div>
+          <div class="related-detail-row"><span class="k">Status</span><span>${statusCapsule(node.status || '-')}</span></div>
+          <div class="related-detail-row"><span class="k">Type</span><span>${escapeHtml(node.itemType || '-')}</span></div>
+        </div>
+      `);
     }
 
     function renderRelatedMdrms(profile) {
@@ -2337,7 +2468,7 @@
           renderRelatedMdrms(profile);
         });
         if (currentAnalysisTab === 'related') {
-          setAnalysisDetailPane('Related MDRM details', 'No related MDRMs found for this filter.', '<div class="text-muted small p-3">No related MDRMs found for this filter. Try enabling inactive.</div>');
+          setRelatedGraphOverlay('');
         }
         syncRuleLineageChrome(currentRulesPayload);
         return;
@@ -2409,7 +2540,12 @@
             <span><i class="dot active"></i> Active MDRMs (${rows.filter(row => String(row.status || '').toLowerCase() === 'active').length})</span>
             ${includeInactiveGraphNodes ? `<span><i class="dot inactive"></i> Inactive MDRMs (${rows.filter(row => String(row.status || '').toLowerCase() === 'inactive').length})</span>` : ''}
           </div>
-          <div id="relationshipGraphHost" class="relationship-graph-host"></div>
+          <div class="related-graph-stage">
+            <div id="relationshipGraphHost" class="relationship-graph-host"></div>
+            <aside id="relatedGraphOverlay" class="relationship-detail-panel related-graph-overlay">
+              <div class="text-muted small">Select a related MDRM node to view details.</div>
+            </aside>
+          </div>
         </div>
       `;
 
@@ -2638,6 +2774,7 @@
 	      if (ruleLineageGridApi && typeof ruleLineageGridApi.onRowHeightChanged === 'function') {
 	        ruleLineageGridApi.onRowHeightChanged();
 	      }
+	      refreshTimelineFieldChangesGridHeights();
 	    });
 	    document.addEventListener('click', event => {
 	      const expandableToggle = event.target.closest('.expandable-block-toggle');
@@ -2656,6 +2793,7 @@
 	      if (ruleLineageGridApi && typeof ruleLineageGridApi.onRowHeightChanged === 'function') {
 	        ruleLineageGridApi.onRowHeightChanged();
 	      }
+	      refreshTimelineFieldChangesGridHeights();
 	    });
 	    document.addEventListener('click', event => {
 	      const timelineCell = event.target.closest('.timeline-activity-cell');
@@ -2664,6 +2802,17 @@
 	      }
 	      event.preventDefault();
 	      showTimelineRunDetail(timelineCell.dataset.timelineIndex);
+	    });
+	    document.addEventListener('keydown', event => {
+	      const toggle = event.target.closest('.expandable-text-toggle, .expandable-block-toggle');
+	      if (!toggle) {
+	        return;
+	      }
+	      if (event.key !== 'Enter' && event.key !== ' ') {
+	        return;
+	      }
+	      event.preventDefault();
+	      toggle.click();
 	    });
 	    document.addEventListener('fullscreenchange', () => {
 	      syncRuleLineageFullscreenButton();
