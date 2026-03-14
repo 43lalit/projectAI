@@ -3,6 +3,8 @@
 ## Overview
 ProjectAI is a Spring Boot service that ingests MDRM CSV data into PostgreSQL with run tracking, error logging, a master table for reporting, and precomputed run summaries for fast UI exploration.
 
+Link to Demo Video: [MDRM Tool Demo Video
+](https://drive.google.com/file/d/1xUCP9r_Qzo5YlIT02bHGUTkBL1Nvd5OI/view?usp=share_link)
 ## Latest Updates (2026-02-28)
 - Discovery-first UX with AG Grid search results and pagination.
 - Search results simplified to core business columns:
